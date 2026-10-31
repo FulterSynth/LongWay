@@ -3,14 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="version" content="0.1.0">
-<title>Win95 Clicker — v0.1.0</title>
+<meta name="version" content="1.1.0">
+<title>Win95 Clicker — v1.1.0</title>
 <style>
-    /* ===== RESET ===== */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; width: 100%; overflow: hidden; }
 
-    /* ===== DESKTOP ===== */
     body {
         background: #008080;
         font-family: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
@@ -26,7 +24,6 @@
         position: relative;
     }
 
-    /* ===== WINDOW ===== */
     .window {
         background: #c0c0c0;
         border: 2px solid;
@@ -36,7 +33,8 @@
         flex-direction: column;
         width: 100%;
         max-width: 420px;
-        max-height: calc(100vh - 40px);
+        height: calc(100vh - 40px);
+        max-height: 720px;
         animation: winOpen 0.15s ease-out;
     }
     @keyframes winOpen {
@@ -72,10 +70,10 @@
         cursor: pointer;
         padding: 0;
         line-height: 1;
+        font-family: inherit;
     }
-    .win-btn:active {
-        border-color: #000 #fff #fff #000;
-    }
+    .win-btn:active { border-color: #000 #fff #fff #000; }
+    .win-btn:disabled { color: #808080; cursor: default; }
 
     .menu-bar {
         background: #c0c0c0;
@@ -90,6 +88,7 @@
         cursor: default;
         font-size: 12px;
     }
+    .menu-bar span.clickable { cursor: pointer; }
     .menu-bar span:hover { background: #000080; color: #fff; }
 
     .window-body {
@@ -100,6 +99,7 @@
         flex-direction: column;
         gap: 8px;
         min-height: 0;
+        position: relative;
     }
     .window-body::-webkit-scrollbar { width: 16px; }
     .window-body::-webkit-scrollbar-track { background: #dfdfdf; }
@@ -128,7 +128,6 @@
     }
     .status-bar .panel.small { flex: 0 0 auto; min-width: 60px; }
 
-    /* ===== FORM ELEMENTS ===== */
     .group-box {
         border: 2px groove #fff;
         padding: 10px 8px 8px;
@@ -152,10 +151,7 @@
         gap: 6px;
         margin-bottom: 6px;
     }
-    .form-row label {
-        font-size: 12px;
-        min-width: 70px;
-    }
+    .form-row label { font-size: 12px; min-width: 70px; }
     .input-field {
         flex: 1;
         padding: 3px 5px;
@@ -168,10 +164,7 @@
         outline: none;
         min-width: 0;
     }
-    .input-field:focus {
-        outline: 1px dotted #000;
-        outline-offset: -4px;
-    }
+    .input-field:focus { outline: 1px dotted #000; outline-offset: -4px; }
 
     .btn {
         font-family: "MS Sans Serif", Tahoma, sans-serif;
@@ -194,10 +187,7 @@
         text-shadow: 1px 1px 0 #fff;
         cursor: default;
     }
-    .btn.default {
-        outline: 1px solid #000;
-        outline-offset: -4px;
-    }
+    .btn.default { outline: 1px solid #000; outline-offset: -4px; }
     .btn-link {
         background: transparent;
         border: none;
@@ -219,12 +209,7 @@
         flex-wrap: wrap;
     }
 
-    /* ===== LOGIN / REGISTER ===== */
-    .auth-tabs {
-        display: flex;
-        gap: 2px;
-        margin-bottom: 8px;
-    }
+    .auth-tabs { display: flex; gap: 2px; margin-bottom: 8px; }
     .auth-tab {
         flex: 1;
         padding: 5px 8px;
@@ -253,7 +238,6 @@
         display: none;
     }
     .error-msg.show { display: block; }
-
     .info-msg {
         background: #ccffcc;
         border: 1px solid #808080;
@@ -264,15 +248,54 @@
         display: none;
     }
     .info-msg.show { display: block; }
+    .auth-footer { margin-top: 8px; text-align: center; }
 
-    .auth-footer {
-        margin-top: 8px;
-        text-align: center;
-    }
-
-    /* ===== GAME SCREEN ===== */
     #game-screen { display: none; }
     #game-screen.active { display: flex; }
+
+</style>
+</head>
+<body>
+
+        /* ===== TABS ===== */
+    .tab-strip {
+        display: flex;
+        gap: 2px;
+        padding: 0 6px;
+        background: #c0c0c0;
+        border-bottom: 1px solid #808080;
+        flex-shrink: 0;
+        align-items: flex-end;
+        margin-top: 2px;
+    }
+    .tab-strip .tab {
+        padding: 4px 12px;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #808080 #c0c0c0 #fff;
+        border-bottom: none;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 400;
+        color: #000;
+        margin-bottom: -1px;
+        position: relative;
+        top: 2px;
+    }
+    .tab-strip .tab.active {
+        background: #dfdfdf;
+        border-color: #fff #808080 #dfdfdf #fff;
+        border-bottom: 2px solid #dfdfdf;
+        font-weight: bold;
+        top: 0;
+        padding: 5px 12px 4px;
+        z-index: 2;
+    }
+
+    /* ===== PAGES ===== */
+    .page { display: none; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+    .page.active { display: flex; }
 
     .stats-grid {
         display: grid;
@@ -297,20 +320,23 @@
         font-size: 12px;
     }
 
-    /* ===== BIG CLICK BUTTON ===== */
+    /* ===== CLICK AREA ===== */
     .click-area {
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         align-items: center;
+        justify-content: center;
         padding: 8px 0;
+        gap: 10px;
+        flex: 1;
     }
     #big-click {
-        width: 180px;
-        height: 140px;
+        width: 200px;
+        height: 160px;
         background: #c0c0c0;
         border: 4px solid;
         border-color: #fff #808080 #808080 #fff;
-        box-shadow: 2px 2px 0 #808080;
+        box-shadow: 3px 3px 0 #808080;
         cursor: pointer;
         font-family: "MS Sans Serif", Tahoma, sans-serif;
         font-size: 14px;
@@ -329,8 +355,27 @@
         border-color: #808080 #fff #fff #808080;
         box-shadow: none;
     }
-    #big-click .big-emoji { font-size: 40px; line-height: 1; }
+    #big-click .big-emoji { font-size: 48px; line-height: 1; }
     #big-click .click-label { font-size: 11px; color: #000; }
+
+    .big-coins-display {
+        font-family: "Courier New", monospace;
+        font-size: 26px;
+        font-weight: bold;
+        color: #000080;
+        background: #dfdfdf;
+        border: 2px inset #808080;
+        padding: 8px 16px;
+        text-align: center;
+        width: 100%;
+        max-width: 280px;
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .big-coins-display .coin-icon { font-size: 22px; }
 
     .float-text {
         position: fixed;
@@ -347,6 +392,124 @@
         0%   { opacity: 1; transform: translate(-50%, 0) scale(1); }
         100% { opacity: 0; transform: translate(-50%, -60px) scale(1.3); }
     }
+
+    /* ===== LEADERBOARD ===== */
+    .lb-refresh-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+    }
+    .lb-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+        border: 2px inset #808080;
+        background: #fff;
+        padding: 2px;
+    }
+    .lb-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        font-size: 12px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-row.self { background: #000080; color: #fff; }
+    .lb-row.self .lb-coins { color: #ffff00; }
+    .lb-rank {
+        font-family: "Courier New", monospace;
+        font-weight: bold;
+        min-width: 32px;
+        text-align: right;
+    }
+    .lb-rank.top1 { color: #c89600; }
+    .lb-rank.top2 { color: #808080; }
+    .lb-rank.top3 { color: #a05000; }
+    .lb-row.self .lb-rank { color: #fff; }
+    .lb-name {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 600;
+    }
+    .lb-coins {
+        font-family: "Courier New", monospace;
+        font-weight: bold;
+        color: #000080;
+        text-align: right;
+        min-width: 70px;
+    }
+    .lb-empty {
+        text-align: center;
+        color: #808080;
+        padding: 20px;
+        font-style: italic;
+        font-size: 12px;
+    }
+    .lb-loading {
+        text-align: center;
+        color: #000080;
+        padding: 20px;
+        font-size: 12px;
+    }
+
+    /* ===== ONLINE ===== */
+    .online-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+        border: 2px inset #808080;
+        background: #fff;
+        padding: 2px;
+    }
+    .online-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        font-size: 12px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .online-row:last-child { border-bottom: none; }
+    .online-row.self { background: #000080; color: #fff; }
+    .online-row.self .lb-coins { color: #ffff00; }
+    .online-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #00c000;
+        box-shadow: 0 0 4px #00ff00;
+        flex-shrink: 0;
+    }
+    .online-dot.offline { background: #808080; box-shadow: none; }
+
+    .tab-content {
+        padding: 10px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .tab-content .page { flex: 1; }
+
+    .sub-title {
+        font-size: 11px;
+        color: #000;
+        font-weight: bold;
+        margin-bottom: 2px;
+    }
+    .muted { color: #808080; font-size: 11px; }
 
     /* ===== DIALOG ===== */
     .dialog-overlay {
@@ -380,19 +543,22 @@
     .dialog-icon { font-size: 28px; flex-shrink: 0; }
     .dialog-text { flex: 1; }
 
-    /* ===== MOBILE ===== */
     @media (max-width: 480px) {
-        body { padding: 10px; }
-        .window { max-height: calc(100vh - 20px); }
-        #big-click { width: 160px; height: 120px; }
+        body { padding: 6px; }
+        .window { height: calc(100vh - 12px); max-height: none; }
+        #big-click { width: 160px; height: 130px; }
+        .big-coins-display { font-size: 22px; }
         .stats-grid { grid-template-columns: 1fr; }
         .form-row label { min-width: 60px; font-size: 11px; }
+        .tab-strip .tab { padding: 4px 8px; font-size: 10px; }
+        .tab-strip .tab.active { padding: 5px 8px 4px; }
+        .lb-coins { min-width: 55px; font-size: 11px; }
     }
 </style>
 </head>
 <body>
 
-<!-- ===== LOGIN WINDOW ===== -->
+<!-- ===== AUTH WINDOW ===== -->
 <div class="window" id="auth-window">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -412,7 +578,6 @@
             <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
             <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
         </div>
-
         <div class="group-box" data-label="Обліковий запис">
             <div class="form-row">
                 <label>Логін:</label>
@@ -427,25 +592,22 @@
                 <input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40">
             </div>
         </div>
-
         <div class="error-msg" id="auth-error"></div>
         <div class="info-msg" id="auth-info"></div>
-
         <div class="btn-row">
             <button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button>
         </div>
-
         <div class="auth-footer">
             <button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button>
         </div>
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v0.1.0</div>
+        <div class="panel small">v1.1.0</div>
     </div>
 </div>
 
-<!-- ===== GAME WINDOW ===== -->
+    <!-- ===== GAME WINDOW ===== -->
 <div class="window" id="game-screen">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -457,39 +619,49 @@
         </div>
     </div>
     <div class="menu-bar">
-        <span>Файл</span>
-        <span>Гра</span>
-        <span onclick="logout()">Вихід</span>
+        <span class="clickable" onclick="switchPage('clicker')">Клікер</span>
+        <span class="clickable" onclick="switchPage('leaderboard')">Топ гравців</span>
+        <span class="clickable" onclick="switchPage('online')">Онлайн</span>
+        <span class="clickable" onclick="logout()">Вихід</span>
     </div>
-    <div class="window-body">
-        <!-- Stats -->
-        <div class="group-box" data-label="Статистика">
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <span class="label">💰 Монети:</span>
-                    <span class="value" id="stat-coins">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">🖱️ Кліків:</span>
-                    <span class="value" id="stat-clicks">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">⚡ За клік:</span>
-                    <span class="value" id="stat-power">1</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">👤 Гравець:</span>
-                    <span class="value" id="stat-user">—</span>
+    <div class="tab-strip">
+        <button class="tab active" id="tabnav-clicker" onclick="switchPage('clicker')">🖱️ Клікер</button>
+        <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
+        <button class="tab" id="tabnav-online" onclick="switchPage('online')">👥 Онлайн</button>
+    </div>
+    <div class="tab-content">
+        <div class="page active" id="page-clicker">
+            <div class="group-box" data-label="Статистика">
+                <div class="stats-grid">
+                    <div class="stat-item"><span class="label">💰 Монети:</span><span class="value" id="stat-coins">0</span></div>
+                    <div class="stat-item"><span class="label">🖱️ Кліків:</span><span class="value" id="stat-clicks">0</span></div>
+                    <div class="stat-item"><span class="label">⚡ За клік:</span><span class="value" id="stat-power">1</span></div>
+                    <div class="stat-item"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
                 </div>
             </div>
+            <div class="click-area">
+                <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
+                <button id="big-click" onclick="doClick(event)">
+                    <span class="big-emoji">🖱️</span>
+                    <span class="click-label">КЛІКНИ МЕНЕ</span>
+                </button>
+            </div>
         </div>
-
-        <!-- Click area -->
-        <div class="click-area">
-            <button id="big-click" onclick="doClick(event)">
-                <span class="big-emoji">💰</span>
-                <span class="click-label">КЛІКНИ МЕНЕ</span>
-            </button>
+        <div class="page" id="page-leaderboard">
+            <div class="lb-refresh-row">
+                <div class="sub-title">🏆 Топ гравців за весь час (по монетах)</div>
+                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:3px 10px;font-size:11px;">↻</button>
+            </div>
+            <div class="lb-list" id="lb-list"><div class="lb-loading">Завантаження...</div></div>
+            <div class="muted" id="lb-my-rank">—</div>
+        </div>
+        <div class="page" id="page-online">
+            <div class="lb-refresh-row">
+                <div class="sub-title">👥 Гравці онлайн (за останні 5 хв)</div>
+                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:3px 10px;font-size:11px;">↻</button>
+            </div>
+            <div class="online-list" id="online-list"><div class="lb-loading">Завантаження...</div></div>
+            <div class="muted" id="online-count">—</div>
         </div>
     </div>
     <div class="status-bar">
@@ -522,10 +694,13 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const APP_VERSION = "0.1.0";
+    const APP_VERSION = "1.1.0";
     const SAVE_INTERVAL_MS = 5000;
+    const HEARTBEAT_MS = 30000;
+    const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+    const LEADERBOARD_LIMIT = 100;
 
     const firebaseConfig = {
         apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
@@ -541,18 +716,15 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // ===== STATE =====
     let currentUser = "";
-    let authMode = "login"; // "login" | "register"
-    let gameState = {
-        coins: 0,
-        totalClicks: 0,
-        clickPower: 1
-    };
+    let authMode = "login";
+    let gameState = { coins: 0, totalClicks: 0, clickPower: 1 };
     let saveTimer = null;
+    let heartbeatTimer = null;
     let isSaving = false;
+    let currentPage = "clicker";
+    let onlineUnsubscribe = null;
 
-    // ===== HELPERS =====
     function $(id) { return document.getElementById(id); }
 
     function formatNumber(n) {
@@ -561,6 +733,15 @@
         if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
         return Math.floor(n).toString();
     }
+    function formatNumberFull(n) { return Math.floor(n).toLocaleString("uk-UA"); }
+    function formatTimeAgo(ts) {
+        if (!ts) return "—";
+        const diff = Date.now() - ts;
+        if (diff < 60000) return "щойно";
+        if (diff < 3600000) return Math.floor(diff / 60000) + " хв тому";
+        if (diff < 86400000) return Math.floor(diff / 3600000) + " год тому";
+        return Math.floor(diff / 86400000) + " дн тому";
+    }
 
     async function sha256(text) {
         const buf = new TextEncoder().encode(text);
@@ -568,18 +749,14 @@
         return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
-    // ===== DIALOG =====
     window.showDialog = function(title, text, icon) {
         $("dialog-title").textContent = title;
         $("dialog-text").textContent = text;
         $("dialog-icon").textContent = icon || "ℹ️";
         $("dialog-overlay").classList.add("active");
     };
-    window.closeDialog = function() {
-        $("dialog-overlay").classList.remove("active");
-    };
+    window.closeDialog = function() { $("dialog-overlay").classList.remove("active"); };
 
-    // ===== AUTH UI =====
     window.switchAuthTab = function(tab) {
         authMode = tab;
         $("tab-login").classList.toggle("active", tab === "login");
@@ -591,10 +768,7 @@
             : "Вже є акаунт? Увійти";
         clearMessages();
     };
-
-    window.toggleAuthMode = function() {
-        switchAuthTab(authMode === "login" ? "register" : "login");
-    };
+    window.toggleAuthMode = function() { switchAuthTab(authMode === "login" ? "register" : "login"); };
 
     function clearMessages() {
         $("auth-error").classList.remove("show");
@@ -613,8 +787,8 @@
         $("auth-error").classList.remove("show");
     }
     function setStatus(msg) { $("auth-status").textContent = msg; }
+    function setGameStatus(msg) { $("game-status").textContent = msg; }
 
-    // ===== AUTH LOGIC =====
     window.handleAuth = async function() {
         clearMessages();
         const username = $("auth-username").value.trim();
@@ -627,11 +801,7 @@
         if (username.length > 20) { showError("Логін занадто довгий (макс. 20)!"); return; }
         if (!/^[a-zA-Z0-9_]+$/.test(username)) { showError("Логін: лише латиниця, цифри, _"); return; }
         if (password.length < 4) { showError("Пароль має бути мінімум 4 символи!"); return; }
-
-        if (authMode === "register" && password !== password2) {
-            showError("Паролі не співпадають!");
-            return;
-        }
+        if (authMode === "register" && password !== password2) { showError("Паролі не співпадають!"); return; }
 
         btn.disabled = true;
         setStatus("Обробка...");
@@ -646,27 +816,17 @@
                     password: hash,
                     createdAt: Date.now(),
                     lastOnline: Date.now(),
-                    clicker: {
-                        coins: 0,
-                        totalClicks: 0,
-                        clickPower: 1
-                    }
+                    clicker: { coins: 0, totalClicks: 0, clickPower: 1 }
                 });
                 currentUser = username;
-                try {
-                    localStorage.setItem("w95_user", username);
-                    localStorage.setItem("w95_hash", hash);
-                } catch(e) {}
+                try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
                 setStatus("Акаунт створено");
                 startGame();
             } else {
                 if (!snap.exists()) { showError("Користувача не знайдено!"); return; }
                 if (snap.val().password !== hash) { showError("Невірний пароль!"); return; }
                 currentUser = username;
-                try {
-                    localStorage.setItem("w95_user", username);
-                    localStorage.setItem("w95_hash", hash);
-                } catch(e) {}
+                try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
                 try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e) {}
                 setStatus("Вхід виконано");
                 startGame();
@@ -680,13 +840,12 @@
         }
     };
 
-    // Enter key
     ["auth-username", "auth-password", "auth-password2"].forEach(id => {
         const el = $(id);
         if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
     });
 
-    // ===== GAME LOGIC =====
+        // ===== GAME =====
     async function startGame() {
         $("auth-window").style.display = "none";
         $("game-screen").classList.add("active");
@@ -695,9 +854,13 @@
 
         await loadGame();
         renderStats();
+        switchPage("clicker");
 
         if (saveTimer) clearInterval(saveTimer);
         saveTimer = setInterval(saveGame, SAVE_INTERVAL_MS);
+
+        startHeartbeat();
+        setGameStatus("Вітаємо, " + currentUser + "!");
     }
 
     async function loadGame() {
@@ -719,7 +882,7 @@
         }
     }
 
-    async function saveGame() {
+    async function saveGame(silent) {
         if (!currentUser || isSaving) return;
         isSaving = true;
         try {
@@ -742,42 +905,187 @@
         $("stat-coins").textContent = formatNumber(gameState.coins);
         $("stat-clicks").textContent = formatNumber(gameState.totalClicks);
         $("stat-power").textContent = formatNumber(gameState.clickPower);
+        $("big-coins").textContent = formatNumberFull(gameState.coins);
     }
 
     window.doClick = function(event) {
         if (!currentUser) return;
-
         gameState.coins += gameState.clickPower;
         gameState.totalClicks += 1;
         renderStats();
 
-        // Floating text
         const floatEl = document.createElement("div");
         floatEl.className = "float-text";
         floatEl.textContent = "+" + gameState.clickPower;
-        const x = (event && event.clientX) || (window.innerWidth / 2);
-        const y = (event && event.clientY) || (window.innerHeight / 2);
+        let x, y;
+        if (event && event.clientX) {
+            x = event.clientX;
+            y = event.clientY;
+        } else {
+            const rect = $("big-click").getBoundingClientRect();
+            x = rect.left + rect.width / 2;
+            y = rect.top + rect.height / 2;
+        }
         floatEl.style.left = x + "px";
         floatEl.style.top = y + "px";
-        floatEl.style.transform = "translate(-50%, -50%)";
         document.body.appendChild(floatEl);
         setTimeout(() => floatEl.remove(), 800);
     };
 
+    // ===== HEARTBEAT =====
+    function startHeartbeat() {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        sendHeartbeat();
+        heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
+    }
+    async function sendHeartbeat() {
+        if (!currentUser) return;
+        try {
+            await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
+        } catch(e) { console.error("heartbeat:", e); }
+    }
+
+    // ===== PAGE SWITCH =====
+    window.switchPage = function(page) {
+        currentPage = page;
+        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+        document.querySelectorAll(".tab-strip .tab").forEach(t => t.classList.remove("active"));
+        const pageEl = $("page-" + page);
+        const tabEl = $("tabnav-" + page);
+        if (pageEl) pageEl.classList.add("active");
+        if (tabEl) tabEl.classList.add("active");
+
+        if (page === "leaderboard") loadLeaderboard();
+        if (page === "online") loadOnline();
+    };
+
+    // ===== LEADERBOARD =====
+    window.loadLeaderboard = async function() {
+        const listEl = $("lb-list");
+        const myRankEl = $("lb-my-rank");
+        listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
+        myRankEl.textContent = "—";
+
+        try {
+            const snap = await get(child(ref(db), "users"));
+            if (!snap.exists()) {
+                listEl.innerHTML = '<div class="lb-empty">Ще немає гравців</div>';
+                return;
+            }
+            const users = snap.val();
+            const list = [];
+            for (const [name, data] of Object.entries(users)) {
+                const coins = (data && data.clicker && Number(data.clicker.coins)) || 0;
+                list.push({ name, coins });
+            }
+            list.sort((a, b) => b.coins - a.coins);
+            if (list.length === 0) {
+                listEl.innerHTML = '<div class="lb-empty">Ще немає гравців</div>';
+                return;
+            }
+            const top = list.slice(0, LEADERBOARD_LIMIT);
+            let html = "";
+            top.forEach((u, i) => {
+                const rank = i + 1;
+                const rankClass = rank === 1 ? "top1" : rank === 2 ? "top2" : rank === 3 ? "top3" : "";
+                const isSelf = u.name === currentUser;
+                const medal = rank === 1 ? "🥇 " : rank === 2 ? "🥈 " : rank === 3 ? "🥉 " : "";
+                html += `<div class="lb-row${isSelf ? " self" : ""}">
+                    <span class="lb-rank ${rankClass}">${medal}${rank}</span>
+                    <span class="lb-name">${escapeHtml(u.name)}</span>
+                    <span class="lb-coins">${formatNumberFull(u.coins)}</span>
+                </div>`;
+            });
+            listEl.innerHTML = html;
+
+            const myIndex = list.findIndex(u => u.name === currentUser);
+            if (myIndex >= 0) {
+                myRankEl.textContent = "Ваше місце: #" + (myIndex + 1) + " з " + list.length + " (" + formatNumberFull(list[myIndex].coins) + " монет)";
+            } else {
+                myRankEl.textContent = "Вас немає в списку";
+            }
+        } catch(e) {
+            console.error("leaderboard:", e);
+            listEl.innerHTML = '<div class="lb-empty">Помилка завантаження: ' + escapeHtml(e.message) + '</div>';
+        }
+    };
+
+    // ===== ONLINE =====
+    window.loadOnline = async function() {
+        const listEl = $("online-list");
+        const countEl = $("online-count");
+        listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
+        countEl.textContent = "—";
+
+        try {
+            const snap = await get(child(ref(db), "users"));
+            if (!snap.exists()) {
+                listEl.innerHTML = '<div class="lb-empty">Немає гравців</div>';
+                countEl.textContent = "0 онлайн";
+                return;
+            }
+            const users = snap.val();
+            const now = Date.now();
+            const list = [];
+            for (const [name, data] of Object.entries(users)) {
+                const lastOnline = (data && Number(data.lastOnline)) || 0;
+                const coins = (data && data.clicker && Number(data.clicker.coins)) || 0;
+                const online = (now - lastOnline) < ONLINE_THRESHOLD_MS;
+                list.push({ name, coins, lastOnline, online });
+            }
+            const onlineList = list.filter(u => u.online);
+            onlineList.sort((a, b) => {
+                if (a.name === currentUser) return -1;
+                if (b.name === currentUser) return 1;
+                return b.lastOnline - a.lastOnline;
+            });
+
+            if (onlineList.length === 0) {
+                listEl.innerHTML = '<div class="lb-empty">Нікого немає онлайн</div>';
+                countEl.textContent = "0 онлайн";
+                return;
+            }
+
+            let html = "";
+            onlineList.forEach(u => {
+                const isSelf = u.name === currentUser;
+                html += `<div class="online-row${isSelf ? " self" : ""}">
+                    <span class="online-dot"></span>
+                    <span class="lb-name">${escapeHtml(u.name)}${isSelf ? " (ви)" : ""}</span>
+                    <span class="lb-coins">${formatNumberFull(u.coins)}</span>
+                    <span class="muted" style="min-width:70px;text-align:right;">${formatTimeAgo(u.lastOnline)}</span>
+                </div>`;
+            });
+            listEl.innerHTML = html;
+            countEl.textContent = onlineList.length + " онлайн";
+        } catch(e) {
+            console.error("online:", e);
+            listEl.innerHTML = '<div class="lb-empty">Помилка завантаження: ' + escapeHtml(e.message) + '</div>';
+        }
+    };
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, c => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[c]));
+    }
+
     // ===== LOGOUT =====
     window.logout = async function() {
-        if (currentUser) {
-            await saveGame();
-            try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
-        }
+        if (!currentUser) return;
+        await saveGame(true);
+        try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
         try {
             localStorage.removeItem("w95_user");
             localStorage.removeItem("w95_hash");
         } catch(e) {}
 
+        if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        if (onlineUnsubscribe) { try { onlineUnsubscribe(); } catch(e) {} onlineUnsubscribe = null; }
+
         currentUser = "";
         gameState = { coins: 0, totalClicks: 0, clickPower: 1 };
-        if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
 
         $("game-screen").classList.remove("active");
         $("auth-window").style.display = "flex";
@@ -791,13 +1099,13 @@
     // Save on page close
     window.addEventListener("beforeunload", () => {
         if (currentUser) {
-            // synchronous attempt (best effort)
             try {
                 update(ref(db, `users/${currentUser}/clicker`), {
                     coins: gameState.coins,
                     totalClicks: gameState.totalClicks,
                     clickPower: gameState.clickPower
                 });
+                update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
             } catch(e) {}
         }
     });
