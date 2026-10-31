@@ -253,11 +253,7 @@
     #game-screen { display: none; }
     #game-screen.active { display: flex; }
 
-</style>
-</head>
-<body>
-
-        /* ===== TABS ===== */
+       /* ===== TABS ===== */
     .tab-strip {
         display: flex;
         gap: 2px;
@@ -543,6 +539,42 @@
     .dialog-icon { font-size: 28px; flex-shrink: 0; }
     .dialog-text { flex: 1; }
 
+    /* ===== DESKTOP (ширший + зручніший) ===== */
+    @media (min-width: 900px) {
+        body { padding: 30px; }
+        .window { max-width: 760px; max-height: 820px; }
+        .window-body, .tab-content { padding: 16px; gap: 12px; }
+        .title-bar { padding: 5px 6px; font-size: 13px; }
+        .title-bar .title-icon { font-size: 15px; }
+        .win-btn { width: 22px; height: 20px; font-size: 11px; }
+        .menu-bar span { padding: 3px 12px; font-size: 13px; }
+        .status-bar .panel { font-size: 12px; padding: 3px 8px; }
+        .tab-strip .tab { padding: 6px 18px; font-size: 13px; }
+        .tab-strip .tab.active { padding: 7px 18px 6px; }
+        .group-box { padding: 14px 12px 12px; }
+        .group-box::before { font-size: 12px; }
+        .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .stat-item { padding: 6px 10px; font-size: 13px; }
+        .stat-item .value { font-size: 15px; }
+        #big-click { width: 280px; height: 200px; font-size: 16px; }
+        #big-click .big-emoji { font-size: 64px; }
+        #big-click .click-label { font-size: 13px; }
+        .big-coins-display { font-size: 36px; max-width: 400px; padding: 12px 24px; }
+        .big-coins-display .coin-icon { font-size: 30px; }
+        .click-area { gap: 18px; padding: 16px 0; }
+        .lb-row, .online-row { padding: 7px 12px; font-size: 13px; }
+        .lb-coins { font-size: 13px; min-width: 90px; }
+        .lb-rank { font-size: 13px; min-width: 42px; }
+        .auth-tab { padding: 7px 10px; font-size: 13px; }
+        .form-row label { font-size: 13px; min-width: 90px; }
+        .input-field { padding: 5px 8px; font-size: 13px; }
+        .btn { font-size: 13px; padding: 6px 18px; }
+        .btn:active:not(:disabled) { padding: 7px 17px 5px 19px; }
+        .dialog { max-width: 440px; }
+        .dialog-body { padding: 18px 16px; font-size: 13px; }
+        .dialog-icon { font-size: 34px; }
+    }
+
     @media (max-width: 480px) {
         body { padding: 6px; }
         .window { height: calc(100vh - 12px); max-height: none; }
@@ -558,7 +590,7 @@
 </head>
 <body>
 
-<!-- ===== AUTH WINDOW ===== -->
+   <!-- ===== AUTH WINDOW ===== -->
 <div class="window" id="auth-window">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -607,7 +639,7 @@
     </div>
 </div>
 
-    <!-- ===== GAME WINDOW ===== -->
+<!-- ===== GAME WINDOW ===== -->
 <div class="window" id="game-screen">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -694,7 +726,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const APP_VERSION = "1.1.0";
     const SAVE_INTERVAL_MS = 5000;
@@ -723,7 +755,6 @@
     let heartbeatTimer = null;
     let isSaving = false;
     let currentPage = "clicker";
-    let onlineUnsubscribe = null;
 
     function $(id) { return document.getElementById(id); }
 
@@ -780,7 +811,8 @@
         el.classList.add("show");
         $("auth-info").classList.remove("show");
     }
-    function showInfo(msg) {
+
+       function showInfo(msg) {
         const el = $("auth-info");
         el.textContent = msg;
         el.classList.add("show");
@@ -845,7 +877,7 @@
         if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
     });
 
-        // ===== GAME =====
+    // ===== GAME =====
     async function startGame() {
         $("auth-window").style.display = "none";
         $("game-screen").classList.add("active");
@@ -882,7 +914,7 @@
         }
     }
 
-    async function saveGame(silent) {
+    async function saveGame() {
         if (!currentUser || isSaving) return;
         isSaving = true;
         try {
@@ -1073,7 +1105,7 @@
     // ===== LOGOUT =====
     window.logout = async function() {
         if (!currentUser) return;
-        await saveGame(true);
+        await saveGame();
         try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
         try {
             localStorage.removeItem("w95_user");
@@ -1082,7 +1114,6 @@
 
         if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-        if (onlineUnsubscribe) { try { onlineUnsubscribe(); } catch(e) {} onlineUnsubscribe = null; }
 
         currentUser = "";
         gameState = { coins: 0, totalClicks: 0, clickPower: 1 };
