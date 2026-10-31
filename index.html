@@ -75,40 +75,6 @@
     .win-btn:active { border-color: #000 #fff #fff #000; }
     .win-btn:disabled { color: #808080; cursor: default; }
 
-    .menu-bar {
-        background: #c0c0c0;
-        padding: 1px 2px;
-        display: flex;
-        gap: 2px;
-        border-bottom: 1px solid #808080;
-        flex-shrink: 0;
-    }
-    .menu-bar span {
-        padding: 2px 8px;
-        cursor: default;
-        font-size: 12px;
-    }
-    .menu-bar span.clickable { cursor: pointer; }
-    .menu-bar span:hover { background: #000080; color: #fff; }
-
-    .window-body {
-        padding: 10px;
-        flex: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        min-height: 0;
-        position: relative;
-    }
-    .window-body::-webkit-scrollbar { width: 16px; }
-    .window-body::-webkit-scrollbar-track { background: #dfdfdf; }
-    .window-body::-webkit-scrollbar-thumb {
-        background: #c0c0c0;
-        border: 2px solid;
-        border-color: #fff #808080 #808080 #fff;
-    }
-
     .status-bar {
         background: #c0c0c0;
         padding: 2px;
@@ -288,7 +254,7 @@
         z-index: 2;
     }
 
-    .page { display: none; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+    .page { display: none; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
     .page.active { display: flex; }
 
     .stats-grid {
@@ -321,7 +287,7 @@
         justify-content: center;
         padding: 8px 0;
         gap: 10px;
-        flex: 1;
+        flex-shrink: 0;
     }
     #big-click {
         width: 200px;
@@ -403,8 +369,6 @@
         display: flex;
         flex-direction: column;
         gap: 3px;
-        max-height: 180px;
-        overflow-y: auto;
         border: 2px inset #808080;
         background: #fff;
         padding: 4px;
@@ -439,6 +403,7 @@
 
     .xp-bar-wrap {
         margin-top: 6px;
+        margin-bottom: 8px;
         background: #dfdfdf;
         border: 1px inset #808080;
         height: 16px;
@@ -618,7 +583,6 @@
         .title-bar { padding: 5px 6px; font-size: 13px; }
         .title-bar .title-icon { font-size: 15px; }
         .win-btn { width: 22px; height: 20px; font-size: 11px; }
-        .menu-bar span { padding: 3px 12px; font-size: 13px; }
         .status-bar .panel { font-size: 12px; padding: 3px 8px; }
         .tab-strip .tab { padding: 6px 18px; font-size: 13px; }
         .tab-strip .tab.active { padding: 7px 18px 6px; }
@@ -633,7 +597,6 @@
         .big-coins-display { font-size: 32px; max-width: 380px; padding: 12px 24px; }
         .big-coins-display .coin-icon { font-size: 28px; }
         .click-area { gap: 14px; padding: 12px 0; }
-        .jobs-list { max-height: 220px; }
         .job-row { padding: 6px 10px; font-size: 12px; }
         .lb-row, .online-row { padding: 7px 12px; font-size: 13px; }
         .lb-coins { font-size: 13px; min-width: 90px; }
@@ -658,13 +621,12 @@
         .tab-strip .tab { padding: 4px 8px; font-size: 10px; }
         .tab-strip .tab.active { padding: 5px 8px 4px; }
         .lb-coins { min-width: 55px; font-size: 11px; }
-        .jobs-list { max-height: 140px; }
     }
 </style>
 </head>
 <body>
 
-<!-- ===== AUTH WINDOW ===== -->
+   <!-- ===== AUTH WINDOW ===== -->
 <div class="window" id="auth-window">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -675,11 +637,7 @@
             <button class="win-btn" disabled>✕</button>
         </div>
     </div>
-    <div class="menu-bar">
-        <span>Файл</span>
-        <span>Довідка</span>
-    </div>
-    <div class="window-body">
+    <div class="window-body" style="padding:10px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
         <div class="auth-tabs">
             <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
             <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
@@ -724,17 +682,13 @@
             <button class="win-btn" onclick="logout()" title="Вийти">✕</button>
         </div>
     </div>
-    <div class="menu-bar">
-        <span class="clickable" onclick="switchPage('clicker')">Робота</span>
-        <span class="clickable" onclick="switchPage('leaderboard')">Топ гравців</span>
-        <span class="clickable" onclick="switchPage('online')">Онлайн</span>
-        <span class="clickable" onclick="logout()">Вихід</span>
-    </div>
+
     <div class="tab-strip">
         <button class="tab active" id="tabnav-clicker" onclick="switchPage('clicker')">💼 Робота</button>
         <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
         <button class="tab" id="tabnav-online" onclick="switchPage('online')">👥 Онлайн</button>
     </div>
+
     <div class="tab-content">
         <div class="page active" id="page-clicker">
             <div class="group-box" data-label="Статистика">
@@ -759,7 +713,7 @@
             <div class="group-box" data-label="Кар'єра">
                 <div class="xp-bar-wrap">
                     <div class="xp-bar" id="xp-bar"></div>
-                    <div class="xp-text" id="xp-text">0 / 50</div>
+                    <div class="xp-text" id="xp-text">0 / 500</div>
                 </div>
                 <div class="jobs-list" id="jobs-list"></div>
             </div>
@@ -783,6 +737,7 @@
             <div class="muted" id="online-count">—</div>
         </div>
     </div>
+
     <div class="status-bar">
         <div class="panel" id="game-status">Готово</div>
         <div class="panel small" id="save-status">—</div>
@@ -811,7 +766,7 @@
     </div>
 </div>
 
-<script type="module">
+   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, get, child, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
@@ -821,16 +776,16 @@
     const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
     const LEADERBOARD_LIMIT = 100;
 
-    // ===== JOBS =====
+    // ===== JOBS (збільшений досвід) =====
     const JOBS = [
-        { name: "Стажер",               pay: 1,    xpNeeded: 50 },
-        { name: "Оператор підтримки",   pay: 3,    xpNeeded: 120 },
-        { name: "Junior QA",            pay: 8,    xpNeeded: 250 },
-        { name: "Junior Developer",     pay: 20,   xpNeeded: 500 },
-        { name: "Middle Developer",     pay: 50,   xpNeeded: 1000 },
-        { name: "Senior Developer",     pay: 120,  xpNeeded: 2000 },
-        { name: "Team Lead",            pay: 300,  xpNeeded: 4000 },
-        { name: "Tech Lead",            pay: 700,  xpNeeded: 8000 },
+        { name: "Стажер",               pay: 1,    xpNeeded: 500 },
+        { name: "Оператор підтримки",   pay: 3,    xpNeeded: 1500 },
+        { name: "Junior QA",            pay: 8,    xpNeeded: 4000 },
+        { name: "Junior Developer",     pay: 20,   xpNeeded: 10000 },
+        { name: "Middle Developer",     pay: 50,   xpNeeded: 25000 },
+        { name: "Senior Developer",     pay: 120,  xpNeeded: 60000 },
+        { name: "Team Lead",            pay: 300,  xpNeeded: 150000 },
+        { name: "Tech Lead",            pay: 700,  xpNeeded: 400000 },
         { name: "CTO",                  pay: 1500, xpNeeded: 0 }
     ];
 
@@ -1049,7 +1004,6 @@
         $("stat-pay").textContent = formatNumber(job.pay);
         $("big-coins").textContent = formatNumberFull(gameState.coins);
 
-        // XP bar
         const needed = job.xpNeeded || 1;
         const pct = job.xpNeeded === 0 ? 100 : Math.min(100, (gameState.xp / needed) * 100);
         $("xp-bar").style.width = pct + "%";
@@ -1057,7 +1011,6 @@
             ? "Макс. рівень"
             : formatNumber(gameState.xp) + " / " + formatNumber(needed);
 
-        // Promote button
         const canPromote = job.xpNeeded > 0 && gameState.xp >= job.xpNeeded;
         $("promote-btn").classList.toggle("show", canPromote);
     }
@@ -1112,7 +1065,7 @@
         const job = getCurrentJob();
         if (job.xpNeeded <= 0 || gameState.xp < job.xpNeeded) return;
 
-        gameState.xp -= job.xpNeeded; // залишаємо зайвий
+        gameState.xp -= job.xpNeeded;
         gameState.jobIndex = Math.min(gameState.jobIndex + 1, JOBS.length - 1);
         renderStats();
         renderJobsList();
