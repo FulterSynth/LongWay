@@ -3,1464 +3,529 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="version" content="1.1.7">
-<meta name="app-version" content="1.1.7">
-<title>UniqueStone — v1.1.7</title>
+<meta name="version" content="0.1.0">
+<title>Win95 Clicker — v0.1.0</title>
 <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    /* ===== RESET ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; width: 100%; overflow: hidden; }
 
+    /* ===== DESKTOP ===== */
     body {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
-        color: #fff;
-        position: relative;
-    }
-    body::before, body::after {
-        content: '';
-        position: fixed;
-        border-radius: 50%;
-        filter: blur(80px);
-        opacity: 0.5;
-        z-index: 0;
-        pointer-events: none;
-    }
-    body::before { width: 500px; height: 500px; background: #7c3aed; top: -150px; left: -150px; }
-    body::after  { width: 600px; height: 600px; background: #0ea5e9; bottom: -200px; right: -200px; }
-
-    #auth-screen {
-        position: fixed; inset: 0; z-index: 1000;
-        display: flex; justify-content: center; align-items: center;
+        background: #008080;
+        font-family: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
+        font-size: 12px;
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 20px;
-    }
-    .glass {
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-    .auth-box {
-        padding: 32px 28px;
-        width: 100%; max-width: 360px;
-        display: flex; flex-direction: column; gap: 14px;
-        animation: fadeIn 0.4s ease;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .auth-box h2 {
-        text-align: center;
-        font-size: 24px;
-        font-weight: 600;
-        letter-spacing: 1px;
-        background: linear-gradient(90deg, #a78bfa, #38bdf8);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 6px;
-    }
-    .auth-box .version {
-        text-align: center;
-        font-size: 11px;
-        color: #64748b;
-        margin-top: -6px;
-        margin-bottom: 4px;
-    }
-    .lang-btn-corner {
-        position: absolute;
-        top: 16px; right: 16px;
-        height: 32px; min-width: 32px;
-        padding: 0 9px;
-        border-radius: 9px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(255,255,255,0.06);
-        color: #cbd5e1;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        display: flex; align-items: center; justify-content: center;
-        transition: all 0.2s;
-        z-index: 1001;
-    }
-    .lang-btn-corner:hover { background: rgba(255,255,255,0.14); color: #fff; }
-
-    .field { display: flex; flex-direction: column; gap: 6px; }
-    .field input {
-        padding: 12px 14px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(0,0,0,0.25);
-        color: #fff;
-        outline: none;
-        font-size: 14px;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        width: 100%;
-    }
-    .field input::placeholder { color: #94a3b8; }
-    .field input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.15); }
-
-    .btn-primary {
-        padding: 12px;
-        border-radius: 10px;
-        border: none;
-        background: linear-gradient(90deg, #7c3aed, #0ea5e9);
-        color: #fff;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 14px;
-        transition: opacity 0.2s, transform 0.1s;
-        margin-top: 4px;
-    }
-    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .auth-toggle {
-        text-align: center;
-        font-size: 12px;
-        color: #94a3b8;
-        cursor: pointer;
-        margin-top: 2px;
-        transition: color 0.2s;
-    }
-    .auth-toggle:hover { color: #38bdf8; }
-
-    #app-screen {
-        display: none;
-        position: fixed; inset: 0;
-        z-index: 500;
-        flex-direction: column;
-    }
-    #app-screen.active { display: flex; }
-
-    .top-bar {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 12px 16px;
-        background: rgba(255,255,255,0.05);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        z-index: 10;
-    }
-    .user-info {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-        max-width: 60%;
-        cursor: pointer;
-        padding: 4px 10px 4px 4px;
-        border-radius: 999px;
-        border: 1px solid rgba(255,255,255,0.25);
-        background: rgba(255,255,255,0.05);
-        transition: background 0.2s, border-color 0.2s;
-    }
-    .user-info:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.4); }
-    .avatar {
-        width: 32px; height: 32px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #7c3aed, #0ea5e9);
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 700;
-        font-size: 14px;
-        flex-shrink: 0;
-    }
-    .user-name {
-        font-size: 14px;
-        font-weight: 600;
-        color: #e2e8f0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .top-actions { display: flex; gap: 6px; flex-shrink: 0; }
-    .icon-btn {
-        height: 36px; min-width: 36px;
-        padding: 0 10px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(255,255,255,0.06);
-        color: #cbd5e1;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-        transition: all 0.2s;
-    }
-    .icon-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
-    .icon-btn.danger:hover { background: rgba(239,68,68,0.3); border-color: rgba(239,68,68,0.5); color: #fff; }
-    .icon-btn.lang { letter-spacing: 0.5px; }
-
-    .content {
-        flex: 1;
-        overflow: hidden;
-        padding: 16px 16px 90px;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-    }
-    .page {
-        display: none;
-        flex-direction: column;
-        gap: 16px;
-        animation: fadeIn 0.3s ease;
-        max-width: 600px;
-        margin: 0 auto;
-        width: 100%;
-        flex: 1;
-        min-height: 0;
-    }
-    .page.active { display: flex; }
-
-    .page-title {
-        font-size: 22px;
-        font-weight: 700;
-        background: linear-gradient(90deg, #a78bfa, #38bdf8);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        flex-shrink: 0;
-    }
-
-    .placeholder-card {
-        padding: 40px 24px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        text-align: center;
-        flex: 1;
-        justify-content: center;
-    }
-    .placeholder-card .big-icon { font-size: 48px; opacity: 0.7; }
-    .placeholder-card h3 { font-size: 18px; color: #e2e8f0; }
-    .placeholder-card p { font-size: 13px; color: #94a3b8; line-height: 1.5; max-width: 320px; }
-
-    .bottom-nav {
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-        background: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-top: 1px solid rgba(255,255,255,0.12);
-        z-index: 100;
-        gap: 4px;
-    }
-    .nav-btn {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 3px;
-        padding: 8px 2px;
-        border-radius: 12px;
-        border: none;
-        background: transparent;
-        color: #64748b;
-        cursor: pointer;
-        font-size: 10px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    .nav-btn .nav-icon { font-size: 19px; transition: transform 0.2s; }
-    .nav-btn:hover { color: #cbd5e1; }
-    .nav-btn.active {
-        color: #fff;
-        background: linear-gradient(135deg, rgba(124,58,237,0.35), rgba(14,165,233,0.35));
-        border: 1px solid rgba(255,255,255,0.15);
-    }
-    .nav-btn.active .nav-icon { transform: translateY(-1px) scale(1.1); }
-
-    #toast-container {
-        position: fixed;
-        top: 20px; left: 50%;
-        transform: translateX(-50%);
-        z-index: 2000;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        pointer-events: none;
-        width: calc(100% - 40px);
-        max-width: 380px;
-    }
-    .toast {
-        padding: 12px 18px;
-        border-radius: 10px;
-        font-size: 13px;
-        font-weight: 500;
-        color: #fff;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-        animation: toastIn 0.3s ease;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.15);
-    }
-    .toast.success { background: rgba(34,197,94,0.85); }
-    .toast.error   { background: rgba(239,68,68,0.85); }
-    .toast.info    { background: rgba(56,189,248,0.85); }
-    .toast.hide    { animation: toastOut 0.3s ease forwards; }
-    @keyframes toastIn  { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes toastOut { to   { opacity: 0; transform: translateY(-10px); } }
-
-    /* ===== БІЖУЧИЙ РЯДОК ДЛЯ ДОВГИХ НАЗВ ===== */
-    .marquee-container {
-        overflow: hidden;
-        white-space: nowrap;
-        position: relative;
-        width: 100%;
-        display: block;
-        line-height: 1.3;
-    }
-    .marquee-text {
-        display: inline-block;
-        white-space: nowrap;
-        will-change: transform;
-    }
-    .marquee-text.scrolling {
-        animation: marqueeRun 6s linear infinite;
-    }
-    @keyframes marqueeRun {
-        0%, 16.66%   { transform: translateX(0); }
-        83.33%       { transform: translateX(var(--scroll-dist, 0)); }
-        83.34%, 100% { transform: translateX(0); }
-    }
-
-    .hidden { display: none !important; }
-
-    @media (max-width: 480px) {
-        .auth-box { padding: 26px 20px; }
-        .lang-btn-corner { top: 12px; right: 12px; height: 30px; font-size: 11px; }
-        .content { padding: 12px 12px 90px; }
-        .page-title { font-size: 20px; }
-        .nav-btn { font-size: 9px; }
-        .nav-btn .nav-icon { font-size: 17px; }
-        .user-info { max-width: 55%; padding: 3px 8px 3px 3px; }
-        .avatar { width: 28px; height: 28px; font-size: 12px; }
-        .user-name { font-size: 13px; }
-    }
-
-/* КІНЕЦЬ ЧАСТИНИ 1/7 */
-
-       /* ===== ШАХТА ===== */
-    .mine-visual {
-        position: relative;
-        width: 100%;
-        height: 280px;
-        border-radius: 20px;
-        overflow: hidden;
-        background: linear-gradient(180deg, #1e1b2e 0%, #2a1f3d 50%, #1a1528 100%);
-        border: 1px solid rgba(255,255,255,0.1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        box-shadow: inset 0 0 60px rgba(0,0,0,0.6);
-    }
-    .mine-visual::before {
-        content: '';
-        position: absolute;
-        top: -20%; left: 10%; right: 10%;
-        height: 70%;
-        background: radial-gradient(ellipse at center, rgba(124,58,237,0.25), transparent 70%);
-        pointer-events: none;
-    }
-    .mine-cave {
-        position: absolute;
-        bottom: 0; left: 50%;
-        transform: translateX(-50%);
-        width: 160px; height: 160px;
-        background: radial-gradient(ellipse at top, #0a0710 0%, #0a0710 60%, transparent 61%);
-        border-radius: 50% 50% 0 0;
-        box-shadow: inset 0 -20px 40px rgba(0,0,0,0.9);
-    }
-    .mine-cave::before, .mine-cave::after {
-        content: '';
-        position: absolute;
-        width: 60px; height: 8px;
-        background: rgba(255,255,255,0.15);
-        border-radius: 4px;
-    }
-    .mine-cave::before { top: 30px; left: 10px; transform: rotate(20deg); }
-    .mine-cave::after  { top: 50px; right: 10px; transform: rotate(-20deg); }
-
-    .mine-rock {
-        position: absolute;
-        bottom: 0;
-        background: linear-gradient(180deg, #3a2f4a, #1e1828);
-        border-radius: 50% 50% 0 0;
-        box-shadow: inset 0 5px 15px rgba(255,255,255,0.05);
-    }
-    .mine-rock.r1 { width: 80%; height: 90px; left: -10%; }
-    .mine-rock.r2 { width: 80%; height: 80px; right: -10%; }
-
-    .mine-gem {
-        position: absolute;
-        width: 40px; height: 40px;
-        background: linear-gradient(135deg, #a78bfa, #38bdf8);
-        clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
-        box-shadow: 0 0 25px rgba(167,139,250,0.8);
-        animation: gemPulse 2.5s ease-in-out infinite;
-        top: 45%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-    }
-    .mine-gem.small1 { width: 20px; height: 20px; top: 30%; left: 30%; animation-delay: 0.5s; }
-    .mine-gem.small2 { width: 24px; height: 24px; top: 35%; left: 70%; animation-delay: 1s; }
-    @keyframes gemPulse {
-        0%, 100% { box-shadow: 0 0 20px rgba(167,139,250,0.6); }
-        50%      { box-shadow: 0 0 35px rgba(167,139,250,1); }
-    }
-
-    .mine-btn-overlay {
-        position: absolute;
-        bottom: 16px; left: 50%;
-        transform: translateX(-50%);
-        z-index: 5;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        width: calc(100% - 32px);
-    }
-    .mine-btn {
-        padding: 14px 28px;
-        border-radius: 14px;
-        border: none;
-        background: linear-gradient(90deg, #7c3aed, #0ea5e9);
-        color: #fff;
-        font-weight: 700;
-        font-size: 15px;
-        cursor: pointer;
-        transition: all 0.2s;
-        box-shadow: 0 6px 20px rgba(124,58,237,0.5);
-        width: 100%;
-        max-width: 260px;
-    }
-    .mine-btn:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
-    .mine-btn:active:not(:disabled) { transform: scale(0.98); }
-    .mine-btn:disabled {
-        background: rgba(71,85,105,0.9);
-        box-shadow: none;
-        cursor: not-allowed;
-        color: #94a3b8;
-    }
-    .mine-timer {
-        font-size: 12px;
-        color: #cbd5e1;
-        text-align: center;
-        font-weight: 600;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-    }
-
-    /* ===== ІНВЕНТАР ===== */
-    .inventory-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 10px;
-        overflow-y: auto;
-        overflow-x: hidden;
-        -webkit-overflow-scrolling: touch;
-        touch-action: pan-y;
-        flex: 1 1 0;
-        min-height: 0;
-        align-content: start;
-        padding-right: 4px;
-        padding-bottom: 8px;
-    }
-    .inventory-grid::-webkit-scrollbar { width: 6px; }
-    .inventory-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 3px; }
-    .inventory-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
-    .inventory-grid::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
-
-    .inv-card {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 14px;
-        padding: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        cursor: pointer;
-        transition: background 0.2s, transform 0.2s;
-        position: relative;
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
+        position: relative;
     }
-    .inv-card:hover { background: rgba(255,255,255,0.1); }
-    .inv-card.is-active { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.4); }
-    .inv-card .stone-preview {
+
+    /* ===== WINDOW ===== */
+    .window {
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #dfdfdf #808080 #808080 #dfdfdf;
+        box-shadow: 2px 2px 0 #000;
+        display: flex;
+        flex-direction: column;
         width: 100%;
-        aspect-ratio: 1;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-        overflow: hidden;
-        flex-shrink: 0;
+        max-width: 420px;
+        max-height: calc(100vh - 40px);
+        animation: winOpen 0.15s ease-out;
     }
-    .inv-card .stone-name {
-        font-size: 11px;
-        font-weight: 600;
-        color: #e2e8f0;
-        text-align: center;
-        flex-shrink: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        position: relative;
-        line-height: 1.3;
-        min-height: 15px;
-    }
-    .inv-card .stone-name .marquee-text {
-        color: #e2e8f0;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-        filter: none;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        text-rendering: optimizeLegibility;
-    }
-    .inv-card .stone-rarity {
-        display: flex;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .inv-card .active-badge {
-        position: absolute;
-        top: 6px;
-        right: 6px;
-        background: #38bdf8;
-        color: #0f172a;
-        font-size: 9px;
-        font-weight: 800;
-        padding: 3px 7px;
-        border-radius: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        z-index: 3;
-        box-shadow: 0 2px 8px rgba(56,189,248,0.6);
+    @keyframes winOpen {
+        from { transform: scale(0.95); opacity: 0; }
+        to   { transform: scale(1); opacity: 1; }
     }
 
-    .rarity-badge {
-        padding: 2px 6px;
-        border-radius: 5px;
-        font-size: 9px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
-    .rarity-common    { background: rgba(148,163,184,0.3); color: #cbd5e1; }
-    .rarity-rare      { background: rgba(56,189,248,0.3);  color: #7dd3fc; }
-    .rarity-epic      { background: rgba(167,139,250,0.35); color: #c4b5fd; }
-    .rarity-legendary { background: rgba(251,191,36,0.35);  color: #fcd34d; box-shadow: 0 0 8px rgba(251,191,36,0.5); }
-    .rarity-mythic    { background: rgba(239,68,68,0.4);    color: #fca5a5; box-shadow: 0 0 10px rgba(239,68,68,0.6); animation: mythicPulse 2s infinite; }
-    @keyframes mythicPulse {
-        0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.5); }
-        50%      { box-shadow: 0 0 16px rgba(239,68,68,0.9); }
-    }
-
-    .inventory-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
-    }
-    .sort-btn {
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(255,255,255,0.06);
-        color: #cbd5e1;
-        font-size: 11px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        white-space: nowrap;
-    }
-    .sort-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
-
-    .inv-empty {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        color: #64748b;
-        font-size: 13px;
-        padding: 40px 20px;
-        gap: 8px;
-    }
-    .inv-empty .big { font-size: 40px; opacity: 0.6; }
-
-    @media (max-width: 480px) {
-        .inventory-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-
-/* КІНЕЦЬ ЧАСТИНИ 2/7 */
-
-       /* ===== ЧАТ ===== */
-    .chat-layout {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-        min-height: 0;
-        gap: 10px;
-    }
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding: 12px;
-        border-radius: 16px;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-height: 0;
-    }
-    .chat-empty {
-        color: #64748b;
-        font-size: 13px;
-        text-align: center;
-        margin: auto;
-        padding: 20px;
-    }
-    .chat-msg {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        max-width: 85%;
-        animation: fadeIn 0.2s ease;
-        align-items: flex-start;
-    }
-    .chat-msg.own { align-self: flex-end; align-items: flex-end; }
-    .chat-msg .author {
-        font-size: 11px;
-        color: #94a3b8;
-        font-weight: 600;
-        padding: 0 4px;
-        cursor: pointer;
-        transition: color 0.2s;
-    }
-    .chat-msg .author:hover { color: #38bdf8; }
-    .chat-msg.own .author { color: #a78bfa; }
-    .chat-msg .bubble {
-        display: inline-block;
-        width: fit-content;
-        max-width: 100%;
-        padding: 10px 14px;
-        border-radius: 14px;
-        font-size: 14px;
-        line-height: 1.4;
-        word-wrap: break-word;
-        white-space: pre-wrap;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.12);
-        position: relative;
-        overflow: hidden;
-        transition: box-shadow 0.3s, background 0.3s;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
-    }
-    .chat-msg.own .bubble {
-        background: linear-gradient(135deg, rgba(124,58,237,0.55), rgba(14,165,233,0.55));
-        border-color: rgba(255,255,255,0.2);
-    }
-    /* Без активного каменю — прозора бульбашка з сірою обводкою */
-    .chat-msg .bubble.no-stone {
-        background: transparent !important;
-        border: 1px solid rgba(148,163,184,0.5) !important;
-        box-shadow: none !important;
-    }
-    .chat-msg.own .bubble.no-stone {
-        border: 1px solid rgba(148,163,184,0.6) !important;
-    }
-    .chat-msg.own .bubble:hover { filter: brightness(1.05); }
-    .chat-msg .bubble .bubble-text {
-        position: relative;
-        z-index: 2;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.5);
-    }
-    .chat-msg .bubble .bubble-pattern {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 1;
-        opacity: 0.55;
-    }
-    .chat-msg .time {
-        font-size: 10px;
-        color: #64748b;
-        padding: 0 4px;
-    }
-    .chat-msg.deleted .bubble {
-        background: rgba(100,116,139,0.25) !important;
-        border: 1px dashed rgba(148,163,184,0.4) !important;
-        box-shadow: none !important;
-        font-style: italic;
-        color: #94a3b8;
-        cursor: default !important;
-    }
-    .chat-msg.deleted .bubble .bubble-text {
-        color: #94a3b8 !important;
-        -webkit-text-fill-color: #94a3b8 !important;
-        background: none !important;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-    }
-    .chat-msg.deleted .bubble .bubble-pattern { display: none; }
-
-    .chat-input-row {
-        display: flex;
-        gap: 8px;
-        flex-shrink: 0;
-    }
-    .chat-input-row input {
-        flex: 1;
-        padding: 12px 14px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(0,0,0,0.25);
+    .title-bar {
+        background: linear-gradient(90deg, #000080, #1084d0);
         color: #fff;
-        outline: none;
-        font-size: 14px;
-    }
-    .chat-input-row input::placeholder { color: #64748b; }
-    .chat-input-row input:focus { border-color: #38bdf8; }
-    .chat-input-row button {
-        padding: 12px 18px;
-        border-radius: 10px;
-        border: none;
-        background: linear-gradient(90deg, #7c3aed, #0ea5e9);
-        color: #fff;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 14px;
-        transition: opacity 0.2s;
-    }
-    .chat-input-row button:hover:not(:disabled) { opacity: 0.9; }
-    .chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* ===== КОНТЕКСТНЕ МЕНЮ ===== */
-    .msg-context-menu {
-        position: fixed;
-        z-index: 3000;
-        background: rgba(30, 41, 59, 0.98);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 12px;
-        padding: 6px;
-        min-width: 180px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-        animation: menuIn 0.15s ease;
-        display: none;
-    }
-    .msg-context-menu.active { display: block; }
-    @keyframes menuIn {
-        from { opacity: 0; transform: scale(0.9); }
-        to   { opacity: 1; transform: scale(1); }
-    }
-    .msg-context-menu button {
-        width: 100%;
-        padding: 10px 14px;
-        background: transparent;
-        border: none;
-        color: #e2e8f0;
-        text-align: left;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 8px;
-        cursor: pointer;
+        padding: 3px 4px;
         display: flex;
         align-items: center;
-        gap: 8px;
-        transition: background 0.15s;
-    }
-    .msg-context-menu button:hover { background: rgba(255,255,255,0.1); }
-    .msg-context-menu button.danger { color: #fca5a5; }
-    .msg-context-menu button.danger:hover { background: rgba(239,68,68,0.25); }
-
-    /* ===== КРУЖЕЧКИ КОЛЬОРІВ ===== */
-    .color-dots-wrap {
-        display: flex;
         gap: 6px;
-        align-items: center;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        font-weight: bold;
+        font-size: 12px;
+        flex-shrink: 0;
     }
-    .color-dot-btn {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        border: 2px solid rgba(255,255,255,0.35);
+    .title-bar .title-icon { font-size: 13px; }
+    .title-bar .title-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .title-bar .win-controls { display: flex; gap: 2px; }
+    .win-btn {
+        width: 18px; height: 16px;
+        background: #c0c0c0;
+        border: 1px solid;
+        border-color: #fff #000 #000 #fff;
+        font-size: 10px;
+        font-weight: bold;
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
         padding: 0;
+        line-height: 1;
+    }
+    .win-btn:active {
+        border-color: #000 #fff #fff #000;
+    }
+
+    .menu-bar {
+        background: #c0c0c0;
+        padding: 1px 2px;
+        display: flex;
+        gap: 2px;
+        border-bottom: 1px solid #808080;
         flex-shrink: 0;
-        transition: transform 0.15s, border-color 0.15s;
     }
-    .color-dot-btn:hover {
-        transform: scale(1.15);
-        border-color: rgba(255,255,255,0.7);
-    }
-
-    /* ===== TOOLTIP НАЗВИ КОЛЬОРУ — ПО ЦЕНТРУ ЕКРАНА ===== */
-    .color-tooltip-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 4000;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        pointer-events: none;
-    }
-    .color-tooltip-overlay.active { display: flex; }
-    .color-tooltip-box {
-        background: rgba(15,23,42,0.98);
-        color: #fff;
-        padding: 14px 26px;
-        border-radius: 14px;
-        font-size: 16px;
-        font-weight: 700;
-        border: 1px solid rgba(255,255,255,0.25);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.7);
-        animation: tooltipIn 0.2s ease;
-        text-align: center;
-        max-width: 80vw;
-        pointer-events: auto;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-    }
-    .color-tooltip-box .tt-color {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: 2px solid rgba(255,255,255,0.4);
-    }
-    @keyframes tooltipIn {
-        from { opacity: 0; transform: scale(0.9); }
-        to   { opacity: 1; transform: scale(1); }
-    }
-
-    /* ===== ПАТЕРНИ ===== */
-    .pattern-standard { background: transparent; }
-
-    .pattern-nacre {
-        animation: nacreShift 8s linear infinite;
-    }
-    @keyframes nacreShift {
-        0%   { background-position: 0% 50%; }
-        100% { background-position: 400% 50%; }
-    }
-
-    /* ===== МОДИФІКАЦІЇ КОЛОРУ ===== */
-    .mod-shimmer {
-        animation: shimmerAnim 4s linear infinite;
-        background-repeat: repeat !important;
-    }
-    @keyframes shimmerAnim {
-        0%   { background-position: 0px 0px; }
-        100% { background-position: 60px 60px; }
-    }
-    .mod-pulse {
-        animation: pulseAnim 2.5s ease-in-out infinite;
-    }
-    @keyframes pulseAnim {
-        0%, 100% { filter: brightness(1); }
-        50%      { filter: brightness(1.4); }
-    }
-    .mod-wave {
-        animation: waveAnim 3s linear infinite;
-        background-repeat: repeat !important;
-    }
-    @keyframes waveAnim {
-        0%   { background-position: 0px 0px; }
-        100% { background-position: 40px 40px; }
-    }
-
-/* КІНЕЦЬ ЧАСТИНИ 3/7 */
-
-       /* ===== МОДАЛКИ ===== */
-    .modal-overlay {
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,0.65);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-        z-index: 1500;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-        overflow-y: auto;
-    }
-    .modal-overlay.active { display: flex; }
-    .modal {
-        padding: 24px;
-        width: 100%; max-width: 440px;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        animation: modalIn 0.3s ease;
-        max-height: calc(100vh - 40px);
-        overflow-y: auto;
-    }
-    @keyframes modalIn {
-        from { opacity: 0; transform: scale(0.92); }
-        to   { opacity: 1; transform: scale(1); }
-    }
-    .modal h3 {
-        font-size: 18px;
-        font-weight: 600;
-        color: #e2e8f0;
-        text-align: center;
-    }
-    .modal .hint {
+    .menu-bar span {
+        padding: 2px 8px;
+        cursor: default;
         font-size: 12px;
-        color: #94a3b8;
-        text-align: center;
     }
-    .modal .version-line {
-        font-size: 11px;
-        color: #64748b;
-        text-align: center;
-        margin-top: 4px;
-    }
-    .modal-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 4px;
-    }
-    .modal-actions button { flex: 1; }
-    .btn-secondary {
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.2);
-        background: rgba(255,255,255,0.06);
-        color: #e2e8f0;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background 0.2s;
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+    .menu-bar span:hover { background: #000080; color: #fff; }
 
-    .btn-danger-outline {
+    .window-body {
         padding: 10px;
-        border-radius: 10px;
-        border: 1px solid rgba(239,68,68,0.4);
-        background: rgba(239,68,68,0.1);
-        color: #fca5a5;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 13px;
-        transition: all 0.2s;
-    }
-    .btn-danger-outline:hover { background: rgba(239,68,68,0.25); color: #fff; }
-
-    .btn-wipe {
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid rgba(239,68,68,0.6);
-        background: linear-gradient(90deg, rgba(239,68,68,0.3), rgba(220,38,38,0.4));
-        color: #fff;
-        font-weight: 700;
-        cursor: pointer;
-        font-size: 13px;
-        transition: all 0.2s;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .btn-wipe:hover { background: linear-gradient(90deg, rgba(239,68,68,0.5), rgba(220,38,38,0.6)); }
-
-    .stone-reveal {
+        flex: 1;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 14px;
-        padding: 10px 0;
-    }
-    .stone-big-preview {
-        width: 160px; height: 160px;
-        border-radius: 20px;
-        position: relative;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid rgba(255,255,255,0.2);
-        animation: stoneAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    @keyframes stoneAppear {
-        0%   { opacity: 0; transform: scale(0.3) rotate(-15deg); }
-        100% { opacity: 1; transform: scale(1) rotate(0); }
-    }
-    .stone-big-preview .bubble-pattern {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-    }
-    .stone-title {
-        font-size: 17px;
-        font-weight: 700;
-        color: #f1f5f9;
-        text-align: center;
-    }
-    .stone-details {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        align-items: stretch;
-        font-size: 12px;
-        color: #94a3b8;
-        width: 100%;
-        padding: 0 8px;
-    }
-    .stone-details .row {
-        display: flex;
         gap: 8px;
-        align-items: center;
-        justify-content: space-between;
+        min-height: 0;
     }
-    .stone-details .row span:first-child {
-        color: #64748b;
-    }
-    .stone-details .row .val {
-        color: #cbd5e1;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        justify-content: flex-end;
-        text-align: right;
+    .window-body::-webkit-scrollbar { width: 16px; }
+    .window-body::-webkit-scrollbar-track { background: #dfdfdf; }
+    .window-body::-webkit-scrollbar-thumb {
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #808080 #808080 #fff;
     }
 
-    .profile-header {
+    .status-bar {
+        background: #c0c0c0;
+        padding: 2px;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        padding: 16px;
-        text-align: center;
-    }
-    .profile-avatar {
-        width: 64px; height: 64px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #7c3aed, #0ea5e9);
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 700;
-        font-size: 26px;
-    }
-    .profile-name { font-size: 20px; font-weight: 700; color: #f1f5f9; }
-    .profile-sub  { font-size: 12px; color: #94a3b8; }
-
-    .profile-section {
-        border-top: 1px solid rgba(255,255,255,0.1);
-        padding-top: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .profile-section h4 {
-        font-size: 13px;
-        font-weight: 700;
-        color: #cbd5e1;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .profile-section .note {
-        font-size: 11px;
-        color: #64748b;
-        line-height: 1.5;
-    }
-
-    .active-stone-slot {
-        padding: 12px;
-        border-radius: 12px;
-        background: rgba(0,0,0,0.25);
-        border: 1px dashed rgba(255,255,255,0.2);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-height: 80px;
-    }
-    .active-stone-slot.clickable {
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-    .active-stone-slot.clickable:hover { background: rgba(0,0,0,0.4); }
-    .active-stone-slot .mini-preview {
-        width: 56px; height: 56px;
-        border-radius: 10px;
+        gap: 2px;
+        border-top: 1px solid #fff;
         flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-        position: relative;
-        overflow: hidden;
     }
-    .active-stone-slot .info { flex: 1; min-width: 0; }
-    .active-stone-slot .info .s-name {
-        font-size: 13px;
-        font-weight: 600;
-        color: #e2e8f0;
-        white-space: nowrap;
+    .status-bar .panel {
+        flex: 1;
+        border: 1px inset #808080;
+        padding: 2px 6px;
+        font-size: 11px;
         overflow: hidden;
+        white-space: nowrap;
         text-overflow: ellipsis;
     }
-    .active-stone-slot .info .s-rarity { font-size: 11px; margin-top: 3px; }
-    .active-stone-slot .empty-msg { color: #64748b; font-size: 12px; font-style: italic; }
+    .status-bar .panel.small { flex: 0 0 auto; min-width: 60px; }
 
-    .profile-preview-bubble {
-        padding: 10px 14px;
-        border-radius: 14px;
-        font-size: 14px;
+    /* ===== FORM ELEMENTS ===== */
+    .group-box {
+        border: 2px groove #fff;
+        padding: 10px 8px 8px;
         position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.15);
-        min-height: 40px;
+        margin-top: 8px;
+    }
+    .group-box::before {
+        content: attr(data-label);
+        position: absolute;
+        top: -8px;
+        left: 8px;
+        background: #c0c0c0;
+        padding: 0 4px;
+        font-size: 11px;
+        color: #000;
+    }
+
+    .form-row {
         display: flex;
         align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
     }
-    .profile-preview-bubble .bubble-text { position: relative; z-index: 2; text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.5); }
-    .profile-preview-bubble .bubble-pattern { position: absolute; inset: 0; z-index: 1; opacity: 0.55; pointer-events: none; }
+    .form-row label {
+        font-size: 12px;
+        min-width: 70px;
+    }
+    .input-field {
+        flex: 1;
+        padding: 3px 5px;
+        font-family: "MS Sans Serif", Tahoma, sans-serif;
+        font-size: 12px;
+        background: #fff;
+        color: #000;
+        border: 2px solid;
+        border-color: #808080 #fff #fff #808080;
+        outline: none;
+        min-width: 0;
+    }
+    .input-field:focus {
+        outline: 1px dotted #000;
+        outline-offset: -4px;
+    }
 
-    .chances-table {
-        width: 100%;
-        border-collapse: collapse;
+    .btn {
+        font-family: "MS Sans Serif", Tahoma, sans-serif;
+        font-size: 12px;
+        background: #c0c0c0;
+        color: #000;
+        border: 2px solid;
+        border-color: #fff #808080 #808080 #fff;
+        padding: 4px 14px;
+        cursor: pointer;
+        min-width: 75px;
+        font-weight: 400;
+    }
+    .btn:active:not(:disabled) {
+        border-color: #808080 #fff #fff #808080;
+        padding: 5px 13px 3px 15px;
+    }
+    .btn:disabled {
+        color: #808080;
+        text-shadow: 1px 1px 0 #fff;
+        cursor: default;
+    }
+    .btn.default {
+        outline: 1px solid #000;
+        outline-offset: -4px;
+    }
+    .btn-link {
+        background: transparent;
+        border: none;
+        color: #0000ff;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 0;
+        text-align: left;
+        font-family: inherit;
+    }
+    .btn-link:hover { color: #ff0000; }
+
+    .btn-row {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+        margin-top: 4px;
+        flex-wrap: wrap;
+    }
+
+    /* ===== LOGIN / REGISTER ===== */
+    .auth-tabs {
+        display: flex;
+        gap: 2px;
+        margin-bottom: 8px;
+    }
+    .auth-tab {
+        flex: 1;
+        padding: 5px 8px;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #808080 #808080 #fff;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+        text-align: center;
+    }
+    .auth-tab.active {
+        background: #dfdfdf;
+        border-color: #808080 #fff #fff #808080;
+        font-weight: bold;
+        padding: 6px 8px 4px;
+    }
+
+    .error-msg {
+        background: #ffffcc;
+        border: 1px solid #808080;
+        padding: 4px 8px;
+        font-size: 11px;
+        color: #800000;
+        margin-top: 6px;
+        display: none;
+    }
+    .error-msg.show { display: block; }
+
+    .info-msg {
+        background: #ccffcc;
+        border: 1px solid #808080;
+        padding: 4px 8px;
+        font-size: 11px;
+        color: #006000;
+        margin-top: 6px;
+        display: none;
+    }
+    .info-msg.show { display: block; }
+
+    .auth-footer {
+        margin-top: 8px;
+        text-align: center;
+    }
+
+    /* ===== GAME SCREEN ===== */
+    #game-screen { display: none; }
+    #game-screen.active { display: flex; }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+    }
+    .stat-item {
+        background: #dfdfdf;
+        border: 1px inset #808080;
+        padding: 4px 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        gap: 4px;
+    }
+    .stat-item .label { color: #000; }
+    .stat-item .value {
+        font-weight: bold;
+        font-family: "Courier New", monospace;
+        color: #000080;
         font-size: 12px;
     }
-    .chances-table th, .chances-table td {
-        padding: 6px 8px;
-        text-align: left;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+
+    /* ===== BIG CLICK BUTTON ===== */
+    .click-area {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 8px 0;
     }
-    .chances-table th { color: #94a3b8; font-weight: 600; }
-    .chances-table td:last-child { text-align: right; color: #cbd5e1; }
+    #big-click {
+        width: 180px;
+        height: 140px;
+        background: #c0c0c0;
+        border: 4px solid;
+        border-color: #fff #808080 #808080 #fff;
+        box-shadow: 2px 2px 0 #808080;
+        cursor: pointer;
+        font-family: "MS Sans Serif", Tahoma, sans-serif;
+        font-size: 14px;
+        font-weight: bold;
+        color: #000080;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        transition: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    #big-click:active {
+        border-color: #808080 #fff #fff #808080;
+        box-shadow: none;
+    }
+    #big-click .big-emoji { font-size: 40px; line-height: 1; }
+    #big-click .click-label { font-size: 11px; color: #000; }
+
+    .float-text {
+        position: fixed;
+        pointer-events: none;
+        font-weight: bold;
+        font-size: 16px;
+        color: #008000;
+        text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+        animation: floatUp 0.8s ease-out forwards;
+        z-index: 9999;
+        font-family: "Courier New", monospace;
+    }
+    @keyframes floatUp {
+        0%   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -60px) scale(1.3); }
+    }
+
+    /* ===== DIALOG ===== */
+    .dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.3);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+    }
+    .dialog-overlay.active { display: flex; }
+    .dialog {
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #dfdfdf #808080 #808080 #dfdfdf;
+        box-shadow: 2px 2px 0 #000;
+        min-width: 280px;
+        max-width: 360px;
+        animation: winOpen 0.12s ease-out;
+    }
+    .dialog-body {
+        padding: 14px 12px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .dialog-icon { font-size: 28px; flex-shrink: 0; }
+    .dialog-text { flex: 1; }
+
+    /* ===== MOBILE ===== */
+    @media (max-width: 480px) {
+        body { padding: 10px; }
+        .window { max-height: calc(100vh - 20px); }
+        #big-click { width: 160px; height: 120px; }
+        .stats-grid { grid-template-columns: 1fr; }
+        .form-row label { min-width: 60px; font-size: 11px; }
+    }
 </style>
 </head>
 <body>
 
-<button class="lang-btn-corner" id="auth-lang-btn" onclick="toggleLang()" title="Мова">UA</button>
+<!-- ===== LOGIN WINDOW ===== -->
+<div class="window" id="auth-window">
+    <div class="title-bar">
+        <span class="title-icon">🖱️</span>
+        <span class="title-text">Win95 Clicker — Вхід</span>
+        <div class="win-controls">
+            <button class="win-btn" disabled>_</button>
+            <button class="win-btn" disabled>□</button>
+            <button class="win-btn" disabled>✕</button>
+        </div>
+    </div>
+    <div class="menu-bar">
+        <span>Файл</span>
+        <span>Довідка</span>
+    </div>
+    <div class="window-body">
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
+            <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
+        </div>
 
-<div id="toast-container"></div>
+        <div class="group-box" data-label="Обліковий запис">
+            <div class="form-row">
+                <label>Логін:</label>
+                <input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20">
+            </div>
+            <div class="form-row">
+                <label>Пароль:</label>
+                <input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40">
+            </div>
+            <div class="form-row" id="confirm-row" style="display:none;">
+                <label>Повторіть:</label>
+                <input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40">
+            </div>
+        </div>
 
-<!-- ===== TOOLTIP НАЗВИ КОЛЬОРУ ===== -->
-<div class="color-tooltip-overlay" id="color-tooltip-overlay" onclick="closeColorTooltip()">
-    <div class="color-tooltip-box">
-        <div class="tt-color" id="color-tooltip-swatch"></div>
-        <span id="color-tooltip-name">---</span>
+        <div class="error-msg" id="auth-error"></div>
+        <div class="info-msg" id="auth-info"></div>
+
+        <div class="btn-row">
+            <button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button>
+        </div>
+
+        <div class="auth-footer">
+            <button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button>
+        </div>
+    </div>
+    <div class="status-bar">
+        <div class="panel" id="auth-status">Готово</div>
+        <div class="panel small">v0.1.0</div>
     </div>
 </div>
 
-<!-- ===== КОНТЕКСТНЕ МЕНЮ ПОВІДОМЛЕННЯ ===== -->
-<div class="msg-context-menu" id="msg-context-menu">
-    <button class="danger" id="ctx-delete-btn" onclick="ctxDeleteMessage()" data-i18n="ctx_delete">🗑 Видалити</button>
-</div>
-
-<!-- ===== АВТОРИЗАЦІЯ ===== -->
-<div id="auth-screen">
-    <div class="auth-box glass">
-        <h2>UniqueStone</h2>
-        <div class="version">v1.1.7</div>
-        <div class="field">
-            <input type="text" id="username" data-i18n-placeholder="ph_username" placeholder="Логін" autocomplete="username">
-        </div>
-        <div class="field">
-            <input type="password" id="password" data-i18n-placeholder="ph_password" placeholder="Пароль" autocomplete="current-password">
-        </div>
-        <div class="field hidden" id="new-password-container">
-            <input type="password" id="new-password" data-i18n-placeholder="ph_new_password" placeholder="Новий пароль" autocomplete="new-password">
-        </div>
-        <button id="auth-btn" class="btn-primary" onclick="handleAuth()">Увійти</button>
-        <div class="auth-toggle" id="auth-toggle-mode" onclick="switchAuthMode('register')">Ще немає акаунта? Зареєструватись</div>
-        <div class="auth-toggle" id="auth-toggle-pass" onclick="switchAuthMode('change-pass')" style="opacity:0.7;">Змінити пароль</div>
-    </div>
-</div>
-
-<!-- ===== ГОЛОВНИЙ ЕКРАН ===== -->
-<div id="app-screen">
-
-    <div class="top-bar">
-        <div class="user-info" onclick="openMyProfile()">
-            <div class="avatar" id="top-avatar">?</div>
-            <div class="user-name" id="top-username">---</div>
-        </div>
-        <div class="top-actions">
-            <button class="icon-btn lang" id="btn-lang" onclick="toggleLang()" title="Мова">UA</button>
-            <button class="icon-btn" id="btn-settings" onclick="openSettings()" title="Налаштування">⚙️</button>
-            <button class="icon-btn danger" id="btn-logout" onclick="logout()" title="Вийти">⎋</button>
+<!-- ===== GAME WINDOW ===== -->
+<div class="window" id="game-screen">
+    <div class="title-bar">
+        <span class="title-icon">🖱️</span>
+        <span class="title-text" id="game-title">Win95 Clicker</span>
+        <div class="win-controls">
+            <button class="win-btn" disabled>_</button>
+            <button class="win-btn" disabled>□</button>
+            <button class="win-btn" onclick="logout()" title="Вийти">✕</button>
         </div>
     </div>
-
-    <div class="content">
-
-        <!-- ШАХТА -->
-        <div class="page active" id="page-mine">
-            <div class="page-title" data-i18n="tab_mine">Шахта</div>
-            <div class="mine-visual">
-                <div class="mine-rock r1"></div>
-                <div class="mine-rock r2"></div>
-                <div class="mine-cave"></div>
-                <div class="mine-gem"></div>
-                <div class="mine-gem small1"></div>
-                <div class="mine-gem small2"></div>
-                <div class="mine-btn-overlay">
-                    <button class="mine-btn" id="mine-btn" onclick="digMine()" data-i18n="btn_dig">Викопати камінь</button>
-                    <div class="mine-timer hidden" id="mine-timer"></div>
+    <div class="menu-bar">
+        <span>Файл</span>
+        <span>Гра</span>
+        <span onclick="logout()">Вихід</span>
+    </div>
+    <div class="window-body">
+        <!-- Stats -->
+        <div class="group-box" data-label="Статистика">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="label">💰 Монети:</span>
+                    <span class="value" id="stat-coins">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">🖱️ Кліків:</span>
+                    <span class="value" id="stat-clicks">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">⚡ За клік:</span>
+                    <span class="value" id="stat-power">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">👤 Гравець:</span>
+                    <span class="value" id="stat-user">—</span>
                 </div>
             </div>
         </div>
 
-        <!-- ІНВЕНТАР -->
-        <div class="page" id="page-inventory">
-            <div class="inventory-header">
-                <div class="page-title" data-i18n="tab_inventory">Інвентар</div>
-                <button class="sort-btn" id="sort-btn" onclick="toggleSort()" data-i18n="sort_rarity">↓ Рідкість</button>
-            </div>
-            <div class="inventory-grid" id="inventory-grid"></div>
-            <div class="inv-empty hidden" id="inv-empty">
-                <div class="big">📦</div>
-                <div data-i18n="inv_empty">Інвентар порожній. Відкрийте перший кейс!</div>
-            </div>
+        <!-- Click area -->
+        <div class="click-area">
+            <button id="big-click" onclick="doClick(event)">
+                <span class="big-emoji">💰</span>
+                <span class="click-label">КЛІКНИ МЕНЕ</span>
+            </button>
         </div>
-
-        <!-- ЧАТ -->
-        <div class="page" id="page-chat">
-            <div class="page-title" data-i18n="tab_chat">Чат</div>
-            <div class="chat-layout">
-                <div class="chat-messages" id="chat-messages">
-                    <div class="chat-empty" id="chat-empty" data-i18n="chat_empty">Повідомлень ще немає. Напишіть першим!</div>
-                </div>
-                <div class="chat-input-row">
-                    <input type="text" id="chat-input" data-i18n-placeholder="chat_placeholder" placeholder="Напишіть повідомлення..." maxlength="500">
-                    <button id="chat-send" onclick="sendMessage()" data-i18n="chat_send">Надіслати</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- РИНОК -->
-        <div class="page" id="page-market">
-            <div class="page-title" data-i18n="tab_market">Ринок</div>
-            <div class="placeholder-card glass">
-                <div class="big-icon">📈</div>
-                <h3 data-i18n="market_title">Ринок</h3>
-                <p data-i18n="market_desc">Тут незабаром з'явиться ринок.</p>
-            </div>
-        </div>
-
     </div>
-
-    <div class="bottom-nav">
-        <button class="nav-btn active" id="nav-mine" onclick="switchTab('mine')">
-            <span class="nav-icon">⛏️</span>
-            <span data-i18n="tab_mine">Шахта</span>
-        </button>
-        <button class="nav-btn" id="nav-inventory" onclick="switchTab('inventory')">
-            <span class="nav-icon">📦</span>
-            <span data-i18n="tab_inventory">Інвентар</span>
-        </button>
-        <button class="nav-btn" id="nav-chat" onclick="switchTab('chat')">
-            <span class="nav-icon">💬</span>
-            <span data-i18n="tab_chat">Чат</span>
-        </button>
-        <button class="nav-btn" id="nav-market" onclick="switchTab('market')">
-            <span class="nav-icon">📈</span>
-            <span data-i18n="tab_market">Ринок</span>
-        </button>
+    <div class="status-bar">
+        <div class="panel" id="game-status">Готово</div>
+        <div class="panel small" id="save-status">—</div>
     </div>
-
 </div>
 
-<!-- КІНЕЦЬ ЧАСТИНИ 4/7 -->
-
-   <!-- ===== МОДАЛКА: ВИКОПАНИЙ КАМІНЬ ===== -->
-<div class="modal-overlay" id="stone-modal">
-    <div class="modal glass">
-        <h3 data-i18n="stone_found">Ви знайшли камінь!</h3>
-        <div class="stone-reveal">
-            <div class="stone-big-preview" id="reveal-preview">
-                <div class="bubble-pattern" id="reveal-pattern"></div>
-            </div>
-            <div class="stone-title" id="reveal-name">---</div>
-            <div class="stone-details">
-                <div class="row"><span data-i18n="stone_rarity">Рідкість:</span><span class="val"><span id="reveal-rarity" class="rarity-badge">---</span></span></div>
-                <div class="row"><span data-i18n="stone_base_color">Колір бази:</span><span class="val"><span class="color-dots-wrap" id="reveal-base-dots"></span></span></div>
-                <div class="row"><span data-i18n="stone_pattern">Патерн:</span><span class="val" id="reveal-pattern-name">---</span></div>
-                <div class="row"><span data-i18n="stone_pattern_color">Колір патерну:</span><span class="val"><span class="color-dots-wrap" id="reveal-pat-dots"></span></span></div>
-                <div class="row"><span data-i18n="stone_base_mod">Модифікатор бази:</span><span class="val" id="reveal-base-mod">---</span></div>
-                <div class="row"><span data-i18n="stone_pattern_mod">Модифікатор патерну:</span><span class="val" id="reveal-pat-mod">---</span></div>
-                <div class="row" id="reveal-glow-row" style="display:none;"><span data-i18n="stone_glow">Світіння:</span><span class="val"><span class="color-dots-wrap" id="reveal-glow-dots"></span></span></div>
+<!-- ===== DIALOG ===== -->
+<div class="dialog-overlay" id="dialog-overlay">
+    <div class="dialog">
+        <div class="title-bar">
+            <span class="title-icon">ℹ️</span>
+            <span class="title-text" id="dialog-title">Повідомлення</span>
+            <div class="win-controls">
+                <button class="win-btn" disabled>_</button>
+                <button class="win-btn" disabled>□</button>
+                <button class="win-btn" onclick="closeDialog()">✕</button>
             </div>
         </div>
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeStoneModal()" data-i18n="btn_close">Закрити</button>
-            <button class="btn-primary" id="reveal-activate-btn" onclick="activateFromReveal()" data-i18n="btn_activate" style="margin-top:0;">Активувати</button>
+        <div class="dialog-body">
+            <div class="dialog-icon" id="dialog-icon">ℹ️</div>
+            <div class="dialog-text" id="dialog-text">—</div>
+        </div>
+        <div class="btn-row" style="padding: 0 12px 12px;">
+            <button class="btn default" onclick="closeDialog()">OK</button>
         </div>
     </div>
 </div>
 
-<!-- ===== МОДАЛКА: НАЛАШТУВАННЯ ===== -->
-<div class="modal-overlay" id="settings-modal">
-    <div class="modal glass">
-        <h3 data-i18n="settings_title">Налаштування</h3>
-        <div class="hint"><span data-i18n="settings_user">Користувач: </span><span id="settings-username">---</span></div>
-        <div class="field">
-            <input type="password" id="settings-old-pass" data-i18n-placeholder="ph_old_password" placeholder="Старий пароль">
-        </div>
-        <div class="field">
-            <input type="password" id="settings-new-pass" data-i18n-placeholder="ph_new_password" placeholder="Новий пароль">
-        </div>
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeSettings()" data-i18n="btn_cancel">Скасувати</button>
-            <button class="btn-primary" onclick="changePasswordFromSettings()" data-i18n="btn_change_pass" style="margin-top:0;">Змінити пароль</button>
-        </div>
-        <button class="btn-wipe hidden" id="wipe-btn" onclick="wipeAll()" data-i18n="btn_wipe">⚠ Вайп</button>
-        <div class="version-line">v1.1.7</div>
-    </div>
-</div>
-
-<!-- ===== МОДАЛКА: МІЙ ПРОФІЛЬ ===== -->
-<div class="modal-overlay" id="my-profile-modal">
-    <div class="modal glass">
-        <h3 data-i18n="profile_title">Мій профіль</h3>
-        <div class="profile-header">
-            <div class="profile-avatar" id="profile-avatar">?</div>
-            <div class="profile-name" id="profile-name">---</div>
-            <div class="profile-sub" id="profile-created">---</div>
-        </div>
-
-        <div class="profile-section">
-            <h4 data-i18n="profile_active_stone">Активний камінь</h4>
-            <div class="active-stone-slot clickable" id="active-stone-slot" onclick="openMyActiveStoneDetails()">
-                <div class="empty-msg" data-i18n="profile_no_stone">Немає активного каменю</div>
-            </div>
-            <div class="note" data-i18n="profile_active_note">Активний камінь визначає стиль ваших повідомлень у чаті.</div>
-            <button class="btn-danger-outline hidden" id="deactivate-stone-btn" onclick="deactivateStone()" data-i18n="btn_deactivate_stone">Зняти активний камінь</button>
-        </div>
-
-        <div class="profile-section">
-            <h4 data-i18n="profile_preview">Попередній перегляд</h4>
-            <div class="profile-preview-bubble" id="profile-preview">
-                <div class="bubble-pattern" id="profile-preview-pattern"></div>
-                <div class="bubble-text" id="profile-preview-text" data-i18n="profile_preview_text">Привіт! Це моє повідомлення.</div>
-            </div>
-        </div>
-
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeMyProfile()" data-i18n="btn_close">Закрити</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== МОДАЛКА: ЧУЖИЙ ПРОФІЛЬ ===== -->
-<div class="modal-overlay" id="other-profile-modal">
-    <div class="modal glass">
-        <h3 data-i18n="profile_other_title">Профіль гравця</h3>
-        <div class="profile-header">
-            <div class="profile-avatar" id="other-avatar">?</div>
-            <div class="profile-name" id="other-name">---</div>
-            <div class="profile-sub" id="other-created">---</div>
-        </div>
-        <div class="profile-section">
-            <h4 data-i18n="profile_active_stone">Активний камінь</h4>
-            <div class="active-stone-slot clickable" id="other-active-stone" onclick="openOtherActiveStoneDetails()">
-                <div class="empty-msg" data-i18n="profile_no_stone">Немає активного каменю</div>
-            </div>
-            <div class="note" data-i18n="profile_active_hint">Натисніть на камінь, щоб побачити деталі.</div>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeOtherProfile()" data-i18n="btn_close">Закрити</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== МОДАЛКА: ШАНСИ ===== -->
-<div class="modal-overlay" id="chances-modal">
-    <div class="modal glass">
-        <h3 data-i18n="chances_title">Шанси рідкості</h3>
-        <table class="chances-table">
-            <thead>
-                <tr><th data-i18n="chances_rarity">Рідкість</th><th data-i18n="chances_chance">Шанс</th></tr>
-            </thead>
-            <tbody>
-                <tr><td><span class="rarity-badge rarity-common">Common</span></td><td>60%</td></tr>
-                <tr><td><span class="rarity-badge rarity-rare">Rare</span></td><td>25%</td></tr>
-                <tr><td><span class="rarity-badge rarity-epic">Epic</span></td><td>11%</td></tr>
-                <tr><td><span class="rarity-badge rarity-legendary">Legendary</span></td><td>3.5%</td></tr>
-                <tr><td><span class="rarity-badge rarity-mythic">Mythic</span></td><td>0.5%</td></tr>
-            </tbody>
-        </table>
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeChances()" data-i18n="btn_close">Закрити</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== МОДАЛКА: ДЕТАЛІ КАМЕНЮ ===== -->
-<div class="modal-overlay" id="stone-detail-modal">
-    <div class="modal glass">
-        <h3 data-i18n="stone_details_title">Деталі каменю</h3>
-        <div class="stone-reveal">
-            <div class="stone-big-preview" id="detail-preview">
-                <div class="bubble-pattern" id="detail-pattern"></div>
-            </div>
-            <div class="stone-title marquee-container" id="detail-name-container">
-                <span class="marquee-text" id="detail-name">---</span>
-            </div>
-            <div class="stone-details">
-                <div class="row"><span data-i18n="stone_rarity">Рідкість:</span><span class="val"><span id="detail-rarity" class="rarity-badge">---</span></span></div>
-                <div class="row"><span data-i18n="stone_base_color">Колір бази:</span><span class="val"><span class="color-dots-wrap" id="detail-base-dots"></span></span></div>
-                <div class="row"><span data-i18n="stone_pattern">Патерн:</span><span class="val" id="detail-pattern-name">---</span></div>
-                <div class="row"><span data-i18n="stone_pattern_color">Колір патерну:</span><span class="val"><span class="color-dots-wrap" id="detail-pat-dots"></span></span></div>
-                <div class="row"><span data-i18n="stone_base_mod">Модифікатор бази:</span><span class="val" id="detail-base-mod">---</span></div>
-                <div class="row"><span data-i18n="stone_pattern_mod">Модифікатор патерну:</span><span class="val" id="detail-pat-mod">---</span></div>
-                <div class="row" id="detail-glow-row" style="display:none;"><span data-i18n="stone_glow">Світіння:</span><span class="val"><span class="color-dots-wrap" id="detail-glow-dots"></span></span></div>
-                <div class="row"><span data-i18n="stone_obtained">Отримано:</span><span class="val" id="detail-obtained">---</span></div>
-            </div>
-        </div>
-        <div class="modal-actions" id="stone-detail-actions">
-            <button class="btn-secondary" onclick="closeStoneDetail()" data-i18n="btn_close">Закрити</button>
-            <button class="btn-primary" id="detail-activate-btn" onclick="activateFromDetail()" data-i18n="btn_activate" style="margin-top:0;">Активувати</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== МОДАЛКА: ВАЙП (підтвердження) ===== -->
-<div class="modal-overlay" id="wipe-confirm-modal">
-    <div class="modal glass">
-        <h3 data-i18n="wipe_title">⚠ Вайп</h3>
-        <div class="hint" data-i18n="wipe_warning">Це видалить ВЕСЬ чат для всіх гравців і очистить ваш інвентар. Дію не можна скасувати!</div>
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeWipeConfirm()" data-i18n="btn_cancel">Скасувати</button>
-            <button class="btn-wipe" onclick="confirmWipe()" style="flex:1;">⚠ ВАЙП</button>
-        </div>
-    </div>
-</div>
-
-<!-- КІНЕЦЬ ЧАСТИНИ 5/7 -->
-
-   <script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, update, remove, push, onChildAdded, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const APP_VERSION = "1.1.7";
-    const DIG_COOLDOWN_MS = 12 * 60 * 60 * 1000;
-    const UNLIMITED_DIG_USER = "Fulter";
-    const WIPE_USER = "Fulter";
+    const APP_VERSION = "0.1.0";
+    const SAVE_INTERVAL_MS = 5000;
 
     const firebaseConfig = {
         apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
@@ -1476,355 +541,25 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let mode = "login";
-    let currentUsername = "";
-    let currentLang = "uk";
-    let currentTab = "mine";
-    let chatStarted = false;
-    let chatUnsubscribe = null;
-    let inventory = {};
-    let activeStoneId = null;
-    let inventorySort = "rarity";
-    let pendingRevealStone = null;
-    let pendingDetailStone = null;
-    let viewingOtherStone = null;
-    let viewingOtherUsername = "";
-    let mineTimerInterval = null;
-    let ctxTargetMsgId = null;
-
-    const RARITIES = {
-        common:    { weight: 60,   label_uk: "Звичайний",   label_en: "Common",    badge: "rarity-common" },
-        rare:      { weight: 25,   label_uk: "Рідкісний",   label_en: "Rare",      badge: "rarity-rare" },
-        epic:      { weight: 11,   label_uk: "Епічний",     label_en: "Epic",      badge: "rarity-epic" },
-        legendary: { weight: 3.5,  label_uk: "Легендарний", label_en: "Legendary", badge: "rarity-legendary" },
-        mythic:    { weight: 0.5,  label_uk: "Міфічний",    label_en: "Mythic",    badge: "rarity-mythic" }
+    // ===== STATE =====
+    let currentUser = "";
+    let authMode = "login"; // "login" | "register"
+    let gameState = {
+        coins: 0,
+        totalClicks: 0,
+        clickPower: 1
     };
+    let saveTimer = null;
+    let isSaving = false;
 
-    const PATTERNS_BY_RARITY = {
-        common:    ["standard", "dots", "grid"],
-        rare:      ["standard", "dots", "grid", "stripes", "waves", "hex"],
-        epic:      ["standard", "dots", "grid", "stripes", "waves", "hex", "leopard", "stars", "cracks"],
-        legendary: ["standard", "dots", "grid", "stripes", "waves", "hex", "leopard", "stars", "cracks", "diamonds", "shards", "spiral", "nacre"],
-        mythic:    ["standard", "dots", "grid", "stripes", "waves", "hex", "leopard", "stars", "cracks", "diamonds", "shards", "spiral", "nacre"]
-    };
+    // ===== HELPERS =====
+    function $(id) { return document.getElementById(id); }
 
-    const MODS_BY_RARITY = {
-        common:    ["solid"],
-        rare:      ["solid", "gradient"],
-        epic:      ["solid", "gradient", "shimmer"],
-        legendary: ["solid", "gradient", "shimmer", "pulse"],
-        mythic:    ["solid", "gradient", "shimmer", "pulse", "wave"]
-    };
-
-    const PATTERN_MODS_BY_RARITY = {
-        common:    ["solid", "gradient"],
-        rare:      ["solid", "gradient"],
-        epic:      ["solid", "gradient", "shimmer"],
-        legendary: ["solid", "gradient", "shimmer", "pulse"],
-        mythic:    ["solid", "gradient", "shimmer", "pulse", "wave"]
-    };
-
-    const HUE_NAMES_UK = [
-        { min: 0,   max: 10,  name: "Багряний" },
-        { min: 10,  max: 20,  name: "Червоний" },
-        { min: 20,  max: 35,  name: "Кораловий" },
-        { min: 35,  max: 45,  name: "Помаранчевий" },
-        { min: 45,  max: 55,  name: "Бурштиновий" },
-        { min: 55,  max: 65,  name: "Золотий" },
-        { min: 65,  max: 80,  name: "Жовтий" },
-        { min: 80,  max: 100, name: "Лимонний" },
-        { min: 100, max: 130, name: "Салатовий" },
-        { min: 130, max: 150, name: "Смарагдовий" },
-        { min: 150, max: 170, name: "М'ятний" },
-        { min: 170, max: 190, name: "Бірюзовий" },
-        { min: 190, max: 210, name: "Блакитний" },
-        { min: 210, max: 230, name: "Небесний" },
-        { min: 230, max: 250, name: "Синій" },
-        { min: 250, max: 270, name: "Індиго" },
-        { min: 270, max: 290, name: "Фіолетовий" },
-        { min: 290, max: 310, name: "Бузковий" },
-        { min: 310, max: 330, name: "Пурпуровий" },
-        { min: 330, max: 345, name: "Малиновий" },
-        { min: 345, max: 360, name: "Рожевий" }
-    ];
-    const HUE_NAMES_EN = [
-        { min: 0,   max: 10,  name: "Crimson" },
-        { min: 10,  max: 20,  name: "Red" },
-        { min: 20,  max: 35,  name: "Coral" },
-        { min: 35,  max: 45,  name: "Orange" },
-        { min: 45,  max: 55,  name: "Amber" },
-        { min: 55,  max: 65,  name: "Golden" },
-        { min: 65,  max: 80,  name: "Yellow" },
-        { min: 80,  max: 100, name: "Lemon" },
-        { min: 100, max: 130, name: "Lime" },
-        { min: 130, max: 150, name: "Emerald" },
-        { min: 150, max: 170, name: "Mint" },
-        { min: 170, max: 190, name: "Turquoise" },
-        { min: 190, max: 210, name: "Sky" },
-        { min: 210, max: 230, name: "Azure" },
-        { min: 230, max: 250, name: "Blue" },
-        { min: 250, max: 270, name: "Indigo" },
-        { min: 270, max: 290, name: "Violet" },
-        { min: 290, max: 310, name: "Lilac" },
-        { min: 310, max: 330, name: "Purple" },
-        { min: 330, max: 345, name: "Magenta" },
-        { min: 345, max: 360, name: "Pink" }
-    ];
-
-    const LIGHT_MODS_UK = { light: "світлий", dark: "темний", vivid: "насичений", pale: "блідий" };
-    const LIGHT_MODS_EN = { light: "light", dark: "dark", vivid: "vivid", pale: "pale" };
-
-    const MOD_LABELS = {
-        solid:    { uk: "суцільний",  en: "solid" },
-        gradient: { uk: "градієнт",   en: "gradient" },
-        shimmer:  { uk: "перелив",    en: "shimmer" },
-        pulse:    { uk: "пульсація",  en: "pulse" },
-        wave:     { uk: "хвиля",      en: "wave" }
-    };
-
-    const I18N = {
-        uk: {
-            ph_username: "Логін", ph_password: "Пароль", ph_new_password: "Новий пароль", ph_old_password: "Старий пароль",
-            btn_login: "Увійти", btn_register: "Створити акаунт", btn_change_pass: "Змінити пароль", btn_cancel: "Скасувати",
-            btn_close: "Закрити", btn_activate: "Активувати",
-            btn_deactivate_stone: "Зняти активний камінь", btn_wipe: "⚠ Вайп",
-            toggle_to_register: "Ще немає акаунта? Зареєструватись", toggle_to_login: "Вже є акаунт? Увійти",
-            toggle_back_to_login: "Повернутися до входу", toggle_change_pass: "Змінити пароль",
-            tab_mine: "Шахта", tab_inventory: "Інвентар", tab_chat: "Чат", tab_market: "Ринок",
-            btn_dig: "Викопати камінь", mine_cooldown: "Наступне викопування через",
-            inv_empty: "Інвентар порожній. Відкрийте перший кейс!",
-            sort_rarity: "↓ Рідкість", sort_date: "↓ Дата",
-            chat_empty: "Повідомлень ще немає. Напишіть першим!",
-            chat_placeholder: "Напишіть повідомлення...", chat_send: "Надіслати",
-            chat_deleted: "{name} видалив повідомлення", ctx_delete: "🗑 Видалити",
-            settings_title: "Налаштування", settings_user: "Користувач: ",
-            stone_found: "Ви знайшли камінь!", stone_rarity: "Рідкість:", stone_pattern: "Патерн:", stone_obtained: "Отримано:",
-            stone_base_color: "Колір бази:", stone_pattern_color: "Колір патерну:",
-            stone_base_mod: "Модифікатор бази:", stone_pattern_mod: "Модифікатор патерну:",
-            stone_glow: "Світіння:", stone_yes: "Так",
-            stone_details_title: "Деталі каменю",
-            active_badge: "Активний",
-            profile_title: "Мій профіль", profile_other_title: "Профіль гравця",
-            profile_active_stone: "Активний камінь", profile_no_stone: "Немає активного каменю",
-            profile_active_note: "Активний камінь визначає стиль ваших повідомлень у чаті.",
-            profile_active_hint: "Натисніть на камінь, щоб побачити деталі.",
-            profile_preview: "Попередній перегляд", profile_preview_text: "Привіт! Це моє повідомлення.",
-            chances_title: "Шанси рідкості", chances_rarity: "Рідкість", chances_chance: "Шанс",
-            market_title: "Ринок", market_desc: "Тут незабаром з'явиться ринок.",
-            wipe_title: "⚠ Вайп", wipe_warning: "Це видалить ВЕСЬ чат для всіх гравців і очистить ваш інвентар. Дію не можна скасувати!",
-            toast_wipe_done: "Вайп виконано! Чат і інвентар очищено.",
-            toast_fill_all: "Заповніть усі поля!", toast_login_short: "Логін має бути мінімум 3 символи!",
-            toast_pass_short: "Пароль має бути мінімум 4 символи!", toast_user_exists: "Такий користувач вже існує!",
-            toast_wrong_creds: "Невірний логін або пароль!", toast_wrong_old_pass: "Невірний старий пароль!",
-            toast_enter_new_pass: "Введіть новий пароль!", toast_new_pass_short: "Новий пароль має бути мінімум 4 символи!",
-            toast_register_ok: "Акаунт створено! Вітаємо!", toast_pass_changed: "Пароль успішно змінено!",
-            toast_wait: "Зачекайте...", toast_error: "Помилка: ", toast_logged_out: "Ви вийшли з акаунта",
-            toast_chat_empty: "Повідомлення не може бути порожнім",
-            toast_cooldown: "Шахта ще відновлюється!", toast_activated: "Камінь активовано!",
-            toast_deactivated: "Активний камінь знято!"
-        },
-        en: {
-            ph_username: "Username", ph_password: "Password", ph_new_password: "New password", ph_old_password: "Old password",
-            btn_login: "Log in", btn_register: "Create account", btn_change_pass: "Change password", btn_cancel: "Cancel",
-            btn_close: "Close", btn_activate: "Activate",
-            btn_deactivate_stone: "Remove active stone", btn_wipe: "⚠ Wipe",
-            toggle_to_register: "No account yet? Sign up", toggle_to_login: "Already have an account? Log in",
-            toggle_back_to_login: "Back to login", toggle_change_pass: "Change password",
-            tab_mine: "Mine", tab_inventory: "Inventory", tab_chat: "Chat", tab_market: "Market",
-            btn_dig: "Dig a stone", mine_cooldown: "Next dig in",
-            inv_empty: "Inventory is empty. Open your first case!",
-            sort_rarity: "↓ Rarity", sort_date: "↓ Date",
-            chat_empty: "No messages yet. Be the first to write!",
-            chat_placeholder: "Type a message...", chat_send: "Send",
-            chat_deleted: "{name} deleted a message", ctx_delete: "🗑 Delete",
-            settings_title: "Settings", settings_user: "User: ",
-            stone_found: "You found a stone!", stone_rarity: "Rarity:", stone_pattern: "Pattern:", stone_obtained: "Obtained:",
-            stone_base_color: "Base color:", stone_pattern_color: "Pattern color:",
-            stone_base_mod: "Base modifier:", stone_pattern_mod: "Pattern modifier:",
-            stone_glow: "Glow:", stone_yes: "Yes",
-            stone_details_title: "Stone details",
-            active_badge: "Active",
-            profile_title: "My profile", profile_other_title: "Player profile",
-            profile_active_stone: "Active stone", profile_no_stone: "No active stone",
-            profile_active_note: "Active stone determines the style of your chat messages.",
-            profile_active_hint: "Tap the stone to see details.",
-            profile_preview: "Preview", profile_preview_text: "Hi! This is my message.",
-            chances_title: "Rarity chances", chances_rarity: "Rarity", chances_chance: "Chance",
-            market_title: "Market", market_desc: "The market will appear here soon.",
-            wipe_title: "⚠ Wipe", wipe_warning: "This will delete the ENTIRE chat for all players and clear your inventory. This action cannot be undone!",
-            toast_wipe_done: "Wipe done! Chat and inventory cleared.",
-            toast_fill_all: "Fill in all fields!", toast_login_short: "Username must be at least 3 characters!",
-            toast_pass_short: "Password must be at least 4 characters!", toast_user_exists: "This user already exists!",
-            toast_wrong_creds: "Wrong username or password!", toast_wrong_old_pass: "Wrong old password!",
-            toast_enter_new_pass: "Enter a new password!", toast_new_pass_short: "New password must be at least 4 characters!",
-            toast_register_ok: "Account created! Welcome!", toast_pass_changed: "Password changed successfully!",
-            toast_wait: "Please wait...", toast_error: "Error: ", toast_logged_out: "You have logged out",
-            toast_chat_empty: "Message cannot be empty",
-            toast_cooldown: "The mine is still recovering!", toast_activated: "Stone activated!",
-            toast_deactivated: "Active stone removed!"
-        }
-    };
-
-    function t(key) { return I18N[currentLang][key] || key; }
-
-    function randomRarity() {
-        const total = Object.values(RARITIES).reduce((s, r) => s + r.weight, 0);
-        let roll = Math.random() * total;
-        for (const [key, r] of Object.entries(RARITIES)) {
-            if (roll < r.weight) return key;
-            roll -= r.weight;
-        }
-        return "common";
-    }
-
-    function hslToHex(h, s, l) {
-        s /= 100; l /= 100;
-        const a = s * Math.min(l, 1 - l);
-        const f = n => {
-            const k = (n + h / 30) % 12;
-            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-            return Math.round(255 * color).toString(16).padStart(2, "0");
-        };
-        return `#${f(0)}${f(8)}${f(4)}`;
-    }
-
-    function hexToRgb(hex) {
-        return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
-    }
-
-    function hexToHsl(hex) {
-        const { r, g, b } = hexToRgb(hex);
-        const rr = r/255, gg = g/255, bb = b/255;
-        const max = Math.max(rr,gg,bb), min = Math.min(rr,gg,bb);
-        let h, s, l = (max+min)/2;
-        if (max === min) { h = s = 0; }
-        else {
-            const d = max - min;
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) {
-                case rr: h = (gg-bb)/d + (gg < bb ? 6 : 0); break;
-                case gg: h = (bb-rr)/d + 2; break;
-                default: h = (rr-gg)/d + 4;
-            }
-            h /= 6;
-        }
-        return { h: Math.round(h*360), s: Math.round(s*100), l: Math.round(l*100) };
-    }
-
-    function colorName(hex) {
-        const hsl = hexToHsl(hex);
-        const list = currentLang === "uk" ? HUE_NAMES_UK : HUE_NAMES_EN;
-        let baseName = list[0].name;
-        for (const item of list) {
-            if (hsl.h >= item.min && hsl.h < item.max) { baseName = item.name; break; }
-        }
-        const mods = currentLang === "uk" ? LIGHT_MODS_UK : LIGHT_MODS_EN;
-        let prefix = "";
-        if (hsl.l >= 65) prefix = mods.light;
-        else if (hsl.l <= 35) prefix = mods.dark;
-        else if (hsl.s >= 75) prefix = mods.vivid;
-        else if (hsl.s <= 30) prefix = mods.pale;
-        return prefix ? (prefix + " " + baseName) : baseName;
-    }
-
-    function randomColor() {
-        const h = Math.floor(Math.random() * 360);
-        const s = Math.floor(Math.random() * 60 + 40);
-        const l = Math.floor(Math.random() * 40 + 35);
-        return hslToHex(h, s, l);
-    }
-
-    function randomSecondary(h1, s, l) {
-        const h2 = (h1 + Math.floor(Math.random() * 80 + 40)) % 360;
-        return hslToHex(h2, s, l);
-    }
-
-    function pickMod(rarity) {
-        const list = MODS_BY_RARITY[rarity] || ["solid"];
-        return list[Math.floor(Math.random() * list.length)];
-    }
-
-    function pickPatternMod(rarity) {
-        const list = PATTERN_MODS_BY_RARITY[rarity] || ["solid"];
-        return list[Math.floor(Math.random() * list.length)];
-    }
-
-    function getModLabel(mod) {
-        const m = MOD_LABELS[mod] || MOD_LABELS.solid;
-        return currentLang === "uk" ? m.uk : m.en;
-    }
-
-    function generateStone() {
-        const rarity = randomRarity();
-        const patterns = PATTERNS_BY_RARITY[rarity];
-        const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-
-        const primaryHsl = hexToHsl(randomColor());
-        const primary = hslToHex(primaryHsl.h, primaryHsl.s, primaryHsl.l);
-        const secondary = randomSecondary(primaryHsl.h, primaryHsl.s, primaryHsl.l);
-        const baseMod = pickMod(rarity);
-        const usesSecondaryBase = (baseMod === "gradient" || baseMod === "shimmer" || baseMod === "wave");
-        const baseColors = usesSecondaryBase ? [primary, secondary] : [primary];
-
-        const patHsl = hexToHsl(randomColor());
-        const patternColor = hslToHex(patHsl.h, patHsl.s, patHsl.l);
-        const patternColor2 = randomSecondary(patHsl.h, patHsl.s, patHsl.l);
-        const patternColor3 = randomSecondary(patHsl.h, patHsl.s, patHsl.l);
-
-        let patternMod = "solid";
-        if (pattern !== "standard") {
-            patternMod = pickPatternMod(rarity);
-        }
-
-        let patternColors;
-        if (pattern === "nacre") {
-            patternColors = [patternColor, patternColor2, patternColor3];
-        } else if (patternMod === "gradient" || patternMod === "shimmer" || patternMod === "wave") {
-            patternColors = [patternColor, patternColor2];
-        } else {
-            patternColors = [patternColor];
-        }
-
-        let hasGlow = false;
-        let glowColor = null;
-        if (rarity === "legendary" && Math.random() < 0.5) {
-            hasGlow = true;
-            glowColor = randomColor();
-        } else if (rarity === "mythic") {
-            hasGlow = true;
-            glowColor = randomColor();
-        }
-
-        const baseName = usesSecondaryBase
-            ? (colorName(primary) + "→" + colorName(secondary))
-            : colorName(primary);
-        const patternLabel = getPatternLabel(pattern);
-        const name = baseName + " " + patternLabel;
-
-        const id = "s_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-
-        return {
-            id, rarity, pattern,
-            primaryColor: primary,
-            secondaryColor: secondary,
-            baseMod,
-            baseColors,
-            patternMod,
-            patternColors,
-            hasGlow,
-            glowColor,
-            name,
-            obtainedAt: Date.now()
-        };
-    }
-
-    function getRarityLabel(rarity) { return currentLang === "uk" ? RARITIES[rarity].label_uk : RARITIES[rarity].label_en; }
-
-    function getPatternLabel(pattern) {
-        const labels = currentLang === "uk"
-            ? { standard: "Стандарт", dots: "Точки", grid: "Сітка", stripes: "Смуги", waves: "Хвилі", hex: "Шестикутники", leopard: "Леопард", stars: "Зорі", cracks: "Тріщини", diamonds: "Ромби", shards: "Уламки", spiral: "Спіраль", nacre: "Перламутр" }
-            : { standard: "Standard", dots: "Dots", grid: "Grid", stripes: "Stripes", waves: "Waves", hex: "Hex", leopard: "Leopard", stars: "Stars", cracks: "Cracks", diamonds: "Diamonds", shards: "Shards", spiral: "Spiral", nacre: "Nacre" };
-        return labels[pattern] || pattern;
+    function formatNumber(n) {
+        if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+        if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+        if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
+        return Math.floor(n).toString();
     }
 
     async function sha256(text) {
@@ -1833,1173 +568,268 @@
         return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
-    window.toast = function(type, msg) {
-        const container = document.getElementById("toast-container");
-        const el = document.createElement("div");
-        el.className = "toast " + type;
+    // ===== DIALOG =====
+    window.showDialog = function(title, text, icon) {
+        $("dialog-title").textContent = title;
+        $("dialog-text").textContent = text;
+        $("dialog-icon").textContent = icon || "ℹ️";
+        $("dialog-overlay").classList.add("active");
+    };
+    window.closeDialog = function() {
+        $("dialog-overlay").classList.remove("active");
+    };
+
+    // ===== AUTH UI =====
+    window.switchAuthTab = function(tab) {
+        authMode = tab;
+        $("tab-login").classList.toggle("active", tab === "login");
+        $("tab-register").classList.toggle("active", tab === "register");
+        $("confirm-row").style.display = tab === "register" ? "flex" : "none";
+        $("auth-submit").textContent = tab === "login" ? "Увійти" : "Зареєструватись";
+        $("auth-switch-link").textContent = tab === "login"
+            ? "Ще немає акаунта? Зареєструватись"
+            : "Вже є акаунт? Увійти";
+        clearMessages();
+    };
+
+    window.toggleAuthMode = function() {
+        switchAuthTab(authMode === "login" ? "register" : "login");
+    };
+
+    function clearMessages() {
+        $("auth-error").classList.remove("show");
+        $("auth-info").classList.remove("show");
+    }
+    function showError(msg) {
+        const el = $("auth-error");
         el.textContent = msg;
-        container.appendChild(el);
-        setTimeout(() => { el.classList.add("hide"); setTimeout(() => el.remove(), 300); }, 2800);
-    };
-
-    window.setLang = function(lang) {
-        currentLang = lang;
-        document.documentElement.lang = lang;
-        const authLangBtn = document.getElementById("auth-lang-btn");
-        if (authLangBtn) authLangBtn.textContent = lang === "uk" ? "UA" : "EN";
-        const btnLang = document.getElementById("btn-lang");
-        if (btnLang) btnLang.textContent = lang === "uk" ? "UA" : "EN";
-        applyI18n();
-        if (currentUsername) {
-            renderInventory();
-            updateMineUI();
-            if (document.getElementById("my-profile-modal").classList.contains("active")) renderMyProfile();
-        }
-    };
-
-    window.toggleLang = function() { setLang(currentLang === "uk" ? "en" : "uk"); };
-
-    function applyI18n() {
-        document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.getAttribute("data-i18n")); });
-        document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.getAttribute("data-i18n-placeholder")); });
-        refreshAuthUI();
+        el.classList.add("show");
+        $("auth-info").classList.remove("show");
     }
-
-    window.switchAuthMode = function(targetMode) { mode = targetMode; refreshAuthUI(); };
-
-    function refreshAuthUI() {
-        const btn = document.getElementById("auth-btn");
-        const toggleMode = document.getElementById("auth-toggle-mode");
-        const togglePass = document.getElementById("auth-toggle-pass");
-        const newPassContainer = document.getElementById("new-password-container");
-        if (!btn) return;
-
-        if (mode === "login") {
-            btn.innerText = t("btn_login");
-            toggleMode.innerText = t("toggle_to_register"); toggleMode.onclick = () => switchAuthMode("register");
-            togglePass.style.display = "block"; togglePass.innerText = t("toggle_change_pass"); togglePass.onclick = () => switchAuthMode("change-pass");
-            newPassContainer.classList.add("hidden");
-        } else if (mode === "register") {
-            btn.innerText = t("btn_register");
-            toggleMode.innerText = t("toggle_to_login"); toggleMode.onclick = () => switchAuthMode("login");
-            togglePass.style.display = "none"; newPassContainer.classList.add("hidden");
-        } else if (mode === "change-pass") {
-            btn.innerText = t("btn_change_pass");
-            toggleMode.innerText = t("toggle_back_to_login"); toggleMode.onclick = () => switchAuthMode("login");
-            togglePass.style.display = "none"; newPassContainer.classList.remove("hidden");
-        }
+    function showInfo(msg) {
+        const el = $("auth-info");
+        el.textContent = msg;
+        el.classList.add("show");
+        $("auth-error").classList.remove("show");
     }
+    function setStatus(msg) { $("auth-status").textContent = msg; }
 
+    // ===== AUTH LOGIC =====
     window.handleAuth = async function() {
-        const user = document.getElementById("username").value.trim();
-        const pass = document.getElementById("password").value;
-        const btn = document.getElementById("auth-btn");
+        clearMessages();
+        const username = $("auth-username").value.trim();
+        const password = $("auth-password").value;
+        const password2 = $("auth-password2").value;
+        const btn = $("auth-submit");
 
-        if (!user || !pass) { toast("error", t("toast_fill_all")); return; }
-        if (user.length < 3) { toast("error", t("toast_login_short")); return; }
-        if (pass.length < 4) { toast("error", t("toast_pass_short")); return; }
+        if (!username || !password) { showError("Заповніть усі поля!"); return; }
+        if (username.length < 3) { showError("Логін має бути мінімум 3 символи!"); return; }
+        if (username.length > 20) { showError("Логін занадто довгий (макс. 20)!"); return; }
+        if (!/^[a-zA-Z0-9_]+$/.test(username)) { showError("Логін: лише латиниця, цифри, _"); return; }
+        if (password.length < 4) { showError("Пароль має бути мінімум 4 символи!"); return; }
 
-        btn.disabled = true;
-        const btnText = btn.innerText;
-        btn.innerText = t("toast_wait");
-
-        try {
-            const dbRef = ref(db);
-            const passHash = await sha256(pass);
-
-            if (mode === "register") {
-                const snapshot = await get(child(dbRef, `users/${user}`));
-                if (snapshot.exists()) { toast("error", t("toast_user_exists")); return; }
-                await set(ref(db, "users/" + user), { password: passHash, createdAt: Date.now(), lastOnline: Date.now(), lastDig: 0 });
-                toast("success", t("toast_register_ok"));
-                currentUsername = user;
-                try { localStorage.setItem("auth_username", user); localStorage.setItem("auth_hash", passHash); } catch(e) {}
-                showApp();
-            } else if (mode === "login") {
-                const snapshot = await get(child(dbRef, `users/${user}`));
-                if (!snapshot.exists() || snapshot.val().password !== passHash) { toast("error", t("toast_wrong_creds")); return; }
-                currentUsername = user;
-                try { localStorage.setItem("auth_username", user); localStorage.setItem("auth_hash", passHash); } catch(e) {}
-                try { await update(ref(db, `users/${user}`), { lastOnline: Date.now() }); } catch(e) {}
-                showApp();
-            } else if (mode === "change-pass") {
-                const newPass = document.getElementById("new-password").value;
-                if (!newPass) { toast("error", t("toast_enter_new_pass")); return; }
-                if (newPass.length < 4) { toast("error", t("toast_new_pass_short")); return; }
-                const snapshot = await get(child(dbRef, `users/${user}`));
-                if (!snapshot.exists() || snapshot.val().password !== passHash) { toast("error", t("toast_wrong_old_pass")); return; }
-                const newHash = await sha256(newPass);
-                await set(ref(db, `users/${user}/password`), newHash);
-                toast("success", t("toast_pass_changed"));
-                switchAuthMode("login");
-            }
-        } catch (error) {
-            console.error("Помилка:", error);
-            toast("error", t("toast_error") + error.message);
-        } finally {
-            btn.disabled = false; btn.innerText = btnText;
-        }
-    };
-
-    function hasUnlimitedDig() { return currentUsername === UNLIMITED_DIG_USER; }
-    function canWipe() { return currentUsername === WIPE_USER; }
-
-    async function showApp() {
-        document.getElementById("auth-screen").style.display = "none";
-        document.getElementById("auth-lang-btn").style.display = "none";
-        document.getElementById("app-screen").classList.add("active");
-        document.getElementById("top-username").textContent = currentUsername || "---";
-        document.getElementById("top-avatar").textContent = (currentUsername || "?").charAt(0).toUpperCase();
-        document.getElementById("settings-username").textContent = currentUsername || "---";
-        if (canWipe()) document.getElementById("wipe-btn").classList.remove("hidden");
-        else document.getElementById("wipe-btn").classList.add("hidden");
-        await loadUserData();
-        switchTab("mine");
-        startChatListener();
-    }
-
-    async function loadUserData() {
-        try {
-            const snap = await get(child(ref(db), `users/${currentUsername}`));
-            if (snap.exists()) {
-                const data = snap.val();
-                inventory = data.inventory || {};
-                activeStoneId = data.activeStone || null;
-            }
-        } catch(e) { console.error("loadUserData:", e); }
-        updateMineUI();
-        renderInventory();
-    }
-
-    window.switchTab = function(tab) {
-        currentTab = tab;
-        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-        const page = document.getElementById("page-" + tab);
-        const nav = document.getElementById("nav-" + tab);
-        if (page) page.classList.add("active");
-        if (nav) nav.classList.add("active");
-        if (tab === "chat") { const m = document.getElementById("chat-messages"); m.scrollTop = m.scrollHeight; }
-        if (tab === "inventory") renderInventory();
-    };
-
-    async function updateMineUI() {
-        const btn = document.getElementById("mine-btn");
-        const timerEl = document.getElementById("mine-timer");
-        if (!btn) return;
-
-        if (hasUnlimitedDig()) {
-            if (mineTimerInterval) { clearInterval(mineTimerInterval); mineTimerInterval = null; }
-            btn.disabled = false;
-            btn.innerText = t("btn_dig");
-            timerEl.classList.add("hidden");
-            timerEl.textContent = "";
+        if (authMode === "register" && password !== password2) {
+            showError("Паролі не співпадають!");
             return;
         }
 
-        try {
-            const snap = await get(child(ref(db), `users/${currentUsername}/lastDig`));
-            const lastDig = snap.exists() ? snap.val() : 0;
-            const now = Date.now();
-            const nextDig = lastDig + DIG_COOLDOWN_MS;
-
-            if (mineTimerInterval) { clearInterval(mineTimerInterval); mineTimerInterval = null; }
-
-            if (now < nextDig) {
-                btn.disabled = true;
-                btn.innerText = t("btn_dig");
-                timerEl.classList.remove("hidden");
-                const tick = () => {
-                    const remaining = nextDig - Date.now();
-                    if (remaining <= 0) {
-                        clearInterval(mineTimerInterval); mineTimerInterval = null;
-                        btn.disabled = false; timerEl.classList.add("hidden"); updateMineUI();
-                    } else {
-                        const h = Math.floor(remaining / 3600000);
-                        const m = Math.floor((remaining % 3600000) / 60000);
-                        const s = Math.floor((remaining % 60000) / 1000);
-                        timerEl.textContent = t("mine_cooldown") + " " + String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
-                    }
-                };
-                tick();
-                mineTimerInterval = setInterval(tick, 1000);
-            } else {
-                btn.disabled = false;
-                btn.innerText = t("btn_dig");
-                timerEl.classList.add("hidden");
-            }
-        } catch(e) { console.error(e); }
-    }
-
-    window.digMine = async function() {
-        if (!currentUsername) return;
-        const btn = document.getElementById("mine-btn");
         btn.disabled = true;
+        setStatus("Обробка...");
 
         try {
-            if (!hasUnlimitedDig()) {
-                const snap = await get(child(ref(db), `users/${currentUsername}/lastDig`));
-                const lastDig = snap.exists() ? snap.val() : 0;
-                if (Date.now() < lastDig + DIG_COOLDOWN_MS) { toast("info", t("toast_cooldown")); updateMineUI(); return; }
-            }
+            const hash = await sha256(password);
+            const snap = await get(child(ref(db), `users/${username}`));
 
-            const stone = generateStone();
-            await set(ref(db, `users/${currentUsername}/inventory/${stone.id}`), stone);
-            if (!hasUnlimitedDig()) {
-                await update(ref(db, `users/${currentUsername}`), { lastDig: Date.now() });
+            if (authMode === "register") {
+                if (snap.exists()) { showError("Такий користувач вже існує!"); return; }
+                await set(ref(db, `users/${username}`), {
+                    password: hash,
+                    createdAt: Date.now(),
+                    lastOnline: Date.now(),
+                    clicker: {
+                        coins: 0,
+                        totalClicks: 0,
+                        clickPower: 1
+                    }
+                });
+                currentUser = username;
+                try {
+                    localStorage.setItem("w95_user", username);
+                    localStorage.setItem("w95_hash", hash);
+                } catch(e) {}
+                setStatus("Акаунт створено");
+                startGame();
+            } else {
+                if (!snap.exists()) { showError("Користувача не знайдено!"); return; }
+                if (snap.val().password !== hash) { showError("Невірний пароль!"); return; }
+                currentUser = username;
+                try {
+                    localStorage.setItem("w95_user", username);
+                    localStorage.setItem("w95_hash", hash);
+                } catch(e) {}
+                try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e) {}
+                setStatus("Вхід виконано");
+                startGame();
             }
-
-            inventory[stone.id] = stone;
-            pendingRevealStone = stone;
-            showStoneReveal(stone);
-            updateMineUI();
-            renderInventory();
         } catch(e) {
             console.error(e);
-            toast("error", t("toast_error") + e.message);
+            showError("Помилка: " + e.message);
+            setStatus("Помилка");
+        } finally {
+            btn.disabled = false;
         }
     };
 
-    function applyBaseStyle(el, stone) {
-        if (!el) return;
-        el.style.background = "";
-        el.style.backgroundImage = "";
-        el.style.backgroundSize = "";
-        el.style.filter = "";
-        el.classList.remove("mod-shimmer", "mod-pulse", "mod-wave");
-        const c1 = stone.primaryColor, c2 = stone.secondaryColor || c1;
-        switch (stone.baseMod) {
-            case "gradient":
-                el.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
-                break;
-            case "shimmer":
-                el.style.background = `linear-gradient(110deg, ${c1} 0%, ${c2} 25%, ${c1} 50%, ${c2} 75%, ${c1} 100%)`;
-                el.style.backgroundSize = "300% 300%";
-                el.classList.add("mod-shimmer");
-                break;
-            case "pulse":
-                el.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
-                el.classList.add("mod-pulse");
-                break;
-            case "wave":
-                el.style.background = `linear-gradient(120deg, ${c1} 0%, ${c2} 50%, ${c1} 100%)`;
-                el.style.backgroundSize = "200% 200%";
-                el.classList.add("mod-wave");
-                break;
-            case "solid":
-            default:
-                el.style.background = c1;
-                break;
-        }
+    // Enter key
+    ["auth-username", "auth-password", "auth-password2"].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
+    });
+
+    // ===== GAME LOGIC =====
+    async function startGame() {
+        $("auth-window").style.display = "none";
+        $("game-screen").classList.add("active");
+        $("stat-user").textContent = currentUser;
+        $("game-title").textContent = "Win95 Clicker — " + currentUser;
+
+        await loadGame();
+        renderStats();
+
+        if (saveTimer) clearInterval(saveTimer);
+        saveTimer = setInterval(saveGame, SAVE_INTERVAL_MS);
     }
 
-    /* ВИПРАВЛЕНО: gradient тепер задіює ОБИДВА кольори у ВСІХ патернах */
-    function applyPatternStyle(el, pattern, colors, mod) {
-        if (!el) return;
-        el.className = "bubble-pattern pattern-" + pattern;
-        el.style.background = "";
-        el.style.backgroundImage = "";
-        el.style.backgroundSize = "";
-        el.style.backgroundPosition = "";
-        el.style.filter = "";
-        el.style.opacity = "";
-        el.classList.remove("mod-shimmer", "mod-pulse", "mod-wave");
-
-        if (pattern === "standard") return;
-
-        const cols = Array.isArray(colors) ? colors.filter(Boolean) : [colors];
-        const c1 = cols[0] || "rgba(255,255,255,0.5)";
-        const c2 = cols[1] || c1;
-        const c3 = cols[2] || c1;
-        const useGradient = (mod === "gradient");
-
-        let bgImg = "";
-        let bgSize = "";
-
-        switch (pattern) {
-            case "dots":
-                if (useGradient) {
-                    bgImg = `radial-gradient(circle at 30% 30%, ${c1} 1.5px, transparent 2px), radial-gradient(circle at 70% 70%, ${c2} 1.5px, transparent 2px)`;
-                } else {
-                    bgImg = `radial-gradient(circle, ${c1} 1.5px, transparent 2px)`;
-                }
-                bgSize = "14px 14px";
-                break;
-            case "grid":
-                if (useGradient) {
-                    bgImg = `linear-gradient(${c1} 1px, transparent 1px), linear-gradient(90deg, ${c2} 1px, transparent 1px)`;
-                } else {
-                    bgImg = `linear-gradient(${c1} 1px, transparent 1px), linear-gradient(90deg, ${c1} 1px, transparent 1px)`;
-                }
-                bgSize = "16px 16px";
-                break;
-            case "stripes":
-                if (useGradient) {
-                    bgImg = `repeating-linear-gradient(45deg, ${c1} 0px, ${c2} 12px, transparent 12px, transparent 24px)`;
-                } else {
-                    bgImg = `repeating-linear-gradient(45deg, ${c1} 0 6px, transparent 6px 14px)`;
-                }
-                bgSize = "auto";
-                break;
-            case "waves":
-                if (useGradient) {
-                    bgImg = `repeating-radial-gradient(circle at 0 0, transparent 0 8px, ${c1} 8px 10px, ${c2} 10px 12px, transparent 12px 22px)`;
-                } else {
-                    bgImg = `repeating-radial-gradient(circle at 0 0, transparent 0 10px, ${c1} 10px 12px, transparent 12px 22px)`;
-                }
-                bgSize = "40px 40px";
-                break;
-            case "hex":
-                if (useGradient) {
-                    bgImg = `radial-gradient(circle at 50% 50%, ${c1} 2px, transparent 3px), radial-gradient(circle at 50% 50%, ${c2} 8px, transparent 9px)`;
-                } else {
-                    bgImg = `radial-gradient(circle at 50% 50%, ${c1} 2px, transparent 3px), radial-gradient(circle at 50% 50%, ${c1} 8px, transparent 9px)`;
-                }
-                bgSize = "24px 24px";
-                break;
-            case "leopard":
-                if (useGradient) {
-                    bgImg = `radial-gradient(circle at 20% 30%, ${c1} 4px, transparent 5px), radial-gradient(circle at 70% 60%, ${c2} 5px, transparent 6px), radial-gradient(circle at 45% 85%, ${c1} 3px, transparent 4px)`;
-                } else {
-                    bgImg = `radial-gradient(circle at 20% 30%, ${c1} 4px, transparent 5px), radial-gradient(circle at 70% 60%, ${c1} 5px, transparent 6px), radial-gradient(circle at 45% 85%, ${c1} 3px, transparent 4px)`;
-                }
-                bgSize = "30px 30px";
-                break;
-            case "stars":
-                if (useGradient) {
-                    bgImg = `radial-gradient(circle, ${c1} 1px, transparent 2px), radial-gradient(circle, ${c2} 1.5px, transparent 2px)`;
-                } else {
-                    bgImg = `radial-gradient(circle, ${c1} 1px, transparent 2px), radial-gradient(circle, ${c1} 1.5px, transparent 2px)`;
-                }
-                bgSize = "25px 25px, 18px 18px";
-                break;
-            case "cracks":
-                if (useGradient) {
-                    bgImg = `linear-gradient(115deg, transparent 45%, ${c1} 46%, ${c2} 47%, transparent 48%), linear-gradient(65deg, transparent 40%, ${c1} 41%, ${c2} 42%, transparent 43%)`;
-                } else {
-                    bgImg = `linear-gradient(115deg, transparent 45%, ${c1} 46%, ${c1} 47%, transparent 48%), linear-gradient(65deg, transparent 40%, ${c1} 41%, ${c1} 42%, transparent 43%)`;
-                }
-                bgSize = "40px 40px, 50px 50px";
-                break;
-            case "diamonds":
-                if (useGradient) {
-                    bgImg = `conic-gradient(from 45deg, ${c1} 25%, transparent 25% 50%, ${c2} 50% 75%, transparent 75%)`;
-                } else {
-                    bgImg = `conic-gradient(from 45deg, ${c1} 25%, transparent 25% 50%, ${c1} 50% 75%, transparent 75%)`;
-                }
-                bgSize = "24px 24px";
-                break;
-            case "shards":
-                if (useGradient) {
-                    bgImg = `linear-gradient(135deg, ${c1} 0 25%, transparent 25% 50%, ${c2} 50% 75%, transparent 75%), linear-gradient(45deg, ${c2} 0 25%, transparent 25% 50%, ${c1} 50% 75%, transparent 75%)`;
-                } else {
-                    bgImg = `linear-gradient(135deg, ${c1} 0 25%, transparent 25% 50%, ${c1} 50% 75%, transparent 75%), linear-gradient(45deg, ${c1} 0 25%, transparent 25% 50%, ${c1} 50% 75%, transparent 75%)`;
-                }
-                bgSize = "28px 28px";
-                break;
-            case "spiral":
-                if (useGradient) {
-                    bgImg = `repeating-radial-gradient(circle at 50% 50%, ${c1} 0 3px, ${c2} 3px 6px)`;
-                } else {
-                    bgImg = `repeating-radial-gradient(circle at 50% 50%, ${c1} 0 3px, ${c1} 3px 6px)`;
-                }
-                bgSize = "30px 30px";
-                break;
-            case "nacre":
-                bgImg = `linear-gradient(110deg, ${c1} 0%, ${c2} 25%, ${c3} 50%, ${c2} 75%, ${c1} 100%)`;
-                bgSize = "400% 400%";
-                break;
-        }
-
-        el.style.backgroundImage = bgImg;
-        if (bgSize) el.style.backgroundSize = bgSize;
-
-        switch (mod) {
-            case "shimmer":
-                el.style.backgroundRepeat = "repeat";
-                el.classList.add("mod-shimmer");
-                break;
-            case "pulse":
-                el.classList.add("mod-pulse");
-                break;
-            case "wave":
-                el.style.backgroundRepeat = "repeat";
-                el.classList.add("mod-wave");
-                break;
-            case "gradient":
-            case "solid":
-            default:
-                break;
-        }
-    }
-
-    function applyGlow(el, stone) {
-        if (!el) return;
-        if (stone.hasGlow && stone.glowColor) {
-            const c = stone.glowColor;
-            el.style.boxShadow = `0 0 20px ${c}, 0 0 35px ${c}aa, inset 0 0 20px ${c}55`;
-        } else {
-            el.style.boxShadow = "";
-        }
-    }
-
-    function setupMarquee(container, textEl) {
-        if (!container || !textEl) return;
-        textEl.classList.remove("scrolling");
-        textEl.style.removeProperty("--scroll-dist");
-        requestAnimationFrame(() => {
-            const containerW = container.clientWidth;
-            const textW = textEl.scrollWidth;
-            if (textW > containerW) {
-                const dist = -(textW - containerW);
-                textEl.style.setProperty("--scroll-dist", dist + "px");
-                textEl.classList.add("scrolling");
-            }
-        });
-    }
-
-    function renderColorDots(container, colors, useButtons) {
-        if (!container) return;
-        container.innerHTML = "";
-        if (!colors || colors.length === 0) return;
-        colors.forEach((c) => {
-            const el = document.createElement("span");
-            el.style.background = c;
-            if (useButtons) {
-                el.className = "color-dot-btn";
-                el.dataset.color = c;
-                el.dataset.name = colorName(c);
-                el.onclick = (ev) => {
-                    ev.stopPropagation();
-                    showColorTooltip(c, colorName(c));
-                };
-            } else {
-                el.className = "color-dot";
-            }
-            container.appendChild(el);
-        });
-    }
-
-    window.showColorTooltip = function(color, name) {
-        const overlay = document.getElementById("color-tooltip-overlay");
-        document.getElementById("color-tooltip-swatch").style.background = color;
-        document.getElementById("color-tooltip-name").textContent = name;
-        overlay.classList.add("active");
-        clearTimeout(window._tooltipTimer);
-        window._tooltipTimer = setTimeout(() => closeColorTooltip(), 2200);
-    };
-
-    window.closeColorTooltip = function() {
-        document.getElementById("color-tooltip-overlay").classList.remove("active");
-    };
-
-    function showStoneReveal(stone) {
-        document.getElementById("reveal-name").textContent = stone.name;
-
-        const rarityEl = document.getElementById("reveal-rarity");
-        rarityEl.textContent = getRarityLabel(stone.rarity);
-        rarityEl.className = "rarity-badge " + RARITIES[stone.rarity].badge;
-
-        const preview = document.getElementById("reveal-preview");
-        applyBaseStyle(preview, stone);
-        applyGlow(preview, stone);
-        applyPatternStyle(document.getElementById("reveal-pattern"), stone.pattern, stone.patternColors, stone.patternMod);
-
-        renderColorDots(document.getElementById("reveal-base-dots"), stone.baseColors, true);
-        document.getElementById("reveal-pattern-name").textContent = getPatternLabel(stone.pattern);
-        renderColorDots(document.getElementById("reveal-pat-dots"), stone.patternColors, true);
-        document.getElementById("reveal-base-mod").textContent = getModLabel(stone.baseMod);
-        document.getElementById("reveal-pat-mod").textContent = getModLabel(stone.patternMod);
-
-        const glowRow = document.getElementById("reveal-glow-row");
-        if (stone.hasGlow && stone.glowColor) {
-            glowRow.style.display = "flex";
-            renderColorDots(document.getElementById("reveal-glow-dots"), [stone.glowColor], true);
-        } else {
-            glowRow.style.display = "none";
-        }
-
-        document.getElementById("stone-modal").classList.add("active");
-    }
-    window.closeStoneModal = function() { document.getElementById("stone-modal").classList.remove("active"); pendingRevealStone = null; };
-
-    window.activateFromReveal = async function() {
-        if (!pendingRevealStone) return;
-        await activateStone(pendingRevealStone.id);
-        closeStoneModal();
-    };
-
-    window.toggleSort = function() {
-        inventorySort = inventorySort === "rarity" ? "date" : "rarity";
-        document.getElementById("sort-btn").innerText = inventorySort === "rarity" ? t("sort_rarity") : t("sort_date");
-        renderInventory();
-    };
-
-    function rarityOrder(r) { return { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 }[r] || 0; }
-
-    function renderInventory() {
-        const grid = document.getElementById("inventory-grid");
-        const empty = document.getElementById("inv-empty");
-        if (!grid) return;
-        const items = Object.values(inventory);
-        grid.innerHTML = "";
-        if (items.length === 0) { empty.classList.remove("hidden"); grid.style.display = "none"; return; }
-        empty.classList.add("hidden"); grid.style.display = "grid";
-        items.sort((a, b) => {
-            if (inventorySort === "rarity") {
-                const d = rarityOrder(b.rarity) - rarityOrder(a.rarity);
-                if (d !== 0) return d;
-            }
-            return (b.obtainedAt || 0) - (a.obtainedAt || 0);
-        });
-        items.forEach(s => {
-            const card = document.createElement("div");
-            card.className = "inv-card" + (s.id === activeStoneId ? " is-active" : "");
-            card.dataset.stoneId = s.id;
-
-            const isActive = s.id === activeStoneId;
-            card.innerHTML = `
-                ${isActive ? `<div class="active-badge">✓ ${t("active_badge")}</div>` : ""}
-                <div class="stone-preview">
-                    <div class="bubble-pattern" style="position:absolute;inset:0;"></div>
-                </div>
-                <div class="stone-name marquee-container">
-                    <span class="marquee-text">${s.name}</span>
-                </div>
-                <div class="stone-rarity"><span class="rarity-badge ${RARITIES[s.rarity].badge}">${getRarityLabel(s.rarity)}</span></div>
-            `;
-
-            const preview = card.querySelector(".stone-preview");
-            applyBaseStyle(preview, s);
-            applyGlow(preview, s);
-            applyPatternStyle(card.querySelector(".bubble-pattern"), s.pattern, s.patternColors, s.patternMod);
-
-            const nameContainer = card.querySelector(".stone-name");
-            const nameText = card.querySelector(".marquee-text");
-            setupMarquee(nameContainer, nameText);
-
-            card.addEventListener("click", () => openStoneDetail(s.id));
-            card.addEventListener("contextmenu", (e) => { e.preventDefault(); openStoneDetail(s.id); });
-            let touchTimer = null;
-            card.addEventListener("touchstart", () => {
-                touchTimer = setTimeout(() => { openStoneDetail(s.id); touchTimer = null; }, 500);
-            }, { passive: true });
-            card.addEventListener("touchend", () => { if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; } });
-            card.addEventListener("touchmove", () => { if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; } });
-
-            grid.appendChild(card);
-        });
-    }
-
-    function formatDate(ts) {
-        if (!ts) return "—";
-        const d = new Date(ts);
-        return String(d.getDate()).padStart(2,"0") + "." + String(d.getMonth()+1).padStart(2,"0") + "." + d.getFullYear();
-    }
-
-    function fillStoneDetail(s, options) {
-        const opts = options || {};
-        document.getElementById("detail-name").textContent = s.name;
-        const nameContainer = document.getElementById("detail-name-container");
-        setupMarquee(nameContainer, document.getElementById("detail-name"));
-
-        const r = document.getElementById("detail-rarity");
-        r.textContent = getRarityLabel(s.rarity); r.className = "rarity-badge " + RARITIES[s.rarity].badge;
-
-        document.getElementById("detail-pattern-name").textContent = getPatternLabel(s.pattern);
-        document.getElementById("detail-obtained").textContent = formatDate(s.obtainedAt);
-
-        const preview = document.getElementById("detail-preview");
-        applyBaseStyle(preview, s);
-        applyGlow(preview, s);
-        applyPatternStyle(document.getElementById("detail-pattern"), s.pattern, s.patternColors, s.patternMod);
-
-        renderColorDots(document.getElementById("detail-base-dots"), s.baseColors, true);
-        renderColorDots(document.getElementById("detail-pat-dots"), s.patternColors, true);
-        document.getElementById("detail-base-mod").textContent = getModLabel(s.baseMod);
-        document.getElementById("detail-pat-mod").textContent = getModLabel(s.patternMod);
-
-        const glowRow = document.getElementById("detail-glow-row");
-        if (s.hasGlow && s.glowColor) {
-            glowRow.style.display = "flex";
-            renderColorDots(document.getElementById("detail-glow-dots"), [s.glowColor], true);
-        } else {
-            glowRow.style.display = "none";
-        }
-
-        const activateBtn = document.getElementById("detail-activate-btn");
-        if (opts.hideActivate) {
-            activateBtn.style.display = "none";
-        } else {
-            activateBtn.style.display = "";
-            const isActive = s.id === activeStoneId;
-            activateBtn.disabled = false;
-            activateBtn.textContent = isActive ? "✕ " + t("btn_deactivate_stone") : "✓ " + t("btn_activate");
-            activateBtn.onclick = isActive ? deactivateStone : activateFromDetail;
-            activateBtn.classList.toggle("btn-danger-outline", isActive);
-            activateBtn.classList.toggle("btn-primary", !isActive);
-            if (isActive) {
-                activateBtn.style.background = "rgba(239,68,68,0.1)";
-                activateBtn.style.border = "1px solid rgba(239,68,68,0.4)";
-                activateBtn.style.color = "#fca5a5";
-            } else {
-                activateBtn.style.background = "";
-                activateBtn.style.border = "";
-                activateBtn.style.color = "";
-            }
-        }
-
-        document.getElementById("stone-detail-modal").classList.add("active");
-    }
-
-    window.openStoneDetail = function(id) {
-        const s = inventory[id]; if (!s) return;
-        pendingDetailStone = s;
-        viewingOtherStone = null;
-        fillStoneDetail(s, {});
-    };
-    window.closeStoneDetail = function() {
-        document.getElementById("stone-detail-modal").classList.remove("active");
-        pendingDetailStone = null;
-        viewingOtherStone = null;
-        document.getElementById("detail-name").classList.remove("scrolling");
-    };
-
-    window.activateFromDetail = async function() {
-        if (!pendingDetailStone) return;
-        await activateStone(pendingDetailStone.id);
-        closeStoneDetail();
-    };
-
-    async function activateStone(id) {
+    async function loadGame() {
         try {
-            await update(ref(db, `users/${currentUsername}`), { activeStone: id });
-            activeStoneId = id;
-            renderInventory();
-            toast("success", t("toast_activated"));
-            refreshChatStyles();
-        } catch(e) { toast("error", t("toast_error") + e.message); }
-    }
-
-    window.deactivateStone = async function() {
-        try {
-            await update(ref(db, `users/${currentUsername}`), { activeStone: null });
-            activeStoneId = null;
-            renderInventory();
-            renderMyProfile();
-            toast("success", t("toast_deactivated"));
-            refreshChatStyles();
-            closeStoneDetail();
-        } catch(e) { toast("error", t("toast_error") + e.message); }
-    };
-
-    window.wipeAll = function() {
-        if (!canWipe()) return;
-        document.getElementById("wipe-confirm-modal").classList.add("active");
-    };
-    window.closeWipeConfirm = function() {
-        document.getElementById("wipe-confirm-modal").classList.remove("active");
-    };
-    window.confirmWipe = async function() {
-        if (!canWipe()) return;
-        try {
-            await remove(ref(db, "chat/messages"));
-            await remove(ref(db, `users/${currentUsername}/inventory`));
-            await update(ref(db, `users/${currentUsername}`), { activeStone: null });
-            inventory = {};
-            activeStoneId = null;
-            renderInventory();
-            document.getElementById("chat-messages").innerHTML = '<div class="chat-empty" id="chat-empty">' + t("chat_empty") + "</div>";
-            closeWipeConfirm();
-            closeSettings();
-            toast("success", t("toast_wipe_done"));
-            refreshChatStyles();
-        } catch(e) {
-            toast("error", t("toast_error") + e.message);
-        }
-    };
-
-// КІНЕЦЬ ЧАСТИНИ 6/7
-
-          /* ===== ЧАТ ===== */
-    const otherStyles = {};
-
-    function startChatListener() {
-        if (chatStarted) return;
-        chatStarted = true;
-        const container = document.getElementById("chat-messages");
-        container.innerHTML = '<div class="chat-empty" id="chat-empty">' + t("chat_empty") + '</div>';
-        const messagesRef = query(ref(db, "chat/messages"), limitToLast(100));
-        if (chatUnsubscribe) { try { chatUnsubscribe(); } catch(e) {} chatUnsubscribe = null; }
-        chatUnsubscribe = onChildAdded(messagesRef, (snapshot) => {
-            const msg = snapshot.val();
-            if (!msg) return;
-            appendMessage(msg, snapshot.key);
-            if (msg.author && msg.author !== currentUsername) {
-                loadOtherBubbleStyle(msg.author);
-            }
-        });
-    }
-
-    async function loadOtherBubbleStyle(username) {
-        if (otherStyles[username] !== undefined) return;
-        otherStyles[username] = null;
-        try {
-            const snap = await get(child(ref(db), `users/${username}`));
+            const snap = await get(child(ref(db), `users/${currentUser}/clicker`));
             if (snap.exists()) {
                 const data = snap.val();
-                let style = null;
-                if (data.activeStone && data.inventory && data.inventory[data.activeStone]) {
-                    style = data.inventory[data.activeStone];
-                }
-                otherStyles[username] = style;
-                document.querySelectorAll(`.chat-msg[data-author="${CSS.escape(username)}"] .bubble`).forEach(b => {
-                    const pat = b.querySelector(".bubble-pattern");
-                    applyBubbleStyle(b, pat, style);
-                });
-            }
-        } catch(e) {}
-    }
-
-    function applyBubbleStyle(bubbleEl, patEl, stone) {
-        if (!stone) {
-            bubbleEl.classList.add("no-stone");
-            bubbleEl.style.background = "";
-            bubbleEl.style.backgroundImage = "";
-            bubbleEl.style.backgroundSize = "";
-            bubbleEl.style.filter = "";
-            bubbleEl.style.boxShadow = "";
-            bubbleEl.classList.remove("mod-shimmer", "mod-pulse", "mod-wave");
-            if (patEl) { patEl.className = "bubble-pattern"; patEl.style.background = ""; patEl.style.backgroundImage = ""; patEl.style.backgroundSize = ""; patEl.style.backgroundPosition = ""; patEl.classList.remove("mod-shimmer", "mod-pulse", "mod-wave"); }
-            return;
-        }
-        bubbleEl.classList.remove("no-stone");
-        applyBaseStyle(bubbleEl, stone);
-        applyGlow(bubbleEl, stone);
-        const colors = stone.patternColors || (stone.patternColor ? [stone.patternColor, stone.patternColor2] : null);
-        applyPatternStyle(patEl, stone.pattern, colors, stone.patternMod);
-    }
-
-    function appendMessage(msg, msgId) {
-        const empty = document.getElementById("chat-empty");
-        if (empty) empty.remove();
-
-        const container = document.getElementById("chat-messages");
-        const el = document.createElement("div");
-        el.className = "chat-msg" + (msg.author === currentUsername ? " own" : "") + (msg.deleted ? " deleted" : "");
-        el.dataset.author = msg.author || "";
-        el.dataset.msgId = msgId || "";
-
-        const author = document.createElement("div");
-        author.className = "author";
-        author.textContent = msg.author || "?";
-        author.onclick = () => {
-            if (!msg.author) return;
-            if (msg.author === currentUsername) openMyProfile();
-            else openOtherProfile(msg.author);
-        };
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble";
-
-        const patEl = document.createElement("div");
-        patEl.className = "bubble-pattern";
-
-        const text = document.createElement("div");
-        text.className = "bubble-text";
-        if (msg.deleted) {
-            text.textContent = t("chat_deleted").replace("{name}", msg.author || "?");
-        } else {
-            text.textContent = msg.text || "";
-        }
-
-        bubble.appendChild(patEl);
-        bubble.appendChild(text);
-
-        if (msg.author === currentUsername && !msg.deleted) {
-            bubble.addEventListener("contextmenu", (e) => {
-                e.preventDefault();
-                openCtxMenu(e.clientX, e.clientY, msgId);
-            });
-            let touchTimer = null;
-            bubble.addEventListener("touchstart", (e) => {
-                const t0 = e.touches[0];
-                touchTimer = setTimeout(() => {
-                    openCtxMenu(t0.clientX, t0.clientY, msgId);
-                    touchTimer = null;
-                }, 500);
-            }, { passive: true });
-            bubble.addEventListener("touchend", () => { if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; } });
-            bubble.addEventListener("touchmove", () => { if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; } });
-        }
-
-        const time = document.createElement("div");
-        time.className = "time";
-        time.textContent = formatTime(msg.time);
-
-        el.appendChild(author);
-        el.appendChild(bubble);
-        el.appendChild(time);
-        container.appendChild(el);
-
-        if (!msg.deleted) {
-            if (msg.author === currentUsername) {
-                applyMyBubbleStyle(bubble, patEl);
+                gameState = {
+                    coins: Number(data.coins) || 0,
+                    totalClicks: Number(data.totalClicks) || 0,
+                    clickPower: Number(data.clickPower) || 1
+                };
             } else {
-                const st = otherStyles[msg.author];
-                if (st) applyBubbleStyle(bubble, patEl, st);
-                else loadOtherBubbleStyle(msg.author);
-            }
-        }
-
-        container.scrollTop = container.scrollHeight;
-    }
-
-    window.openCtxMenu = function(x, y, msgId) {
-        ctxTargetMsgId = msgId;
-        const menu = document.getElementById("msg-context-menu");
-        menu.classList.add("active");
-        const mw = 180, mh = 60;
-        let left = x, top = y;
-        if (left + mw > window.innerWidth - 10) left = window.innerWidth - mw - 10;
-        if (top + mh > window.innerHeight - 10) top = window.innerHeight - mh - 10;
-        if (left < 10) left = 10;
-        if (top < 10) top = 10;
-        menu.style.left = left + "px";
-        menu.style.top = top + "px";
-    };
-
-    function closeCtxMenu() {
-        document.getElementById("msg-context-menu").classList.remove("active");
-        ctxTargetMsgId = null;
-    }
-
-    window.ctxDeleteMessage = function() {
-        if (!ctxTargetMsgId) { closeCtxMenu(); return; }
-        const id = ctxTargetMsgId;
-        closeCtxMenu();
-        deleteMessage(id);
-    };
-
-    document.addEventListener("click", (e) => {
-        const menu = document.getElementById("msg-context-menu");
-        if (!menu.classList.contains("active")) return;
-        if (!menu.contains(e.target)) closeCtxMenu();
-    });
-    document.addEventListener("scroll", () => {
-        const menu = document.getElementById("msg-context-menu");
-        if (menu.classList.contains("active")) closeCtxMenu();
-    }, true);
-
-    function getMyStone() {
-        if (activeStoneId && inventory[activeStoneId]) return inventory[activeStoneId];
-        return null;
-    }
-
-    function applyMyBubbleStyle(bubbleEl, patEl) {
-        const s = getMyStone();
-        applyBubbleStyle(bubbleEl, patEl, s);
-    }
-
-    function refreshChatStyles() {
-        document.querySelectorAll(".chat-msg.own .bubble").forEach(b => {
-            b.style.background = ""; b.style.backgroundImage = ""; b.style.backgroundSize = ""; b.style.filter = ""; b.style.boxShadow = "";
-            b.classList.remove("mod-shimmer", "mod-pulse", "mod-wave");
-            b.classList.remove("no-stone");
-            const pat = b.querySelector(".bubble-pattern");
-            if (pat) { pat.className = "bubble-pattern"; pat.style.background = ""; pat.style.backgroundImage = ""; pat.style.backgroundSize = ""; pat.style.backgroundPosition = ""; pat.classList.remove("mod-shimmer", "mod-pulse", "mod-wave"); }
-            applyMyBubbleStyle(b, pat);
-        });
-    }
-
-    function formatTime(ts) {
-        if (!ts) return "";
-        const d = new Date(ts);
-        return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
-    }
-
-    window.deleteMessage = async function(msgId) {
-        if (!msgId || !currentUsername) return;
-        try {
-            await update(ref(db, "chat/messages/" + msgId), { deleted: true, text: "" });
-            const el = document.querySelector(`.chat-msg[data-msg-id="${CSS.escape(msgId)}"]`);
-            if (el) {
-                el.classList.add("deleted");
-                const bubble = el.querySelector(".bubble");
-                if (bubble) { bubble.style.background = ""; bubble.style.backgroundImage = ""; bubble.style.boxShadow = ""; bubble.classList.remove("mod-shimmer", "mod-pulse", "mod-wave", "no-stone"); }
-                const pat = el.querySelector(".bubble-pattern");
-                if (pat) pat.className = "bubble-pattern";
-                const txt = el.querySelector(".bubble-text");
-                if (txt) {
-                    txt.textContent = t("chat_deleted").replace("{name}", currentUsername);
-                    txt.style.background = "";
-                    txt.style.webkitBackgroundClip = "";
-                    txt.style.backgroundClip = "";
-                    txt.style.webkitTextFillColor = "";
-                    txt.style.color = "";
-                }
+                gameState = { coins: 0, totalClicks: 0, clickPower: 1 };
             }
         } catch(e) {
-            toast("error", t("toast_error") + e.message);
+            console.error("loadGame:", e);
+            showDialog("Помилка", "Не вдалося завантажити збереження: " + e.message, "⚠️");
         }
-    };
-
-    window.sendMessage = async function() {
-        const input = document.getElementById("chat-input");
-        const text = input.value.trim();
-        if (!text) { toast("error", t("toast_chat_empty")); return; }
-        if (!currentUsername) return;
-        const btn = document.getElementById("chat-send");
-        btn.disabled = true;
-        try {
-            const newRef = push(ref(db, "chat/messages"));
-            await set(newRef, { author: currentUsername, text, time: Date.now() });
-            input.value = "";
-        } catch(e) { toast("error", t("toast_error") + e.message); }
-        finally { btn.disabled = false; input.focus(); }
-    };
-
-    document.getElementById("chat-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
-
-    /* ===== ПРОФІЛЬ ===== */
-    window.openMyProfile = function() {
-        if (!currentUsername) return;
-        renderMyProfile();
-        document.getElementById("my-profile-modal").classList.add("active");
-    };
-    window.closeMyProfile = function() { document.getElementById("my-profile-modal").classList.remove("active"); };
-
-    function renderMyProfile() {
-        document.getElementById("profile-avatar").textContent = (currentUsername || "?").charAt(0).toUpperCase();
-        document.getElementById("profile-name").textContent = currentUsername || "---";
-
-        get(child(ref(db), `users/${currentUsername}/createdAt`)).then(snap => {
-            if (snap.exists()) {
-                document.getElementById("profile-created").textContent = t("stone_obtained") + " " + formatDate(snap.val());
-            }
-        });
-
-        const slot = document.getElementById("active-stone-slot");
-        const deactBtn = document.getElementById("deactivate-stone-btn");
-        if (activeStoneId && inventory[activeStoneId]) {
-            const s = inventory[activeStoneId];
-            slot.innerHTML = `
-                <div class="mini-preview">
-                    <div class="bubble-pattern" style="position:absolute;inset:0;"></div>
-                </div>
-                <div class="info">
-                    <div class="s-name">${s.name}</div>
-                    <div class="s-rarity"><span class="rarity-badge ${RARITIES[s.rarity].badge}">${getRarityLabel(s.rarity)}</span></div>
-                </div>
-            `;
-            const preview = slot.querySelector(".mini-preview");
-            applyBaseStyle(preview, s);
-            applyGlow(preview, s);
-            const colors = s.patternColors || (s.patternColor ? [s.patternColor, s.patternColor2] : null);
-            applyPatternStyle(slot.querySelector(".bubble-pattern"), s.pattern, colors, s.patternMod);
-            deactBtn.classList.remove("hidden");
-        } else {
-            slot.innerHTML = `<div class="empty-msg">${t("profile_no_stone")}</div>`;
-            deactBtn.classList.add("hidden");
-        }
-
-        renderProfilePreview();
     }
 
-    window.openMyActiveStoneDetails = function() {
-        if (!activeStoneId || !inventory[activeStoneId]) return;
-        openStoneDetail(activeStoneId);
-    };
-
-    function renderProfilePreview() {
-        const prev = document.getElementById("profile-preview");
-        const pat = document.getElementById("profile-preview-pattern");
-        const txt = document.getElementById("profile-preview-text");
-        prev.style.background = ""; prev.style.backgroundImage = ""; prev.style.backgroundSize = ""; prev.style.filter = ""; prev.style.boxShadow = "";
-        prev.classList.remove("mod-shimmer", "mod-pulse", "mod-wave");
-        pat.className = "bubble-pattern"; pat.style.background = ""; pat.style.backgroundImage = ""; pat.style.backgroundSize = ""; pat.style.backgroundPosition = ""; pat.classList.remove("mod-shimmer", "mod-pulse", "mod-wave");
-        txt.style.background = ""; txt.style.webkitBackgroundClip = ""; txt.style.backgroundClip = "";
-        txt.style.webkitTextFillColor = ""; txt.style.color = "";
-
-        const s = getMyStone();
-        if (!s) return;
-        applyBaseStyle(prev, s);
-        applyGlow(prev, s);
-        const colors = s.patternColors || (s.patternColor ? [s.patternColor, s.patternColor2] : null);
-        applyPatternStyle(pat, s.pattern, colors, s.patternMod);
+    async function saveGame() {
+        if (!currentUser || isSaving) return;
+        isSaving = true;
+        try {
+            await update(ref(db, `users/${currentUser}/clicker`), {
+                coins: gameState.coins,
+                totalClicks: gameState.totalClicks,
+                clickPower: gameState.clickPower
+            });
+            const now = new Date();
+            $("save-status").textContent = "💾 " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
+        } catch(e) {
+            console.error("saveGame:", e);
+            $("save-status").textContent = "⚠ Помилка";
+        } finally {
+            isSaving = false;
+        }
     }
 
-    window.openOtherProfile = async function(username) {
-        try {
-            const snap = await get(child(ref(db), `users/${username}`));
-            if (!snap.exists()) return;
-            const data = snap.val();
-            viewingOtherUsername = username;
-            document.getElementById("other-avatar").textContent = username.charAt(0).toUpperCase();
-            document.getElementById("other-name").textContent = username;
-            if (data.createdAt) {
-                document.getElementById("other-created").textContent = t("stone_obtained") + " " + formatDate(data.createdAt);
-            }
-            const slot = document.getElementById("other-active-stone");
-            if (data.activeStone && data.inventory && data.inventory[data.activeStone]) {
-                const s = data.inventory[data.activeStone];
-                viewingOtherStone = s;
-                slot.innerHTML = `
-                    <div class="mini-preview">
-                        <div class="bubble-pattern" style="position:absolute;inset:0;"></div>
-                    </div>
-                    <div class="info">
-                        <div class="s-name">${s.name}</div>
-                        <div class="s-rarity"><span class="rarity-badge ${RARITIES[s.rarity].badge}">${getRarityLabel(s.rarity)}</span></div>
-                    </div>
-                `;
-                const preview = slot.querySelector(".mini-preview");
-                applyBaseStyle(preview, s);
-                applyGlow(preview, s);
-                const colors = s.patternColors || (s.patternColor ? [s.patternColor, s.patternColor2] : null);
-                applyPatternStyle(slot.querySelector(".bubble-pattern"), s.pattern, colors, s.patternMod);
-            } else {
-                viewingOtherStone = null;
-                slot.innerHTML = `<div class="empty-msg">${t("profile_no_stone")}</div>`;
-            }
-            document.getElementById("other-profile-modal").classList.add("active");
-        } catch(e) {}
-    };
-    window.closeOtherProfile = function() {
-        document.getElementById("other-profile-modal").classList.remove("active");
-        viewingOtherStone = null;
-        viewingOtherUsername = "";
+    function renderStats() {
+        $("stat-coins").textContent = formatNumber(gameState.coins);
+        $("stat-clicks").textContent = formatNumber(gameState.totalClicks);
+        $("stat-power").textContent = formatNumber(gameState.clickPower);
+    }
+
+    window.doClick = function(event) {
+        if (!currentUser) return;
+
+        gameState.coins += gameState.clickPower;
+        gameState.totalClicks += 1;
+        renderStats();
+
+        // Floating text
+        const floatEl = document.createElement("div");
+        floatEl.className = "float-text";
+        floatEl.textContent = "+" + gameState.clickPower;
+        const x = (event && event.clientX) || (window.innerWidth / 2);
+        const y = (event && event.clientY) || (window.innerHeight / 2);
+        floatEl.style.left = x + "px";
+        floatEl.style.top = y + "px";
+        floatEl.style.transform = "translate(-50%, -50%)";
+        document.body.appendChild(floatEl);
+        setTimeout(() => floatEl.remove(), 800);
     };
 
-    window.openOtherActiveStoneDetails = function() {
-        if (!viewingOtherStone) return;
-        fillStoneDetail(viewingOtherStone, { hideActivate: true });
-    };
-
-    /* ===== ШАНСИ ===== */
-    window.openChances = function() { document.getElementById("chances-modal").classList.add("active"); };
-    window.closeChances = function() { document.getElementById("chances-modal").classList.remove("active"); };
-
-    /* ===== НАЛАШТУВАННЯ ===== */
-    window.openSettings = function() {
-        document.getElementById("settings-username").textContent = currentUsername || "---";
-        if (canWipe()) document.getElementById("wipe-btn").classList.remove("hidden");
-        else document.getElementById("wipe-btn").classList.add("hidden");
-        document.getElementById("settings-modal").classList.add("active");
-    };
-    window.closeSettings = function() {
-        document.getElementById("settings-modal").classList.remove("active");
-        document.getElementById("settings-old-pass").value = "";
-        document.getElementById("settings-new-pass").value = "";
-    };
-    document.getElementById("settings-modal").addEventListener("click", (e) => { if (e.target.id === "settings-modal") closeSettings(); });
-    document.getElementById("stone-modal").addEventListener("click", (e) => { if (e.target.id === "stone-modal") closeStoneModal(); });
-    document.getElementById("my-profile-modal").addEventListener("click", (e) => { if (e.target.id === "my-profile-modal") closeMyProfile(); });
-    document.getElementById("other-profile-modal").addEventListener("click", (e) => { if (e.target.id === "other-profile-modal") closeOtherProfile(); });
-    document.getElementById("chances-modal").addEventListener("click", (e) => { if (e.target.id === "chances-modal") closeChances(); });
-    document.getElementById("stone-detail-modal").addEventListener("click", (e) => { if (e.target.id === "stone-detail-modal") closeStoneDetail(); });
-    document.getElementById("wipe-confirm-modal").addEventListener("click", (e) => { if (e.target.id === "wipe-confirm-modal") closeWipeConfirm(); });
-
-    window.changePasswordFromSettings = async function() {
-        const oldPass = document.getElementById("settings-old-pass").value;
-        const newPass = document.getElementById("settings-new-pass").value;
-        if (!oldPass || !newPass) { toast("error", t("toast_fill_all")); return; }
-        if (newPass.length < 4) { toast("error", t("toast_new_pass_short")); return; }
-        try {
-            const dbRef = ref(db);
-            const oldHash = await sha256(oldPass);
-            const snapshot = await get(child(dbRef, `users/${currentUsername}`));
-            if (!snapshot.exists() || snapshot.val().password !== oldHash) { toast("error", t("toast_wrong_old_pass")); return; }
-            const newHash = await sha256(newPass);
-            await set(ref(db, `users/${currentUsername}/password`), newHash);
-            try { localStorage.setItem("auth_hash", newHash); } catch(e) {}
-            toast("success", t("toast_pass_changed"));
-            closeSettings();
-        } catch(error) { toast("error", t("toast_error") + error.message); }
-    };
-
-    /* ===== ВИХІД ===== */
+    // ===== LOGOUT =====
     window.logout = async function() {
-        if (currentUsername) { try { await update(ref(db), { ["users/" + currentUsername + "/lastOnline"]: Date.now() }); } catch(e) {} }
-        try { localStorage.removeItem("auth_username"); localStorage.removeItem("auth_hash"); } catch(e) {}
-        currentUsername = ""; chatStarted = false; inventory = {}; activeStoneId = null;
-        viewingOtherStone = null; viewingOtherUsername = "";
-        if (chatUnsubscribe) { try { chatUnsubscribe(); } catch(e) {} chatUnsubscribe = null; }
-        if (mineTimerInterval) { clearInterval(mineTimerInterval); mineTimerInterval = null; }
-        closeCtxMenu();
-        closeColorTooltip();
-        document.getElementById("app-screen").classList.remove("active");
-        document.getElementById("auth-screen").style.display = "flex";
-        document.getElementById("auth-lang-btn").style.display = "flex";
-        document.getElementById("username").value = "";
-        document.getElementById("password").value = "";
-        document.getElementById("new-password").value = "";
-        document.getElementById("chat-messages").innerHTML = '<div class="chat-empty" id="chat-empty">' + t("chat_empty") + "</div>";
-        closeSettings(); closeMyProfile(); closeOtherProfile(); closeStoneModal(); closeStoneDetail(); closeChances(); closeWipeConfirm();
-        switchAuthMode("login");
-        toast("info", t("toast_logged_out"));
+        if (currentUser) {
+            await saveGame();
+            try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
+        }
+        try {
+            localStorage.removeItem("w95_user");
+            localStorage.removeItem("w95_hash");
+        } catch(e) {}
+
+        currentUser = "";
+        gameState = { coins: 0, totalClicks: 0, clickPower: 1 };
+        if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
+
+        $("game-screen").classList.remove("active");
+        $("auth-window").style.display = "flex";
+        $("auth-username").value = "";
+        $("auth-password").value = "";
+        $("auth-password2").value = "";
+        switchAuthTab("login");
+        setStatus("Вихід виконано");
     };
 
-    /* ===== АВТООНОВЛЕННЯ ===== */
-    async function fetchServerVersion() {
-        try {
-            const res = await fetch("index.html?t=" + Date.now(), { cache: "no-store" });
-            if (!res.ok) return null;
-            const html = await res.text();
-            const m = html.match(/<meta\s+name=["']version["']\s+content=["']([^"']+)["']/i);
-            return m ? m[1] : null;
-        } catch(e) { return null; }
-    }
-    async function checkVersion() {
-        const sv = await fetchServerVersion();
-        if (!sv) return;
-        if (sv !== APP_VERSION) {
-            try { localStorage.setItem("app_version", sv); } catch(e) {}
-            console.log("Нова версія:", sv, "— перезавантаження...");
-            location.reload();
+    // Save on page close
+    window.addEventListener("beforeunload", () => {
+        if (currentUser) {
+            // synchronous attempt (best effort)
+            try {
+                update(ref(db, `users/${currentUser}/clicker`), {
+                    coins: gameState.coins,
+                    totalClicks: gameState.totalClicks,
+                    clickPower: gameState.clickPower
+                });
+            } catch(e) {}
         }
-    }
+    });
 
-    /* ===== АВТОВХІД ===== */
+    // ===== AUTO LOGIN =====
     (async function autoLogin() {
         try {
-            const savedUser = localStorage.getItem("auth_username");
-            const savedHash = localStorage.getItem("auth_hash");
+            const savedUser = localStorage.getItem("w95_user");
+            const savedHash = localStorage.getItem("w95_hash");
             if (!savedUser || !savedHash) return;
-            const snapshot = await get(child(ref(db), `users/${savedUser}`));
-            if (snapshot.exists() && snapshot.val().password === savedHash) {
-                currentUsername = savedUser;
-                try { await update(ref(db), { ["users/" + savedUser + "/lastOnline"]: Date.now() }); } catch(e) {}
-                showApp();
+
+            const snap = await get(child(ref(db), `users/${savedUser}`));
+            if (snap.exists() && snap.val().password === savedHash) {
+                currentUser = savedUser;
+                try { await update(ref(db, `users/${savedUser}`), { lastOnline: Date.now() }); } catch(e) {}
+                startGame();
             } else {
-                try { localStorage.removeItem("auth_username"); localStorage.removeItem("auth_hash"); } catch(e) {}
+                try {
+                    localStorage.removeItem("w95_user");
+                    localStorage.removeItem("w95_hash");
+                } catch(e) {}
             }
-        } catch(e) { console.error("Помилка автовходу:", e); }
+        } catch(e) {
+            console.error("autoLogin:", e);
+        }
     })();
 
+    // ===== INIT =====
     document.addEventListener("DOMContentLoaded", () => {
-        ["username", "password", "new-password"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAuth(); });
-        });
-        ["settings-old-pass", "settings-new-pass"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener("keydown", (e) => { if (e.key === "Enter") changePasswordFromSettings(); });
-        });
-        applyI18n();
-        try { localStorage.setItem("app_version", APP_VERSION); } catch(e) {}
-        checkVersion();
-        setInterval(checkVersion, 60000);
-        document.addEventListener("visibilitychange", () => {
-            if (!document.hidden && currentUsername) updateMineUI();
-        });
-        window.addEventListener("resize", () => {
-            document.querySelectorAll(".marquee-text").forEach(el => {
-                const c = el.closest(".marquee-container");
-                if (c) setupMarquee(c, el);
-            });
-        });
-        console.log("%cUniqueStone v" + APP_VERSION, "color:#38bdf8;font-weight:bold;font-size:14px;");
+        switchAuthTab("login");
+        $("auth-username").focus();
+        console.log("%cWin95 Clicker v" + APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace;");
     });
 </script>
 </body>
