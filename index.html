@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="1.6.0">
-<title>Win95 Clicker — v1.6.0</title>
+<meta name="version" content="1.6.1">
+<title>Win95 Clicker — v1.6.1</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;width:100%;overflow:hidden}
@@ -82,15 +82,14 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 .xp-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
 .course-blocker{background:#ffffcc;border:1px solid #808080;padding:10px 12px;font-size:13px;color:#800000;text-align:center;margin-bottom:4px;display:none;line-height:1.4}
 .course-blocker.show{display:block}
-    /* MAP */
+
+/* MAP */
 .map-container{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:#7a7a7a;border:2px inset #808080;position:relative;padding:6px}
 .map-stage{position:relative;width:100%;aspect-ratio:900/560;background:#8a8a8a;overflow:hidden}
 .map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,0,0,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.12) 1px,transparent 1px);background-size:5% 8%;pointer-events:none}
-.map-road{position:absolute;background:#5a5a5a;box-shadow:inset 0 0 0 1px #4a4a4a;z-index:1}
 .map-plot{position:absolute;background:#c8b88a;border:2px solid #8a7a4a;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#3a2a0a;transition:transform .1s,box-shadow .1s;z-index:5;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;box-shadow:2px 2px 0 rgba(0,0,0,.3);overflow:hidden;padding:2px;text-align:center;line-height:1.1}
 .map-plot:hover{transform:translateY(-2px);box-shadow:3px 4px 0 rgba(0,0,0,.35)}
 .map-plot:active{transform:scale(.97)}
-.map-plot.empty{background:#c8b88a;border-color:#8a7a4a}
 .map-plot.owned-self{background:#7fd47f;border-color:#2d7a2d;color:#0a2a0a}
 .map-plot.owned-other{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.6)}
 .map-plot.locked{background:#9a9a9a;border-color:#6a6a6a;color:#505050;cursor:not-allowed}
@@ -99,8 +98,6 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 .map-plot .plot-owner{font-size:9px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .map-plot .plot-price{font-size:9px;margin-top:1px;opacity:.85;font-family:"Courier New",monospace}
 .map-plot .plot-name{font-size:9px;opacity:.7}
-
-/* Спеціальні будівлі */
 .map-building{position:absolute;border:2px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;z-index:6;transition:transform .1s,box-shadow .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;box-shadow:3px 3px 0 rgba(0,0,0,.4);padding:4px;text-align:center;line-height:1.15}
 .map-building:hover{transform:translateY(-2px);box-shadow:4px 5px 0 rgba(0,0,0,.45)}
 .map-building:active{transform:scale(.97)}
@@ -109,8 +106,6 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 .map-building .bld-icon{font-size:22px;line-height:1}
 .map-building .bld-name{font-size:10px;font-weight:bold;margin-top:2px}
 .map-building .bld-sub{font-size:9px;opacity:.85}
-
-/* Інфо-панель під мапою */
 .map-info-panel{background:#c0c0c0;border:2px groove #fff;padding:10px;margin-top:10px;display:none;gap:8px;flex-direction:column}
 .map-info-panel.show{display:flex}
 .map-info-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
@@ -166,29 +161,24 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 .bank-blocked{background:#ffffcc;border:2px solid #a00000;padding:10px;color:#800000;text-align:center;font-weight:bold;display:none;margin-bottom:8px;line-height:1.4}
 .bank-blocked.show{display:block}
 
-/* DIALOG */
+/* DIALOG + MISC */
 .dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .dialog-overlay.active{display:flex}
 .dialog{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;box-shadow:2px 2px 0 #000;width:100%;max-width:340px}
 .dialog-body{padding:16px 14px;display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45}
 .dialog-icon{font-size:32px;flex-shrink:0}
-.dialog-text{flex:1}
-.dialog-text .msg{white-space:pre-line}
-
-/* MISC */
+.dialog-text{flex:1;white-space:pre-line}
 .tab-content{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
 .tab-content .page{flex:1}
 .sub-title{font-size:13px;color:#000;font-weight:bold;margin-bottom:4px}
 .muted{color:#808080;font-size:12px}
-.float-text{position:fixed;pointer-events:none;font-weight:bold;font-size:18px;color:#008000;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;animation:floatUp .8s ease-out forwards;z-index:9999;font-family:"Courier New",monospace}
-@keyframes floatUp{0%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-70px) scale(1.3)}}
 
 @media(min-width:600px){body{padding:20px;align-items:center}.window{max-width:520px;height:calc(100vh - 40px);max-height:860px;box-shadow:2px 2px 0 #000}#big-click{width:260px;height:160px}.big-coins-display{font-size:30px}.stats-grid{grid-template-columns:repeat(3,1fr)}}
 @media(min-width:900px){.window{max-width:720px}.tab-content{padding:16px}#big-click{width:280px;height:170px}#big-click .big-emoji{font-size:60px}}
 </style>
 </head>
 <body>
-        <!-- AUTH -->
+<!-- AUTH -->
 <div class="window" id="auth-window">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -216,7 +206,7 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v1.6.0</div>
+        <div class="panel small">v1.6.1</div>
     </div>
 </div>
 
@@ -240,7 +230,7 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
     </div>
 
     <div class="tab-content">
-        <!-- РОБОТА / БАНК (один контейнер, дві сторінки) -->
+        <!-- РОБОТА -->
         <div class="page active" id="page-work">
             <div class="group-box" data-label="Статистика">
                 <div class="stats-grid">
@@ -285,7 +275,7 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
                     <div class="btn-row"><button class="btn" id="credit-repay-btn" onclick="repayCredit()">Погасити</button></div>
                 </div>
             </div>
-            <div class="muted">Кредит: 5% відсотків, термін 30 хв. Прострочка — автосписання 10% монет кожні 5 хв.</div>
+            <div class="muted">Кредит: 5% відсотків, термін 30 хв. Прострочка — автосписання 10% боргу кожні 5 хв + блокування роботи.</div>
         </div>
                 <!-- МАПА -->
         <div class="page" id="page-map">
@@ -364,7 +354,7 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, child, update, onValue, off, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.6.1";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -393,65 +383,35 @@ const COURSES = [
 ];
 
 // ===== ДАНІ МАПИ =====
-// Координати та розміри в % від 900x560 (щоб масштабувалось)
-// Всі 16 ділянок різні. Банк і КовельКорп — окремі будівлі.
 const MAP_W = 900, MAP_H = 560;
+const BASE_PLOT_PRICE = 500;
+
 const MAP_BUILDINGS = [
     { id: "bank", name: "Банк", icon: "🏦", cls: "bank", x: 380, y: 230, w: 140, h: 100, sub: "Кредити" },
     { id: "corp", name: "КовельКорп", icon: "🏢", cls: "corp", x: 380, y: 30,  w: 140, h: 90, sub: "Робота" }
 ];
 
-// Ділянки: різні розміри, вільне розміщення, вирівняні по сітці 900x560
-// Бонуси: bank/corp = близькість до будівлі (додається при розрахунку ціни)
+// 16 ділянок. БЕЗ basePrice — ціна рахується тільки від оточення.
 const MAP_PLOTS_BASE = [
-    // Ліва колонка
-    { id: 0,  name: "A1", x: 20,  y: 30,  w: 120, h: 110, basePrice: 400 },
-    { id: 1,  name: "A2", x: 20,  y: 160, w: 120, h: 90,  basePrice: 500 },
-    { id: 2,  name: "A3", x: 20,  y: 270, w: 120, h: 120, basePrice: 700 },
-    { id: 3,  name: "A4", x: 20,  y: 410, w: 120, h: 120, basePrice: 900 },
-
-    // Друга колонка
-    { id: 4,  name: "B1", x: 160, y: 30,  w: 100, h: 140, basePrice: 800 },
-    { id: 5,  name: "B2", x: 160, y: 190, w: 100, h: 160, basePrice: 1200 },
-    { id: 6,  name: "B3", x: 160, y: 370, w: 100, h: 160, basePrice: 1500 },
-
-    // Центр (навколо Банку/Корпу) — дорожчі
-    { id: 7,  name: "C1", x: 280, y: 30,  w: 90,  h: 90,  basePrice: 2000 },
-    { id: 8,  name: "C2", x: 280, y: 140, w: 90,  h: 80,  basePrice: 2800 },
-    { id: 9,  name: "C3", x: 280, y: 350, w: 90,  h: 90,  basePrice: 3500 },
-    { id: 10, name: "C4", x: 280, y: 450, w: 90,  h: 80,  basePrice: 4500 },
-
-    // Права колонка
-    { id: 11, name: "D1", x: 540, y: 30,  w: 130, h: 130, basePrice: 5500 },
-    { id: 12, name: "D2", x: 540, y: 180, w: 130, h: 160, basePrice: 7500 },
-    { id: 13, name: "D3", x: 540, y: 360, w: 130, h: 170, basePrice: 9000 },
-
-    // Далекий край
-    { id: 14, name: "E1", x: 690, y: 30,  w: 180, h: 240, basePrice: 12000 },
-    { id: 15, name: "E2", x: 690, y: 290, w: 180, h: 240, basePrice: 18000 }
+    { id: 0,  name: "A1", x: 20,  y: 30,  w: 120, h: 110 },
+    { id: 1,  name: "A2", x: 20,  y: 160, w: 120, h: 90  },
+    { id: 2,  name: "A3", x: 20,  y: 270, w: 120, h: 120 },
+    { id: 3,  name: "A4", x: 20,  y: 410, w: 120, h: 120 },
+    { id: 4,  name: "B1", x: 160, y: 30,  w: 100, h: 140 },
+    { id: 5,  name: "B2", x: 160, y: 190, w: 100, h: 160 },
+    { id: 6,  name: "B3", x: 160, y: 370, w: 100, h: 160 },
+    { id: 7,  name: "C1", x: 280, y: 30,  w: 90,  h: 90  },
+    { id: 8,  name: "C2", x: 280, y: 140, w: 90,  h: 80  },
+    { id: 9,  name: "C3", x: 280, y: 350, w: 90,  h: 90  },
+    { id: 10, name: "C4", x: 280, y: 450, w: 90,  h: 80  },
+    { id: 11, name: "D1", x: 540, y: 30,  w: 130, h: 130 },
+    { id: 12, name: "D2", x: 540, y: 180, w: 130, h: 160 },
+    { id: 13, name: "D3", x: 540, y: 360, w: 130, h: 170 },
+    { id: 14, name: "E1", x: 690, y: 30,  w: 180, h: 240 },
+    { id: 15, name: "E2", x: 690, y: 290, w: 180, h: 240 }
 ];
 
-// Динамічні бонуси: за близькість до Банку/Корпу + за кожного купленого сусіда
-const ADJACENCY_DIST = 140; // px — якщо центри ділянок ближче, вважаються сусідами
-
 function plotCenter(p) { return { cx: p.x + p.w/2, cy: p.y + p.h/2 }; }
-
-function getPlotNeighbors(plotId) {
-    const a = MAP_PLOTS_BASE.find(p => p.id === plotId);
-    if (!a) return [];
-    const ca = plotCenter(a);
-    return MAP_PLOTS_BASE.filter(b => {
-        if (b.id === plotId) return false;
-        const cb = plotCenter(b);
-        const dx = ca.cx - cb.cx, dy = ca.cy - cb.cy;
-        return Math.sqrt(dx*dx + dy*dy) < ADJACENCY_DIST;
-    }).map(b => b.id);
-}
-
-// Скільки сусідів куплено (передаємо мапу owners: { plotId: owner })
-function countOwnedNeighbors(plotId, owners) {
-    return getPlotNeighbors(plotId).filter(id => owners && owners[id]).length;
-}
 
 // Бонус від близькості до Банку/Корпу (у %)
 function getBuildingProximityBonus(plot) {
@@ -460,20 +420,51 @@ function getBuildingProximityBonus(plot) {
         const bcx = b.x + b.w/2, bcy = b.y + b.h/2;
         const pcx = plot.x + plot.w/2, pcy = plot.y + plot.h/2;
         const d = Math.sqrt((bcx-pcx)**2 + (bcy-pcy)**2);
-        if (d < 120) bonus += 30;
-        else if (d < 200) bonus += 15;
-        else if (d < 300) bonus += 5;
+        if (d < 120) bonus += 40;
+        else if (d < 200) bonus += 20;
+        else if (d < 300) bonus += 10;
     });
-    return bonus; // у %
+    return bonus;
 }
 
-// Фінальна ціна ділянки: базова + бонуси (у %)
+// Бонус від густоти інших ділянок навколо (у %)
+function getDensityBonus(plot) {
+    const c = plotCenter(plot);
+    let count = 0;
+    MAP_PLOTS_BASE.forEach(other => {
+        if (other.id === plot.id) return;
+        const oc = plotCenter(other);
+        const d = Math.sqrt((c.cx-oc.cx)**2 + (c.cy-oc.cy)**2);
+        if (d < 160) count++;
+    });
+    return count * 5;
+}
+
+// Сусіди (для бонусу від куплених)
+function getPlotNeighbors(plotId) {
+    const a = MAP_PLOTS_BASE.find(p => p.id === plotId);
+    if (!a) return [];
+    const ca = plotCenter(a);
+    return MAP_PLOTS_BASE.filter(b => {
+        if (b.id === plotId) return false;
+        const cb = plotCenter(b);
+        const dx = ca.cx - cb.cx, dy = ca.cy - cb.cy;
+        return Math.sqrt(dx*dx + dy*dy) < 160;
+    }).map(b => b.id);
+}
+
+function countOwnedNeighbors(plotId, owners) {
+    return getPlotNeighbors(plotId).filter(id => owners && owners[id]).length;
+}
+
+// Фінальна ціна: базова × (1 + близькість до будівель + густота + куплені сусіди)
 function calcPlotPrice(plot, owners) {
     const proximity = getBuildingProximityBonus(plot);
+    const density = getDensityBonus(plot);
     const neighbors = countOwnedNeighbors(plot.id, owners);
-    const neighborBonus = neighbors * 10; // +10% за кожного купленого сусіда
-    const totalMultiplier = 1 + (proximity + neighborBonus) / 100;
-    return Math.floor(plot.basePrice * totalMultiplier);
+    const neighborBonus = neighbors * 10;
+    const totalMultiplier = 1 + (proximity + density + neighborBonus) / 100;
+    return Math.floor(BASE_PLOT_PRICE * totalMultiplier);
 }
     const firebaseConfig = {
     apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
@@ -499,7 +490,6 @@ let gameState = {
     completedCourses: [], xpBoost: 0,
     credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 }
 };
-// Спільна мапа: { plotId: { owner, price, boughtAt } }
 let sharedPlots = {};
 let mapListener = null;
 let selectedPlotId = null;
@@ -534,7 +524,6 @@ async function sha256(text) {
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,"0")).join("");
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-// Унікальний колір з ніка (HSL)
 function colorFromName(name) {
     let h = 0;
     for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
@@ -673,7 +662,6 @@ function startLiveSync() {
     });
 }
 
-// Спільна мапа: слухаємо вузол plots/
 function startMapSync() {
     if (mapListener) { off(mapListener); mapListener = null; }
     mapListener = onValue(ref(db, "plots"), snap => {
@@ -736,33 +724,22 @@ function checkCourseCompletion() {
 function isBankBlocked() {
     return gameState.credit && gameState.credit.amount > 0 && gameState.credit.overdue;
 }
-
 function getCreditLimit() {
     const jobLimit = getCurrentJob().creditLimit || 0;
     const balanceLimit = Math.floor(gameState.coins * 0.5);
     return Math.max(jobLimit, balanceLimit);
 }
-
 window.takeCredit = async function() {
     if (gameState.credit.amount > 0) return showDialog("Кредит уже є", "Спочатку погасіть поточний борг.", "⚠️");
     const limit = getCreditLimit();
     if (limit <= 0) return showDialog("Ліміт 0", "Заробіть більше або підвищіть посаду.", "💸");
-    // Беремо фіксовану суму (можна було б дати вибір, але за ТЗ — автоматично)
-    const amount = limit;
     const now = Date.now();
-    gameState.credit = {
-        amount: amount,
-        takenAt: now,
-        dueAt: now + 30*60*1000, // 30 хв
-        overdue: false,
-        lastPenaltyAt: 0
-    };
-    gameState.coins += amount;
+    gameState.credit = { amount: limit, takenAt: now, dueAt: now + 30*60*1000, overdue: false, lastPenaltyAt: 0 };
+    gameState.coins += limit;
     renderAll(); saveGame();
-    setGameStatus("Кредит взято: +" + formatNumber(amount));
-    showDialog("Кредит взято!", "Сума: " + formatNumberFull(amount) + "\nПовернути до: +30 хв", "🏦");
+    setGameStatus("Кредит взято: +" + formatNumber(limit));
+    showDialog("Кредит взято!", "Сума: " + formatNumberFull(limit) + "\nПовернути до: +30 хв", "🏦");
 };
-
 window.repayCredit = async function() {
     const debt = gameState.credit.amount;
     if (debt <= 0) return;
@@ -773,23 +750,20 @@ window.repayCredit = async function() {
     setGameStatus("Кредит погашено");
     showDialog("Кредит погашено!", "Борг закрито.", "✅");
 };
-
 function checkCreditPenalties() {
     const c = gameState.credit;
     if (!c || c.amount <= 0) return;
     const now = Date.now();
     if (now < c.dueAt) return;
     if (!c.overdue) { c.overdue = true; c.lastPenaltyAt = now; setGameStatus("Кредит прострочено!"); }
-    // Штраф 10% монет кожні 5 хв
     if (now - c.lastPenaltyAt >= 5*60*1000) {
         const penalty = Math.floor(c.amount * 0.1);
-        c.amount += penalty; // борг росте
+        c.amount += penalty;
         c.lastPenaltyAt = now;
         renderAll(); saveGame();
         setGameStatus("Штраф за прострочку: +" + formatNumber(penalty) + " до боргу");
     }
 }
-
 function startCreditTimer() {
     if (creditTimerInterval) clearInterval(creditTimerInterval);
     creditTimerInterval = setInterval(() => {
@@ -797,17 +771,12 @@ function startCreditTimer() {
         if (currentPage === "bank") renderBank();
     }, 5000);
 }
-    // ===== РЕНДЕР =====
-function renderAll() {
-    renderStats();
-    renderTask();
-    renderJobsList();
-    renderShop();
-    renderMap();
-    renderBank();
-    updateWorkButtonState();
-}
 
+// ===== РЕНДЕР =====
+function renderAll() {
+    renderStats(); renderTask(); renderJobsList(); renderShop();
+    renderMap(); renderBank(); updateWorkButtonState();
+}
 function renderStats() {
     const job = getCurrentJob();
     $("stat-coins").textContent = formatNumber(gameState.coins);
@@ -821,7 +790,6 @@ function renderStats() {
     $("xp-text").textContent = job.xpNeeded === 0 ? "Макс. рівень" : formatNumber(gameState.xp) + " / " + formatNumber(needed);
     $("promote-btn").classList.toggle("show", job.xpNeeded > 0 && gameState.xp >= job.xpNeeded);
 }
-
 function renderTask() {
     const job = getCurrentJob();
     const needed = job.taskClicks;
@@ -831,7 +799,6 @@ function renderTask() {
     $("task-reward").textContent = "Нагорода: " + formatNumberFull(job.taskReward) + " 💰";
     $("task-title").textContent = gameState.taskActive ? "Поточна задача (" + job.name + ")" : "Задача не почата";
 }
-
 function updateWorkButtonState() {
     const btn = $("big-click"), label = $("big-click-label"), blocker = $("course-blocker");
     if (isBankBlocked()) {
@@ -847,7 +814,6 @@ function updateWorkButtonState() {
         label.textContent = gameState.taskActive ? "ПРАЦЮВАТИ" : "ПОЧАТИ ЗАДАЧУ";
     }
 }
-
 function renderJobsList() {
     let html = "";
     JOBS.forEach((job, i) => {
@@ -860,7 +826,6 @@ function renderJobsList() {
     });
     $("jobs-list").innerHTML = html;
 }
-
 function renderShop() {
     let html = "";
     COURSES.forEach(c => {
@@ -877,12 +842,9 @@ function renderShop() {
     });
     $("shop-list").innerHTML = html;
 }
-
-// ===== РЕНДЕР МАПИ =====
 function renderMap() {
     const plotsLayer = $("map-plots"), bldLayer = $("map-buildings");
     let html = "";
-
     MAP_PLOTS_BASE.forEach(p => {
         const owned = sharedPlots[p.id];
         const price = calcPlotPrice(p, sharedPlots);
@@ -892,16 +854,13 @@ function renderMap() {
             : (canAfford ? "" : "locked");
         const selected = selectedPlotId === p.id ? " selected" : "";
         let style = `left:${p.x/MAP_W*100}%;top:${p.y/MAP_H*100}%;width:${p.w/MAP_W*100}%;height:${p.h/MAP_H*100}%`;
-        if (owned && owned.owner !== currentUser) {
-            style += `;background:${colorFromName(owned.owner)}`;
-        }
+        if (owned && owned.owner !== currentUser) style += `;background:${colorFromName(owned.owner)}`;
         const inner = owned
             ? `<div class="plot-owner">${escapeHtml(owned.owner)}</div>`
             : `<div class="plot-name">${p.name}</div><div class="plot-price">${formatNumber(price)}</div>`;
         html += `<div class="map-plot ${cls}${selected}" style="${style}" onclick="selectPlot(${p.id})">${inner}</div>`;
     });
     plotsLayer.innerHTML = html;
-
     let bHtml = "";
     MAP_BUILDINGS.forEach(b => {
         bHtml += `<div class="map-building ${b.cls}" style="left:${b.x/MAP_W*100}%;top:${b.y/MAP_H*100}%;width:${b.w/MAP_W*100}%;height:${b.h/MAP_H*100}%" onclick="clickBuilding('${b.id}')">
@@ -909,48 +868,38 @@ function renderMap() {
     });
     bldLayer.innerHTML = bHtml;
 }
-
 window.selectPlot = function(plotId) {
     selectedPlotId = plotId;
     renderMap();
     showMapInfo(plotId);
 };
-
 function showMapInfo(plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     if (!p) return;
-    const panel = $("map-info-panel");
-    panel.classList.add("show");
+    $("map-info-panel").classList.add("show");
     const owned = sharedPlots[plotId];
     const price = calcPlotPrice(p, sharedPlots);
     const proximity = getBuildingProximityBonus(p);
+    const density = getDensityBonus(p);
     const neighbors = countOwnedNeighbors(plotId, sharedPlots);
     const bonusText = [];
     if (proximity > 0) bonusText.push(`поруч будівлі +${proximity}%`);
+    if (density > 0) bonusText.push(`густота +${density}%`);
     if (neighbors > 0) bonusText.push(`сусідів ${neighbors} (+${neighbors*10}%)`);
     $("info-name").textContent = p.name;
     $("info-owner").textContent = owned ? owned.owner : "—";
     $("info-price").textContent = owned ? "—" : formatNumberFull(price);
     $("info-bonus").textContent = bonusText.length ? bonusText.join(", ") : "немає";
     const buyBtn = $("info-buy-btn");
-    if (owned) {
-        buyBtn.textContent = owned.owner === currentUser ? "Ваша ділянка" : "Зайнято";
-        buyBtn.disabled = true;
-    } else if (gameState.coins < price) {
-        buyBtn.textContent = "Недостатньо монет";
-        buyBtn.disabled = true;
-    } else {
-        buyBtn.textContent = "Купити (" + formatNumber(price) + ")";
-        buyBtn.disabled = false;
-    }
+    if (owned) { buyBtn.textContent = owned.owner === currentUser ? "Ваша ділянка" : "Зайнято"; buyBtn.disabled = true; }
+    else if (gameState.coins < price) { buyBtn.textContent = "Недостатньо монет"; buyBtn.disabled = true; }
+    else { buyBtn.textContent = "Купити (" + formatNumber(price) + ")"; buyBtn.disabled = false; }
 }
-
 window.closeMapInfo = function() {
     selectedPlotId = null;
     $("map-info-panel").classList.remove("show");
     renderMap();
 };
-
 window.buySelectedPlot = async function() {
     if (selectedPlotId === null) return;
     const p = MAP_PLOTS_BASE.find(x => x.id === selectedPlotId);
@@ -958,31 +907,22 @@ window.buySelectedPlot = async function() {
     if (sharedPlots[selectedPlotId]) return showDialog("Зайнято", "Ділянка вже куплена.", "⚠️");
     const price = calcPlotPrice(p, sharedPlots);
     if (gameState.coins < price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(price), "💸");
-    // Транзакція: перевіряємо, що ділянка досі вільна
-    const plotRef = ref(db, `plots/${selectedPlotId}`);
     try {
-        const result = await runTransaction(plotRef, (current) => {
-            if (current === null) {
-                return { owner: currentUser, price: price, boughtAt: Date.now() };
-            }
-            return; // abort
+        const result = await runTransaction(ref(db, `plots/${selectedPlotId}`), (current) => {
+            if (current === null) return { owner: currentUser, price: price, boughtAt: Date.now() };
+            return;
         });
         if (!result.committed) return showDialog("Не встигли", "Хтось купив цю ділянку раніше.", "⚠️");
         gameState.coins -= price;
         renderAll(); saveGame();
         setGameStatus("Ділянку куплено: " + p.name);
         showDialog("Ділянку куплено!", p.name + "\nза " + formatNumberFull(price), "🗺️");
-    } catch(e) {
-        showDialog("Помилка", e.message, "⚠️");
-    }
+    } catch(e) { showDialog("Помилка", e.message, "⚠️"); }
 };
-
 window.clickBuilding = function(id) {
-    if (id === "bank") {
-        switchPage("bank");
-    } else if (id === "corp") {
+    if (id === "bank") switchPage("bank");
+    else if (id === "corp") {
         showDialog("КовельКорп", "Тут працюють усі гравці.\nПерейти до роботи?", "🏢");
-        // Додаємо кнопку переходу через діалог
         setTimeout(() => {
             const dialogBody = document.querySelector(".dialog .btn-row");
             if (dialogBody && !dialogBody.querySelector(".goto-work")) {
@@ -995,28 +935,20 @@ window.clickBuilding = function(id) {
         }, 0);
     }
 };
-
-// ===== РЕНДЕР БАНКУ =====
 function renderBank() {
     const c = gameState.credit;
     const blocked = isBankBlocked();
     $("bank-blocked").classList.toggle("show", blocked);
     $("bank-warning").classList.toggle("show", c.amount > 0 && c.overdue);
-
     const limit = getCreditLimit();
     $("credit-limit").textContent = "до " + formatNumberFull(limit);
-
     if (c.amount > 0) {
         $("credit-card-info").style.display = "none";
         $("credit-active-card").style.display = "block";
         $("credit-debt").textContent = formatNumberFull(c.amount) + " 💰";
         const remaining = c.dueAt - Date.now();
-        if (remaining > 0) {
-            $("credit-due-text").textContent = "Повернути через: " + formatDuration(remaining);
-        } else {
-            const overdueMs = Date.now() - c.dueAt;
-            $("credit-due-text").textContent = "⚠️ Прострочено на " + formatDuration(overdueMs) + "! Штраф +10% кожні 5 хв.";
-        }
+        if (remaining > 0) $("credit-due-text").textContent = "Повернути через: " + formatDuration(remaining);
+        else $("credit-due-text").textContent = "⚠️ Прострочено на " + formatDuration(Date.now() - c.dueAt) + "! +10% до боргу кожні 5 хв.";
         const total = c.amount + Math.floor(c.amount * 0.05);
         $("credit-debt-fill").style.width = Math.min(100, (gameState.coins / total) * 100) + "%";
         $("credit-debt-text").textContent = formatNumber(gameState.coins) + " / " + formatNumber(total);
@@ -1032,8 +964,6 @@ function renderBank() {
         $("credit-take-btn").disabled = limit <= 0;
     }
 }
-
-// ===== РОБОТА =====
 window.doWork = function(e) {
     if (!currentUser || isCourseRunning() || isBankBlocked()) return;
     const job = getCurrentJob();
@@ -1052,7 +982,6 @@ window.doWork = function(e) {
         showDialog("Задачу виконано!", "+" + formatNumberFull(job.taskReward) + " монет", "💰");
     }
 };
-
 window.doPromote = function() {
     const job = getCurrentJob();
     if (job.xpNeeded <= 0 || gameState.xp < job.xpNeeded) return;
@@ -1063,7 +992,6 @@ window.doPromote = function() {
     setGameStatus("Підвищення! " + getCurrentJob().name);
     showDialog("Підвищення!", "Ви стали: " + getCurrentJob().name, "🎉");
 };
-
 window.buyCourse = async function(id) {
     if (isCourseRunning()) return showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️");
     const c = COURSES.find(x => x.id === id);
@@ -1077,7 +1005,6 @@ window.buyCourse = async function(id) {
     try { isSaving = false; await saveGame(); setGameStatus("Курс розпочато"); showDialog("Курс розпочато!", c.name, "📚"); }
     catch(e) { showDialog("Помилка", "Не вдалося зберегти", "⚠️"); }
 };
-
 function startCourseTimer() {
     if (courseTimerInterval) clearInterval(courseTimerInterval);
     courseTimerInterval = setInterval(() => {
@@ -1086,18 +1013,13 @@ function startCourseTimer() {
         else { clearInterval(courseTimerInterval); courseTimerInterval = null; renderAll(); }
     }, 1000);
 }
-
-// ===== ПЕРЕМИКАННЯ СТОРІНОК =====
 window.switchPage = function(page) {
     currentPage = page;
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     document.querySelectorAll(".tab-strip .tab").forEach(t => t.classList.remove("active"));
-    const pe = $("page-"+page);
-    if (pe) pe.classList.add("active");
-    // Таб «Робота» активний і для work, і для bank
+    const pe = $("page-"+page); if (pe) pe.classList.add("active");
     const tabId = (page === "bank") ? "tabnav-work" : "tabnav-"+page;
-    const te = $(tabId);
-    if (te) te.classList.add("active");
+    const te = $(tabId); if (te) te.classList.add("active");
     if (page === "leaderboard") { loadLeaderboard(); loadOnline(); }
     if (page === "shop") renderShop();
     if (page === "map") renderMap();
