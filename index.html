@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="1.4.1">
-<title>Win95 Clicker — v1.4.1</title>
+<meta name="version" content="1.5.0">
+<title>Win95 Clicker — v1.5.0</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;width:100%;overflow:hidden}
@@ -57,8 +57,9 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 #big-click:disabled{color:#808080;cursor:default;opacity:.75}
 #big-click .big-emoji{font-size:52px;line-height:1}
 #big-click .click-label{font-size:14px;color:#000}
-.big-coins-display{font-family:"Courier New",monospace;font-size:26px;font-weight:bold;color:#000080;background:#dfdfdf;border:2px inset #808080;padding:10px 16px;text-align:center;width:90%;max-width:300px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px}
-.big-coins-display .coin-icon{font-size:24px}
+.big-coins-display{font-family:"Courier New",monospace;font-size:26px;font-weight:bold;color:#000080;background:#dfdfdf;border:2px inset #808080;padding:10px 16px;text-align:center;width:90%;max-width:300px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden}
+.big-coins-display #big-coins{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.big-coins-display .coin-icon{font-size:24px;flex-shrink:0}
 .float-text{position:fixed;pointer-events:none;font-weight:bold;font-size:18px;color:#008000;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;animation:floatUp .8s ease-out forwards;z-index:9999;font-family:"Courier New",monospace}
 @keyframes floatUp{0%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-70px) scale(1.3)}}
 .promote-btn{display:none;margin-top:4px;background:#000080;color:#fff;border-color:#1084d0 #000040 #000040 #1084d0;font-weight:bold;min-height:44px;font-size:15px;padding:10px 20px}
@@ -117,17 +118,28 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 .dialog-text{flex:1}
 .course-blocker{background:#ffffcc;border:1px solid #808080;padding:10px 12px;font-size:13px;color:#800000;text-align:center;margin-bottom:4px;display:none;line-height:1.4}
 .course-blocker.show{display:block}
-
-/* MAP */
-.map-container{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:#c8d6b9;border:2px inset #808080;position:relative}
-.map-world{position:relative;width:900px;height:520px;background:repeating-linear-gradient(90deg,transparent,transparent 79px,rgba(0,0,0,.04) 79px,rgba(0,0,0,.04) 80px),repeating-linear-gradient(0deg,transparent,transparent 79px,rgba(0,0,0,.04) 79px,rgba(0,0,0,.04) 80px),#c8d6b9}
-.map-street{position:absolute;background:#555;box-shadow:inset 0 0 0 2px #777}
+    /* MAP */
+.map-container{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:#b8c9a8;border:2px inset #808080;position:relative}
+.map-world{position:relative;width:900px;height:560px;background:#b8c9a8}
+.map-block{position:absolute;background:#d9d0b8;border:1px solid #a89870;box-shadow:inset 0 0 0 2px #e8dfc8;z-index:1}
+.map-street{position:absolute;background:#5a5a5a;box-shadow:inset 0 0 0 2px #7a7a7a;z-index:2}
 .map-street.horizontal{height:36px;left:0;right:0}
 .map-street.vertical{width:36px;top:0;bottom:0}
-.map-street-name{position:absolute;color:#fff;font-size:11px;font-weight:bold;letter-spacing:1px;text-shadow:0 1px 2px #000;pointer-events:none;white-space:nowrap}
-.map-plot{position:absolute;width:70px;height:70px;background:#e8d5a3;border:2px solid #b89b5e;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#5c4a1e;transition:transform .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.map-sidewalk{position:absolute;background:#c8c8c8;z-index:2}
+.map-sidewalk.h{height:6px;left:0;right:0}
+.map-sidewalk.v{width:6px;top:0;bottom:0}
+.map-marking{position:absolute;z-index:3;pointer-events:none}
+.map-marking.h{height:2px;left:0;right:0;background:repeating-linear-gradient(90deg,#ffff00 0,#ffff00 14px,transparent 14px,transparent 28px);top:50%;transform:translateY(-50%)}
+.map-marking.v{width:2px;top:0;bottom:0;background:repeating-linear-gradient(180deg,#ffff00 0,#ffff00 14px,transparent 14px,transparent 28px);left:50%;transform:translateX(-50%)}
+.map-street-name{position:absolute;color:#fff;font-size:10px;font-weight:bold;letter-spacing:1px;text-shadow:0 1px 2px #000;pointer-events:none;z-index:4;white-space:nowrap}
+.map-street-name.v{writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg)}
+.map-plot{position:absolute;width:70px;height:70px;background:#e8d5a3;border:2px solid #b89b5e;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#5c4a1e;transition:transform .1s,box-shadow .1s;z-index:5;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;box-shadow:2px 2px 0 rgba(0,0,0,.2)}
+.map-plot:hover{transform:translateY(-2px);box-shadow:3px 4px 0 rgba(0,0,0,.25)}
 .map-plot:active{transform:scale(.96)}
 .map-plot.owned{background:#a8d08d;border-color:#5a8f3d;color:#2d4a1e}
+.map-plot.owned::after{content:"🏠";position:absolute;top:-10px;right:-6px;font-size:16px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.map-plot.locked{background:#b0b0b0;border-color:#808080;color:#606060;cursor:not-allowed}
+.map-plot.locked:hover{transform:none;box-shadow:2px 2px 0 rgba(0,0,0,.2)}
 .map-plot .plot-price{font-size:10px;margin-top:2px;opacity:.85}
 .map-plot .plot-label{font-size:10px;line-height:1.1;text-align:center}
 
@@ -164,10 +176,9 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v1.4.1</div>
+        <div class="panel small">v1.5.0</div>
     </div>
 </div>
-
 <!-- GAME -->
 <div class="window" id="game-screen">
     <div class="title-bar">
@@ -216,18 +227,14 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
                 <div class="jobs-list" id="jobs-list"></div>
             </div>
         </div>
-
-        <!-- МАПА -->
+                <!-- МАПА -->
         <div class="page" id="page-map">
             <div class="sub-title">🗺️ Вулиця Незалежності</div>
             <div class="muted" style="margin-bottom:8px">Натисни на ділянку, щоб купити землю</div>
             <div class="map-container" id="map-container">
                 <div class="map-world" id="map-world">
-                    <div class="map-street horizontal" style="top:240px"></div>
-                    <div class="map-street-name" style="top:248px;left:20px">ВУЛ. НЕЗАЛЕЖНОСТІ</div>
-                    <div class="map-street vertical" style="left:180px"></div>
-                    <div class="map-street vertical" style="left:420px"></div>
-                    <div class="map-street vertical" style="left:660px"></div>
+                    <div id="map-blocks"></div>
+                    <div id="map-streets"></div>
                     <div id="plots-layer"></div>
                 </div>
             </div>
@@ -290,7 +297,7 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, child, update, onValue, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.5.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -317,23 +324,74 @@ const COURSES = [
     { id: "architecture", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40 }
 ];
 
-// 12 ділянок з координатами на мапі (x, y)
-const PLOTS = [
-    { id: 0,  name: "Ділянка A1", price: 400,   x: 40,  y: 140 },
-    { id: 1,  name: "Ділянка A2", price: 700,   x: 120, y: 140 },
-    { id: 2,  name: "Ділянка A3", price: 1200,  x: 280, y: 140 },
-    { id: 3,  name: "Ділянка A4", price: 2000,  x: 360, y: 140 },
-    { id: 4,  name: "Ділянка A5", price: 3500,  x: 520, y: 140 },
-    { id: 5,  name: "Ділянка A6", price: 5500,  x: 600, y: 140 },
-    { id: 6,  name: "Ділянка B1", price: 800,   x: 40,  y: 300 },
-    { id: 7,  name: "Ділянка B2", price: 1500,  x: 120, y: 300 },
-    { id: 8,  name: "Ділянка B3", price: 2800,  x: 280, y: 300 },
-    { id: 9,  name: "Ділянка B4", price: 4500,  x: 360, y: 300 },
-    { id: 10, name: "Ділянка B5", price: 7500,  x: 520, y: 300 },
-    { id: 11, name: "Ділянка B6", price: 12000, x: 600, y: 300 }
-];
+// ===== MAP GRID =====
+const MAP = {
+    width: 900,
+    height: 560,
+    streetW: 36,
+    sidewalk: 6,
+    plotSize: 70,
+    vStreets: [180, 420, 660],
+    hStreets: [260],
+    names: {
+        main: "ВУЛ. НЕЗАЛЕЖНОСТІ",
+        vertical: ["ПР. КОДУ", "ВУЛ. БАГІВ", "ПР. РЕФАКТОРУ"]
+    }
+};
 
-const firebaseConfig = {
+function buildPlots() {
+    const plots = [];
+    let id = 0;
+    const cols = MAP.vStreets.length + 1;
+    const rows = MAP.hStreets.length + 1;
+    const colEdges = [0, ...MAP.vStreets.map(x => x + MAP.streetW), MAP.width];
+    const rowEdges = [0, ...MAP.hStreets.map(y => y + MAP.streetW), MAP.height];
+    const rowLetters = ["A", "B", "C", "D"];
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const left = colEdges[c] + MAP.sidewalk;
+            const right = colEdges[c + 1] - MAP.sidewalk;
+            const top = rowEdges[r] + MAP.sidewalk;
+            const bottom = rowEdges[r + 1] - MAP.sidewalk;
+            const cellW = right - left;
+            const cellH = bottom - top;
+            const gap = 12;
+            const plotW = (cellW - gap) / 2;
+            const plotH = Math.min(MAP.plotSize, cellH - 16);
+
+            for (let k = 0; k < 2; k++) {
+                if (id >= 16) break;
+                const isCorner = (c === 0 || c === cols - 1) && (r === 0 || r === rows - 1);
+                if (isCorner && k === 1) continue;
+                const x = left + k * (plotW + gap) + (plotW - MAP.plotSize) / 2;
+                const y = top + (cellH - plotH) / 2;
+                plots.push({
+                    id: id++,
+                    name: `Ділянка ${rowLetters[r]}${c + 1}${k === 0 ? "" : "б"}`,
+                    price: 0,
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    col: c,
+                    row: r
+                });
+            }
+        }
+    }
+
+    const basePrices = [400, 700, 1200, 2000, 3500, 5500, 8000, 12000, 18000, 26000, 38000, 55000];
+    const sorted = [...plots].sort((a, b) => {
+        const da = Math.abs(a.col - 1.5) + Math.abs(a.row - 0.5);
+        const db = Math.abs(b.col - 1.5) + Math.abs(b.row - 0.5);
+        return da - db;
+    });
+    sorted.forEach((p, i) => { p.price = basePrices[i] || 55000; });
+
+    return plots;
+}
+
+const PLOTS = buildPlots();
+    const firebaseConfig = {
     apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
     authDomain: "uniquestone.firebaseapp.com",
     databaseURL: "https://uniquestone-default-rtdb.europe-west1.firebasedatabase.app",
@@ -354,7 +412,7 @@ let gameState = {
     taskProgress: 0, taskActive: false,
     activeCourseId: null, courseStartTime: 0,
     completedCourses: [], xpBoost: 0,
-    ownedPlots: {}          // { "0": true, "3": true ... }
+    ownedPlots: {}
 };
 let saveTimer = null, heartbeatTimer = null, courseTimerInterval = null, dataListener = null;
 let isSaving = false, currentPage = "clicker";
@@ -453,8 +511,7 @@ window.handleAuth = async function() {
 ["auth-username","auth-password","auth-password2"].forEach(id => {
     const el = $(id); if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
 });
-
-async function startGame() {
+    async function startGame() {
     $("auth-window").style.display = "none";
     $("game-screen").classList.add("active");
     $("stat-user").textContent = currentUser;
@@ -580,18 +637,57 @@ window.buyPlot = function(plotId) {
 };
 
 function renderMap() {
-    const layer = $("plots-layer");
+    const colEdges = [0, ...MAP.vStreets.map(x => x + MAP.streetW), MAP.width];
+    const rowEdges = [0, ...MAP.hStreets.map(y => y + MAP.streetW), MAP.height];
+
+    let blocksHtml = "";
+    for (let r = 0; r < rowEdges.length - 1; r++) {
+        for (let c = 0; c < colEdges.length - 1; c++) {
+            const x = colEdges[c];
+            const y = rowEdges[r];
+            const w = colEdges[c + 1] - colEdges[c];
+            const h = rowEdges[r + 1] - rowEdges[r];
+            if (w < 10 || h < 10) continue;
+            blocksHtml += `<div class="map-block" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>`;
+        }
+    }
+    $("map-blocks").innerHTML = blocksHtml;
+
+    let hHtml = "";
+    MAP.hStreets.forEach(y => {
+        hHtml += `<div class="map-street horizontal" style="top:${y}px"></div>`;
+        hHtml += `<div class="map-sidewalk h" style="top:${y - MAP.sidewalk}px"></div>`;
+        hHtml += `<div class="map-sidewalk h" style="top:${y + MAP.streetW}px"></div>`;
+        hHtml += `<div class="map-marking h" style="top:${y}px;height:${MAP.streetW}px"></div>`;
+        hHtml += `<div class="map-street-name" style="top:${y + 10}px;left:20px">${MAP.names.main}</div>`;
+    });
+    MAP.vStreets.forEach((x, i) => {
+        hHtml += `<div class="map-street vertical" style="left:${x}px"></div>`;
+        hHtml += `<div class="map-sidewalk v" style="left:${x - MAP.sidewalk}px"></div>`;
+        hHtml += `<div class="map-sidewalk v" style="left:${x + MAP.streetW}px"></div>`;
+        hHtml += `<div class="map-marking v" style="left:${x}px;width:${MAP.streetW}px"></div>`;
+        const name = MAP.names.vertical[i] || ("ВУЛ. " + (i + 1));
+        hHtml += `<div class="map-street-name v" style="left:${x + 10}px;top:${MAP.height - 30}px">${name}</div>`;
+    });
+    $("map-streets").innerHTML = hHtml;
+
     let html = "";
     PLOTS.forEach(p => {
         const owned = !!gameState.ownedPlots[p.id];
-        html += `<div class="map-plot${owned?" owned":""}" style="left:${p.x}px;top:${p.y}px" onclick="buyPlot(${p.id})">
-            <div class="plot-label">${owned ? "✓ Ваша" : p.name}</div>
+        const canAfford = gameState.coins >= p.price;
+        const locked = !owned && !canAfford;
+        html += `<div class="map-plot${owned ? " owned" : ""}${locked ? " locked" : ""}"
+            style="left:${p.x}px;top:${p.y}px"
+            onclick="buyPlot(${p.id})"
+            title="${owned ? "Ваша ділянка" : (canAfford ? "Купити за " + formatNumberFull(p.price) : "Потрібно " + formatNumberFull(p.price))}">
+            <div class="plot-label">${owned ? "✓" : p.name.replace("Ділянка ", "")}</div>
             ${owned ? "" : `<div class="plot-price">${formatNumber(p.price)}</div>`}
         </div>`;
     });
-    layer.innerHTML = html;
+    $("plots-layer").innerHTML = html;
 }
-    function renderAll() {
+
+function renderAll() {
     renderStats();
     renderTask();
     renderJobsList();
@@ -720,8 +816,7 @@ function startCourseTimer() {
         else { clearInterval(courseTimerInterval); courseTimerInterval = null; renderAll(); }
     }, 1000);
 }
-
-function startHeartbeat() {
+    function startHeartbeat() {
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     sendHeartbeat();
     heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
