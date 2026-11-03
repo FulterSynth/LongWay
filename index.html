@@ -3,146 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="1.4.0">
-<title>Win95 Clicker — v1.4.0</title>
+<meta name="version" content="1.4.1">
+<title>Win95 Clicker — v1.4.1</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;width:100%;overflow:hidden}
-body{
-    background:#008080;
-    font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif;
-    font-size:13px;color:#000;
-    display:flex;align-items:stretch;justify-content:center;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
-}
-.window{
-    background:#c0c0c0;
-    border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;
-    display:flex;flex-direction:column;
-    width:100%;height:100%;max-width:100%;max-height:100%;
-}
-.title-bar{
-    background:linear-gradient(90deg,#000080,#1084d0);
-    color:#fff;padding:8px 10px;display:flex;align-items:center;gap:8px;
-    font-weight:bold;font-size:14px;flex-shrink:0;
-}
+body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif;font-size:13px;color:#000;display:flex;align-items:stretch;justify-content:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.window{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;display:flex;flex-direction:column;width:100%;height:100%;max-width:100%;max-height:100%}
+.title-bar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:8px 10px;display:flex;align-items:center;gap:8px;font-weight:bold;font-size:14px;flex-shrink:0}
 .title-bar .title-icon{font-size:16px}
 .title-bar .title-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .win-controls{display:flex;gap:4px}
-.win-btn{
-    width:28px;height:24px;background:#c0c0c0;border:1px solid;
-    border-color:#fff #000 #000 #fff;font-size:12px;font-weight:bold;color:#000;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1;font-family:inherit;
-}
+.win-btn{width:28px;height:24px;background:#c0c0c0;border:1px solid;border-color:#fff #000 #000 #fff;font-size:12px;font-weight:bold;color:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1;font-family:inherit}
 .win-btn:active{border-color:#000 #fff #fff #000}
 .win-btn:disabled{color:#808080;cursor:default}
-
 .status-bar{background:#c0c0c0;padding:4px;display:flex;gap:4px;border-top:1px solid #fff;flex-shrink:0}
 .status-bar .panel{flex:1;border:1px inset #808080;padding:4px 8px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .status-bar .panel.small{flex:0 0 auto;min-width:70px}
-
 .group-box{border:2px groove #fff;padding:12px 10px 10px;position:relative;margin-top:10px}
 .group-box::before{content:attr(data-label);position:absolute;top:-9px;left:10px;background:#c0c0c0;padding:0 5px;font-size:12px;color:#000}
-
 .form-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .form-row label{font-size:13px;min-width:70px}
-.input-field{
-    flex:1;padding:8px 10px;font-family:inherit;font-size:15px;background:#fff;color:#000;
-    border:2px solid;border-color:#808080 #fff #fff #808080;outline:none;min-width:0;
-}
+.input-field{flex:1;padding:8px 10px;font-family:inherit;font-size:15px;background:#fff;color:#000;border:2px solid;border-color:#808080 #fff #fff #808080;outline:none;min-width:0}
 .input-field:focus{outline:1px dotted #000;outline-offset:-4px}
-
-.btn{
-    font-family:inherit;font-size:14px;background:#c0c0c0;color:#000;
-    border:2px solid;border-color:#fff #808080 #808080 #fff;
-    padding:10px 16px;cursor:pointer;min-width:90px;min-height:42px;font-weight:400;
-}
+.btn{font-family:inherit;font-size:14px;background:#c0c0c0;color:#000;border:2px solid;border-color:#fff #808080 #808080 #fff;padding:10px 16px;cursor:pointer;min-width:90px;min-height:42px;font-weight:400}
 .btn:active:not(:disabled){border-color:#808080 #fff #fff #808080;padding:11px 15px 9px 17px}
 .btn:disabled{color:#808080;text-shadow:1px 1px 0 #fff;cursor:default}
 .btn.default{outline:1px solid #000;outline-offset:-4px}
 .btn-link{background:transparent;border:none;color:#0000ff;text-decoration:underline;cursor:pointer;font-size:13px;padding:6px 0;font-family:inherit}
 .btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
-
 .auth-tabs{display:flex;gap:4px;margin-bottom:12px}
-.auth-tab{
-    flex:1;padding:12px 8px;background:#c0c0c0;border:2px solid;
-    border-color:#fff #808080 #808080 #fff;cursor:pointer;font-size:14px;font-family:inherit;text-align:center;min-height:46px;
-}
+.auth-tab{flex:1;padding:12px 8px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;cursor:pointer;font-size:14px;font-family:inherit;text-align:center;min-height:46px}
 .auth-tab.active{background:#dfdfdf;border-color:#808080 #fff #fff #808080;font-weight:bold;padding:13px 8px 11px}
-
 .error-msg,.info-msg{border:1px solid #808080;padding:8px 10px;font-size:13px;margin-top:8px;display:none}
 .error-msg{background:#ffffcc;color:#800000}
 .info-msg{background:#ccffcc;color:#006000}
 .error-msg.show,.info-msg.show{display:block}
 .auth-footer{margin-top:12px;text-align:center}
-
 #game-screen{display:none}
 #game-screen.active{display:flex}
-
-.tab-strip{
-    display:flex;gap:2px;padding:4px 4px 0;background:#c0c0c0;
-    border-bottom:1px solid #808080;flex-shrink:0;align-items:flex-end;overflow:hidden;
-}
-.tab-strip .tab{
-    flex:1 1 0;min-width:0;padding:9px 4px;background:#c0c0c0;border:2px solid;
-    border-color:#fff #808080 #c0c0c0 #fff;border-bottom:none;cursor:pointer;
-    font-size:12px;font-family:inherit;font-weight:400;color:#000;margin-bottom:-1px;
-    position:relative;top:2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:38px;
-}
-.tab-strip .tab.active{
-    background:#dfdfdf;border-color:#fff #808080 #dfdfdf #fff;border-bottom:2px solid #dfdfdf;
-    font-weight:bold;top:0;padding:10px 4px 8px;z-index:2;
-}
-
+.tab-strip{display:flex;gap:2px;padding:4px 4px 0;background:#c0c0c0;border-bottom:1px solid #808080;flex-shrink:0;align-items:flex-end;overflow:hidden}
+.tab-strip .tab{flex:1 1 0;min-width:0;padding:9px 4px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #c0c0c0 #fff;border-bottom:none;cursor:pointer;font-size:12px;font-family:inherit;font-weight:400;color:#000;margin-bottom:-1px;position:relative;top:2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:38px}
+.tab-strip .tab.active{background:#dfdfdf;border-color:#fff #808080 #dfdfdf #fff;border-bottom:2px solid #dfdfdf;font-weight:bold;top:0;padding:10px 4px 8px;z-index:2}
 .page{display:none;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px}
 .page.active{display:flex}
-
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.stat-item{
-    background:#dfdfdf;border:1px inset #808080;padding:8px 10px;
-    display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:6px;
-}
+.stat-item{background:#dfdfdf;border:1px inset #808080;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:6px}
 .stat-item .label{color:#000}
 .stat-item .value{font-weight:bold;font-family:"Courier New",monospace;color:#000080;font-size:14px}
-
 .click-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0 10px;gap:12px;flex-shrink:0}
-#big-click{
-    width:85%;max-width:280px;height:150px;background:#c0c0c0;border:4px solid;
-    border-color:#fff #808080 #808080 #fff;box-shadow:3px 3px 0 #808080;cursor:pointer;
-    font-family:inherit;font-size:16px;font-weight:bold;color:#000080;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-}
+#big-click{width:85%;max-width:280px;height:150px;background:#c0c0c0;border:4px solid;border-color:#fff #808080 #808080 #fff;box-shadow:3px 3px 0 #808080;cursor:pointer;font-family:inherit;font-size:16px;font-weight:bold;color:#000080;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 #big-click:active:not(:disabled){border-color:#808080 #fff #fff #808080;box-shadow:none}
 #big-click:disabled{color:#808080;cursor:default;opacity:.75}
 #big-click .big-emoji{font-size:52px;line-height:1}
 #big-click .click-label{font-size:14px;color:#000}
-
-.big-coins-display{
-    font-family:"Courier New",monospace;font-size:26px;font-weight:bold;color:#000080;
-    background:#dfdfdf;border:2px inset #808080;padding:10px 16px;text-align:center;
-    width:90%;max-width:300px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px;
-}
+.big-coins-display{font-family:"Courier New",monospace;font-size:26px;font-weight:bold;color:#000080;background:#dfdfdf;border:2px inset #808080;padding:10px 16px;text-align:center;width:90%;max-width:300px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px}
 .big-coins-display .coin-icon{font-size:24px}
-
-.float-text{
-    position:fixed;pointer-events:none;font-weight:bold;font-size:18px;color:#008000;
-    text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;
-    animation:floatUp .8s ease-out forwards;z-index:9999;font-family:"Courier New",monospace;
-}
+.float-text{position:fixed;pointer-events:none;font-weight:bold;font-size:18px;color:#008000;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;animation:floatUp .8s ease-out forwards;z-index:9999;font-family:"Courier New",monospace}
 @keyframes floatUp{0%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-70px) scale(1.3)}}
-
 .promote-btn{display:none;margin-top:4px;background:#000080;color:#fff;border-color:#1084d0 #000040 #000040 #1084d0;font-weight:bold;min-height:44px;font-size:15px;padding:10px 20px}
 .promote-btn.show{display:inline-block}
-
 .task-box{width:92%;max-width:320px}
 .task-title{font-size:13px;font-weight:bold;margin-bottom:6px;text-align:center}
 .task-bar-wrap{background:#dfdfdf;border:2px inset #808080;height:28px;position:relative;overflow:hidden}
 .task-bar{height:100%;background:linear-gradient(90deg,#008000,#00c000);width:0%;transition:width .12s ease}
 .task-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
 .task-reward{text-align:center;font-size:13px;margin-top:6px;color:#000080;font-weight:bold}
-
 .jobs-list{display:flex;flex-direction:column;gap:4px;border:2px inset #808080;background:#fff;padding:4px}
 .job-row{display:flex;align-items:center;gap:8px;padding:9px 10px;font-size:13px;border-bottom:1px solid #e0e0e0}
 .job-row:last-child{border-bottom:none}
@@ -152,11 +78,9 @@ body{
 .job-row .job-pay{font-family:"Courier New",monospace;font-weight:bold;min-width:55px;text-align:right}
 .job-row.current .job-pay{color:#ffff00}
 .job-row .job-status{font-size:12px;min-width:55px;text-align:right}
-
 .xp-bar-wrap{margin-top:8px;margin-bottom:10px;background:#dfdfdf;border:1px inset #808080;height:20px;position:relative;overflow:hidden}
 .xp-bar{height:100%;background:linear-gradient(90deg,#000080,#1084d0);width:0%;transition:width .15s ease}
 .xp-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
-
 .shop-list{display:flex;flex-direction:column;gap:10px}
 .shop-item{border:2px groove #fff;padding:12px;background:#dfdfdf}
 .shop-item.completed{opacity:.7}
@@ -167,7 +91,6 @@ body{
 .shop-item-info{font-size:12px;color:#000;margin-bottom:10px}
 .shop-item-actions{display:flex;justify-content:space-between;align-items:center}
 .course-timer{font-family:"Courier New",monospace;font-weight:bold;color:#000080;font-size:14px}
-
 .lb-refresh-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lb-list,.online-list{display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;min-height:0;border:2px inset #808080;background:#fff;padding:2px;-webkit-overflow-scrolling:touch}
 .lb-row,.online-row{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:14px;border-bottom:1px solid #e0e0e0}
@@ -182,54 +105,38 @@ body{
 .lb-empty,.lb-loading{text-align:center;color:#808080;padding:24px;font-size:14px}
 .lb-loading{color:#000080}
 .online-dot{width:10px;height:10px;border-radius:50%;background:#00c000;box-shadow:0 0 4px #00ff00;flex-shrink:0}
-
 .tab-content{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
 .tab-content .page{flex:1}
 .sub-title{font-size:13px;color:#000;font-weight:bold;margin-bottom:4px}
 .muted{color:#808080;font-size:12px}
-
 .dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .dialog-overlay.active{display:flex}
 .dialog{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;box-shadow:2px 2px 0 #000;width:100%;max-width:340px}
 .dialog-body{padding:16px 14px;display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45}
 .dialog-icon{font-size:32px;flex-shrink:0}
 .dialog-text{flex:1}
-
 .course-blocker{background:#ffffcc;border:1px solid #808080;padding:10px 12px;font-size:13px;color:#800000;text-align:center;margin-bottom:4px;display:none;line-height:1.4}
 .course-blocker.show{display:block}
 
 /* MAP */
-.street{display:flex;gap:10px;overflow-x:auto;padding:12px 6px 16px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
-.plot{
-    flex:0 0 150px;width:150px;background:#dfdfdf;border:2px solid;
-    border-color:#fff #808080 #808080 #fff;padding:10px 8px;scroll-snap-align:start;
-    display:flex;flex-direction:column;gap:6px;min-height:190px;
-}
-.plot.owned{background:#e8f5e9;border-color:#4caf50 #2e7d32 #2e7d32 #4caf50}
-.plot-number{font-size:11px;color:#555;font-weight:bold}
-.plot-name{font-weight:bold;font-size:13px;line-height:1.25;min-height:34px}
-.plot-status{font-size:11px;color:#000080}
-.plot-rent{font-family:"Courier New",monospace;font-size:12px;font-weight:bold;color:#008000}
-.plot-actions{margin-top:auto;display:flex;flex-direction:column;gap:4px}
-.plot-actions .btn{width:100%;min-width:0;padding:7px 6px;font-size:12px;min-height:34px}
+.map-container{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:#c8d6b9;border:2px inset #808080;position:relative}
+.map-world{position:relative;width:900px;height:520px;background:repeating-linear-gradient(90deg,transparent,transparent 79px,rgba(0,0,0,.04) 79px,rgba(0,0,0,.04) 80px),repeating-linear-gradient(0deg,transparent,transparent 79px,rgba(0,0,0,.04) 79px,rgba(0,0,0,.04) 80px),#c8d6b9}
+.map-street{position:absolute;background:#555;box-shadow:inset 0 0 0 2px #777}
+.map-street.horizontal{height:36px;left:0;right:0}
+.map-street.vertical{width:36px;top:0;bottom:0}
+.map-street-name{position:absolute;color:#fff;font-size:11px;font-weight:bold;letter-spacing:1px;text-shadow:0 1px 2px #000;pointer-events:none;white-space:nowrap}
+.map-plot{position:absolute;width:70px;height:70px;background:#e8d5a3;border:2px solid #b89b5e;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#5c4a1e;transition:transform .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.map-plot:active{transform:scale(.96)}
+.map-plot.owned{background:#a8d08d;border-color:#5a8f3d;color:#2d4a1e}
+.map-plot .plot-price{font-size:10px;margin-top:2px;opacity:.85}
+.map-plot .plot-label{font-size:10px;line-height:1.1;text-align:center}
 
-@media(min-width:600px){
-    body{padding:20px;align-items:center}
-    .window{max-width:480px;height:calc(100vh - 40px);max-height:820px;box-shadow:2px 2px 0 #000}
-    #big-click{width:260px;height:160px}
-    .big-coins-display{font-size:30px}
-    .stats-grid{grid-template-columns:repeat(3,1fr)}
-}
-@media(min-width:900px){
-    .window{max-width:640px}
-    .tab-content{padding:16px}
-    #big-click{width:280px;height:170px}
-    #big-click .big-emoji{font-size:60px}
-}
+@media(min-width:600px){body{padding:20px;align-items:center}.window{max-width:480px;height:calc(100vh - 40px);max-height:820px;box-shadow:2px 2px 0 #000}#big-click{width:260px;height:160px}.big-coins-display{font-size:30px}.stats-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.window{max-width:640px}.tab-content{padding:16px}#big-click{width:280px;height:170px}#big-click .big-emoji{font-size:60px}}
 </style>
 </head>
 <body>
-   <!-- AUTH -->
+    <!-- AUTH -->
 <div class="window" id="auth-window">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -246,31 +153,18 @@ body{
             <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
         </div>
         <div class="group-box" data-label="Обліковий запис">
-            <div class="form-row">
-                <label>Логін:</label>
-                <input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20">
-            </div>
-            <div class="form-row">
-                <label>Пароль:</label>
-                <input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40">
-            </div>
-            <div class="form-row" id="confirm-row" style="display:none;">
-                <label>Повторіть:</label>
-                <input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40">
-            </div>
+            <div class="form-row"><label>Логін:</label><input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20"></div>
+            <div class="form-row"><label>Пароль:</label><input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40"></div>
+            <div class="form-row" id="confirm-row" style="display:none;"><label>Повторіть:</label><input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40"></div>
         </div>
         <div class="error-msg" id="auth-error"></div>
         <div class="info-msg" id="auth-info"></div>
-        <div class="btn-row">
-            <button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button>
-        </div>
-        <div class="auth-footer">
-            <button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button>
-        </div>
+        <div class="btn-row"><button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button></div>
+        <div class="auth-footer"><button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button></div>
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v1.4.0</div>
+        <div class="panel small">v1.4.1</div>
     </div>
 </div>
 
@@ -306,34 +200,19 @@ body{
                     <div class="stat-item" style="grid-column:span 2"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
                 </div>
             </div>
-
-            <div class="course-blocker" id="course-blocker">
-                📚 Зараз ви проходите курс. Працювати неможливо.<br>
-                <span id="course-blocker-timer">—</span>
-            </div>
-
+            <div class="course-blocker" id="course-blocker">📚 Зараз ви проходите курс. Працювати неможливо.<br><span id="course-blocker-timer">—</span></div>
             <div class="click-area">
                 <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
                 <div class="task-box">
                     <div class="task-title" id="task-title">Задача не почата</div>
-                    <div class="task-bar-wrap">
-                        <div class="task-bar" id="task-bar"></div>
-                        <div class="task-text" id="task-text">0 / 0</div>
-                    </div>
+                    <div class="task-bar-wrap"><div class="task-bar" id="task-bar"></div><div class="task-text" id="task-text">0 / 0</div></div>
                     <div class="task-reward" id="task-reward">Нагорода: —</div>
                 </div>
-                <button id="big-click" onclick="doWork(event)">
-                    <span class="big-emoji">💼</span>
-                    <span class="click-label" id="big-click-label">ПОЧАТИ ЗАДАЧУ</span>
-                </button>
+                <button id="big-click" onclick="doWork(event)"><span class="big-emoji">💼</span><span class="click-label" id="big-click-label">ПОЧАТИ ЗАДАЧУ</span></button>
                 <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись</button>
             </div>
-
             <div class="group-box" data-label="Кар'єра">
-                <div class="xp-bar-wrap">
-                    <div class="xp-bar" id="xp-bar"></div>
-                    <div class="xp-text" id="xp-text">0 / 500</div>
-                </div>
+                <div class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
                 <div class="jobs-list" id="jobs-list"></div>
             </div>
         </div>
@@ -341,12 +220,17 @@ body{
         <!-- МАПА -->
         <div class="page" id="page-map">
             <div class="sub-title">🗺️ Вулиця Незалежності</div>
-            <div class="muted" style="margin-bottom:8px">Купуй землю → будуй → рента кожні 5 хв (офлайн теж)</div>
-            <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
-                <button class="btn" onclick="collectAllRent()">💰 Забрати ренту</button>
-                <span class="muted" id="rent-info">Накопичено: 0</span>
+            <div class="muted" style="margin-bottom:8px">Натисни на ділянку, щоб купити землю</div>
+            <div class="map-container" id="map-container">
+                <div class="map-world" id="map-world">
+                    <div class="map-street horizontal" style="top:240px"></div>
+                    <div class="map-street-name" style="top:248px;left:20px">ВУЛ. НЕЗАЛЕЖНОСТІ</div>
+                    <div class="map-street vertical" style="left:180px"></div>
+                    <div class="map-street vertical" style="left:420px"></div>
+                    <div class="map-street vertical" style="left:660px"></div>
+                    <div id="plots-layer"></div>
+                </div>
             </div>
-            <div class="street" id="street"></div>
         </div>
 
         <!-- МАГАЗИН -->
@@ -399,69 +283,54 @@ body{
             <div class="dialog-icon" id="dialog-icon">ℹ️</div>
             <div class="dialog-text" id="dialog-text">—</div>
         </div>
-        <div class="btn-row" style="padding:0 12px 12px">
-            <button class="btn default" onclick="closeDialog()">OK</button>
-        </div>
+        <div class="btn-row" style="padding:0 12px 12px"><button class="btn default" onclick="closeDialog()">OK</button></div>
     </div>
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, child, update, onValue, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
 const LEADERBOARD_LIMIT = 100;
-const RENT_INTERVAL_MS = 5 * 60 * 1000; // 5 хвилин
 
-// ===== JOBS =====
 const JOBS = [
-    { name: "Стажер",             pay: 1,   xpNeeded: 500,   taskClicks: 10,  taskReward: 5 },
-    { name: "Оператор підтримки", pay: 3,   xpNeeded: 1500,  taskClicks: 15,  taskReward: 18 },
-    { name: "Junior QA",          pay: 8,   xpNeeded: 4000,  taskClicks: 22,  taskReward: 60 },
-    { name: "Junior Developer",   pay: 20,  xpNeeded: 10000, taskClicks: 30,  taskReward: 180 },
-    { name: "Middle Developer",   pay: 50,  xpNeeded: 25000, taskClicks: 40,  taskReward: 500 },
-    { name: "Senior Developer",   pay: 120, xpNeeded: 60000, taskClicks: 55,  taskReward: 1500 },
-    { name: "Team Lead",          pay: 300, xpNeeded: 150000,taskClicks: 75,  taskReward: 4500 },
-    { name: "Tech Lead",          pay: 700, xpNeeded: 400000,taskClicks: 100, taskReward: 12000 },
-    { name: "CTO",                pay: 1500,xpNeeded: 0,     taskClicks: 140, taskReward: 35000 }
+    { name: "Стажер", pay: 1, xpNeeded: 500, taskClicks: 10, taskReward: 5 },
+    { name: "Оператор підтримки", pay: 3, xpNeeded: 1500, taskClicks: 15, taskReward: 18 },
+    { name: "Junior QA", pay: 8, xpNeeded: 4000, taskClicks: 22, taskReward: 60 },
+    { name: "Junior Developer", pay: 20, xpNeeded: 10000, taskClicks: 30, taskReward: 180 },
+    { name: "Middle Developer", pay: 50, xpNeeded: 25000, taskClicks: 40, taskReward: 500 },
+    { name: "Senior Developer", pay: 120, xpNeeded: 60000, taskClicks: 55, taskReward: 1500 },
+    { name: "Team Lead", pay: 300, xpNeeded: 150000, taskClicks: 75, taskReward: 4500 },
+    { name: "Tech Lead", pay: 700, xpNeeded: 400000, taskClicks: 100, taskReward: 12000 },
+    { name: "CTO", pay: 1500, xpNeeded: 0, taskClicks: 140, taskReward: 35000 }
 ];
 
-// ===== COURSES =====
 const COURSES = [
-    { id: "basics",       name: "Основи програмування",            price: 800,   durationMs: 1*3600000,  boost: 10 },
-    { id: "algorithms",   name: "Алгоритми та структури даних",    price: 3500,  durationMs: 3*3600000,  boost: 15 },
-    { id: "cleancode",    name: "Clean Code (книга)",              price: 9000,  durationMs: 5*3600000,  boost: 20 },
-    { id: "sysdesign",    name: "Системний дизайн",                price: 22000, durationMs: 8*3600000,  boost: 25 },
-    { id: "leadership",   name: "Лідерство і менеджмент",          price: 45000, durationMs: 12*3600000, boost: 30 },
-    { id: "architecture", name: "Архітектура високих навантажень", price: 90000, durationMs: 18*3600000, boost: 40 }
+    { id: "basics", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10 },
+    { id: "algorithms", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15 },
+    { id: "cleancode", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20 },
+    { id: "sysdesign", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25 },
+    { id: "leadership", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30 },
+    { id: "architecture", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40 }
 ];
 
-// ===== MAP: 12 ділянок землі =====
+// 12 ділянок з координатами на мапі (x, y)
 const PLOTS = [
-    { id: 0,  name: "Ділянка №1",  landPrice: 300 },
-    { id: 1,  name: "Ділянка №2",  landPrice: 600 },
-    { id: 2,  name: "Ділянка №3",  landPrice: 1200 },
-    { id: 3,  name: "Ділянка №4",  landPrice: 2500 },
-    { id: 4,  name: "Ділянка №5",  landPrice: 5000 },
-    { id: 5,  name: "Ділянка №6",  landPrice: 9000 },
-    { id: 6,  name: "Ділянка №7",  landPrice: 16000 },
-    { id: 7,  name: "Ділянка №8",  landPrice: 28000 },
-    { id: 8,  name: "Ділянка №9",  landPrice: 45000 },
-    { id: 9,  name: "Ділянка №10", landPrice: 70000 },
-    { id: 10, name: "Ділянка №11", landPrice: 110000 },
-    { id: 11, name: "Ділянка №12", landPrice: 180000 }
-];
-
-// Що можна будувати на землі
-const BUILDINGS = [
-    { id: "shed",    name: "Сарай",     rents: [8, 15, 25],     upgradeCost: [400, 900] },
-    { id: "house",   name: "Будинок",   rents: [25, 50, 85],    upgradeCost: [1200, 2800] },
-    { id: "shop",    name: "Магазин",   rents: [60, 120, 200],  upgradeCost: [3500, 8000] },
-    { id: "office",  name: "Офіс",      rents: [120, 240, 400], upgradeCost: [8000, 18000] },
-    { id: "cafe",    name: "Кав’ярня",  rents: [200, 400, 650], upgradeCost: [15000, 35000] },
-    { id: "it",      name: "IT-офіс",   rents: [350, 700, 1200],upgradeCost: [30000, 70000] }
+    { id: 0,  name: "Ділянка A1", price: 400,   x: 40,  y: 140 },
+    { id: 1,  name: "Ділянка A2", price: 700,   x: 120, y: 140 },
+    { id: 2,  name: "Ділянка A3", price: 1200,  x: 280, y: 140 },
+    { id: 3,  name: "Ділянка A4", price: 2000,  x: 360, y: 140 },
+    { id: 4,  name: "Ділянка A5", price: 3500,  x: 520, y: 140 },
+    { id: 5,  name: "Ділянка A6", price: 5500,  x: 600, y: 140 },
+    { id: 6,  name: "Ділянка B1", price: 800,   x: 40,  y: 300 },
+    { id: 7,  name: "Ділянка B2", price: 1500,  x: 120, y: 300 },
+    { id: 8,  name: "Ділянка B3", price: 2800,  x: 280, y: 300 },
+    { id: 9,  name: "Ділянка B4", price: 4500,  x: 360, y: 300 },
+    { id: 10, name: "Ділянка B5", price: 7500,  x: 520, y: 300 },
+    { id: 11, name: "Ділянка B6", price: 12000, x: 600, y: 300 }
 ];
 
 const firebaseConfig = {
@@ -481,164 +350,120 @@ const db = getDatabase(app);
 let currentUser = "";
 let authMode = "login";
 let gameState = {
-    coins: 0,
-    jobIndex: 0,
-    xp: 0,
-    taskProgress: 0,
-    taskActive: false,
-    activeCourseId: null,
-    courseStartTime: 0,
-    completedCourses: [],
-    xpBoost: 0,
-    // map
-    plots: {},           // { "0": { owned: true, buildingId: "shed", level: 1, lastCollect: timestamp }, ... }
-    lastRentCollect: 0
+    coins: 0, jobIndex: 0, xp: 0,
+    taskProgress: 0, taskActive: false,
+    activeCourseId: null, courseStartTime: 0,
+    completedCourses: [], xpBoost: 0,
+    ownedPlots: {}          // { "0": true, "3": true ... }
 };
-let saveTimer = null;
-let heartbeatTimer = null;
-let courseTimerInterval = null;
-let dataListener = null;
-let isSaving = false;
-let currentPage = "clicker";
+let saveTimer = null, heartbeatTimer = null, courseTimerInterval = null, dataListener = null;
+let isSaving = false, currentPage = "clicker";
 
 function $(id) { return document.getElementById(id); }
-
 function formatNumber(n) {
-    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-    if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
+    if (n >= 1e9) return (n/1e9).toFixed(2)+"B";
+    if (n >= 1e6) return (n/1e6).toFixed(2)+"M";
+    if (n >= 1e3) return (n/1e3).toFixed(2)+"K";
     return Math.floor(n).toString();
 }
 function formatNumberFull(n) { return Math.floor(n).toLocaleString("uk-UA"); }
 function formatTimeAgo(ts) {
     if (!ts) return "—";
-    const diff = Date.now() - ts;
-    if (diff < 60000) return "щойно";
-    if (diff < 3600000) return Math.floor(diff / 60000) + " хв тому";
-    if (diff < 86400000) return Math.floor(diff / 3600000) + " год тому";
-    return Math.floor(diff / 86400000) + " дн тому";
+    const d = Date.now() - ts;
+    if (d < 60000) return "щойно";
+    if (d < 3600000) return Math.floor(d/60000)+" хв тому";
+    if (d < 86400000) return Math.floor(d/3600000)+" год тому";
+    return Math.floor(d/86400000)+" дн тому";
 }
 function formatDuration(ms) {
     if (ms <= 0) return "0:00:00";
-    const totalSec = Math.floor(ms / 1000);
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return h + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+    const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    return h+":"+String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");
 }
-
 async function sha256(text) {
     const buf = new TextEncoder().encode(text);
     const hash = await crypto.subtle.digest("SHA-256", buf);
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,"0")).join("");
 }
 
-window.showDialog = function(title, text, icon) {
+window.showDialog = (title, text, icon) => {
     $("dialog-title").textContent = title;
     $("dialog-text").textContent = text;
     $("dialog-icon").textContent = icon || "ℹ️";
     $("dialog-overlay").classList.add("active");
 };
-window.closeDialog = function() { $("dialog-overlay").classList.remove("active"); };
+window.closeDialog = () => $("dialog-overlay").classList.remove("active");
 
-window.switchAuthTab = function(tab) {
+window.switchAuthTab = (tab) => {
     authMode = tab;
     $("tab-login").classList.toggle("active", tab === "login");
     $("tab-register").classList.toggle("active", tab === "register");
     $("confirm-row").style.display = tab === "register" ? "flex" : "none";
     $("auth-submit").textContent = tab === "login" ? "Увійти" : "Зареєструватись";
     $("auth-switch-link").textContent = tab === "login" ? "Ще немає акаунта? Зареєструватись" : "Вже є акаунт? Увійти";
-    clearMessages();
+    $("auth-error").classList.remove("show"); $("auth-info").classList.remove("show");
 };
-window.toggleAuthMode = function() { switchAuthTab(authMode === "login" ? "register" : "login"); };
+window.toggleAuthMode = () => switchAuthTab(authMode === "login" ? "register" : "login");
 
-function clearMessages() {
-    $("auth-error").classList.remove("show");
-    $("auth-info").classList.remove("show");
-}
 function showError(msg) {
-    const el = $("auth-error");
-    el.textContent = msg;
-    el.classList.add("show");
+    $("auth-error").textContent = msg;
+    $("auth-error").classList.add("show");
     $("auth-info").classList.remove("show");
 }
 function setStatus(msg) { $("auth-status").textContent = msg; }
 function setGameStatus(msg) { $("game-status").textContent = msg; }
-   window.handleAuth = async function() {
-    clearMessages();
+
+window.handleAuth = async function() {
     const username = $("auth-username").value.trim();
     const password = $("auth-password").value;
     const password2 = $("auth-password2").value;
     const btn = $("auth-submit");
+    if (!username || !password) return showError("Заповніть усі поля!");
+    if (username.length < 3) return showError("Логін мінімум 3 символи!");
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) return showError("Логін: лише латиниця, цифри, _");
+    if (password.length < 4) return showError("Пароль мінімум 4 символи!");
+    if (authMode === "register" && password !== password2) return showError("Паролі не співпадають!");
 
-    if (!username || !password) { showError("Заповніть усі поля!"); return; }
-    if (username.length < 3) { showError("Логін мінімум 3 символи!"); return; }
-    if (username.length > 20) { showError("Логін занадто довгий!"); return; }
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) { showError("Логін: лише латиниця, цифри, _"); return; }
-    if (password.length < 4) { showError("Пароль мінімум 4 символи!"); return; }
-    if (authMode === "register" && password !== password2) { showError("Паролі не співпадають!"); return; }
-
-    btn.disabled = true;
-    setStatus("Обробка...");
-
+    btn.disabled = true; setStatus("Обробка...");
     try {
         const hash = await sha256(password);
         const snap = await get(child(ref(db), `users/${username}`));
-
         if (authMode === "register") {
-            if (snap.exists()) { showError("Такий користувач вже існує!"); return; }
+            if (snap.exists()) return showError("Такий користувач вже існує!");
             await set(ref(db, `users/${username}`), {
-                password: hash,
-                createdAt: Date.now(),
-                lastOnline: Date.now(),
-                clicker: {
-                    coins: 0, jobIndex: 0, xp: 0,
-                    taskProgress: 0, taskActive: false,
-                    activeCourseId: null, courseStartTime: 0,
-                    completedCourses: [], xpBoost: 0,
-                    plots: {}, lastRentCollect: Date.now()
-                }
+                password: hash, createdAt: Date.now(), lastOnline: Date.now(),
+                clicker: { coins:0, jobIndex:0, xp:0, taskProgress:0, taskActive:false,
+                    activeCourseId:null, courseStartTime:0, completedCourses:[], xpBoost:0, ownedPlots:{} }
             });
             currentUser = username;
-            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
-            setStatus("Акаунт створено");
-            startGame();
+            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e){}
+            setStatus("Акаунт створено"); startGame();
         } else {
-            if (!snap.exists()) { showError("Користувача не знайдено!"); return; }
-            if (snap.val().password !== hash) { showError("Невірний пароль!"); return; }
+            if (!snap.exists()) return showError("Користувача не знайдено!");
+            if (snap.val().password !== hash) return showError("Невірний пароль!");
             currentUser = username;
-            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
-            try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e) {}
-            setStatus("Вхід виконано");
-            startGame();
+            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e){}
+            try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e){}
+            setStatus("Вхід виконано"); startGame();
         }
-    } catch(e) {
-        console.error(e);
-        showError("Помилка: " + e.message);
-        setStatus("Помилка");
-    } finally {
-        btn.disabled = false;
-    }
+    } catch(e) { showError("Помилка: "+e.message); setStatus("Помилка"); }
+    finally { btn.disabled = false; }
 };
 
 ["auth-username","auth-password","auth-password2"].forEach(id => {
-    const el = $(id);
-    if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
+    const el = $(id); if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
 });
 
-// ===== GAME CORE =====
 async function startGame() {
     $("auth-window").style.display = "none";
     $("game-screen").classList.add("active");
     $("stat-user").textContent = currentUser;
     $("game-title").textContent = "Win95 Clicker — " + currentUser;
-
     await loadGame();
     startLiveSync();
     checkCourseCompletion();
     renderAll();
     switchPage("clicker");
-
     if (saveTimer) clearInterval(saveTimer);
     saveTimer = setInterval(saveGame, SAVE_INTERVAL_MS);
     startHeartbeat();
@@ -650,45 +475,39 @@ async function loadGame() {
     try {
         const snap = await get(child(ref(db), `users/${currentUser}/clicker`));
         if (snap.exists()) {
-            const data = snap.val();
+            const d = snap.val();
             gameState = {
-                coins: Number(data.coins) || 0,
-                jobIndex: Math.min(Number(data.jobIndex) || 0, JOBS.length - 1),
-                xp: Number(data.xp) || 0,
-                taskProgress: Number(data.taskProgress) || 0,
-                taskActive: Boolean(data.taskActive),
-                activeCourseId: data.activeCourseId || null,
-                courseStartTime: Number(data.courseStartTime) || 0,
-                completedCourses: Array.isArray(data.completedCourses) ? data.completedCourses : [],
-                xpBoost: Number(data.xpBoost) || 0,
-                plots: data.plots || {},
-                lastRentCollect: Number(data.lastRentCollect) || Date.now()
+                coins: Number(d.coins)||0,
+                jobIndex: Math.min(Number(d.jobIndex)||0, JOBS.length-1),
+                xp: Number(d.xp)||0,
+                taskProgress: Number(d.taskProgress)||0,
+                taskActive: Boolean(d.taskActive),
+                activeCourseId: d.activeCourseId||null,
+                courseStartTime: Number(d.courseStartTime)||0,
+                completedCourses: Array.isArray(d.completedCourses)?d.completedCourses:[],
+                xpBoost: Number(d.xpBoost)||0,
+                ownedPlots: d.ownedPlots || {}
             };
         }
         recalculateBoost();
-    } catch(e) {
-        console.error("loadGame:", e);
-        showDialog("Помилка", "Не вдалося завантажити: " + e.message, "⚠️");
-    }
+    } catch(e) { showDialog("Помилка", "Не вдалося завантажити: "+e.message, "⚠️"); }
 }
 
 function startLiveSync() {
     if (dataListener) { off(dataListener); dataListener = null; }
-    const userRef = ref(db, `users/${currentUser}/clicker`);
-    dataListener = onValue(userRef, (snapshot) => {
-        if (!snapshot.exists()) return;
-        const data = snapshot.val();
-        gameState.coins = Number(data.coins) || 0;
-        gameState.jobIndex = Math.min(Number(data.jobIndex) || 0, JOBS.length - 1);
-        gameState.xp = Number(data.xp) || 0;
-        gameState.taskProgress = Number(data.taskProgress) || 0;
-        gameState.taskActive = Boolean(data.taskActive);
-        gameState.activeCourseId = data.activeCourseId || null;
-        gameState.courseStartTime = Number(data.courseStartTime) || 0;
-        gameState.completedCourses = Array.isArray(data.completedCourses) ? data.completedCourses : [];
-        gameState.xpBoost = Number(data.xpBoost) || 0;
-        gameState.plots = data.plots || {};
-        gameState.lastRentCollect = Number(data.lastRentCollect) || Date.now();
+    dataListener = onValue(ref(db, `users/${currentUser}/clicker`), snap => {
+        if (!snap.exists()) return;
+        const d = snap.val();
+        gameState.coins = Number(d.coins)||0;
+        gameState.jobIndex = Math.min(Number(d.jobIndex)||0, JOBS.length-1);
+        gameState.xp = Number(d.xp)||0;
+        gameState.taskProgress = Number(d.taskProgress)||0;
+        gameState.taskActive = Boolean(d.taskActive);
+        gameState.activeCourseId = d.activeCourseId||null;
+        gameState.courseStartTime = Number(d.courseStartTime)||0;
+        gameState.completedCourses = Array.isArray(d.completedCourses)?d.completedCourses:[];
+        gameState.xpBoost = Number(d.xpBoost)||0;
+        gameState.ownedPlots = d.ownedPlots || {};
         recalculateBoost();
         checkCourseCompletion();
         renderAll();
@@ -696,165 +515,89 @@ function startLiveSync() {
 }
 
 function recalculateBoost() {
-    let boost = 0;
-    gameState.completedCourses.forEach(id => {
-        const c = COURSES.find(x => x.id === id);
-        if (c) boost += c.boost;
-    });
-    gameState.xpBoost = boost;
+    let b = 0;
+    gameState.completedCourses.forEach(id => { const c = COURSES.find(x=>x.id===id); if(c) b += c.boost; });
+    gameState.xpBoost = b;
 }
 
 async function saveGame() {
     if (!currentUser) return;
-    if (isSaving) {
-        await new Promise(r => setTimeout(r, 200));
-        if (isSaving) return;
-    }
+    if (isSaving) { await new Promise(r=>setTimeout(r,200)); if (isSaving) return; }
     isSaving = true;
     try {
         await update(ref(db, `users/${currentUser}/clicker`), {
-            coins: gameState.coins,
-            jobIndex: gameState.jobIndex,
-            xp: gameState.xp,
-            taskProgress: gameState.taskProgress,
-            taskActive: gameState.taskActive,
-            activeCourseId: gameState.activeCourseId,
-            courseStartTime: gameState.courseStartTime,
-            completedCourses: gameState.completedCourses,
-            xpBoost: gameState.xpBoost,
-            plots: gameState.plots,
-            lastRentCollect: gameState.lastRentCollect
+            coins: gameState.coins, jobIndex: gameState.jobIndex, xp: gameState.xp,
+            taskProgress: gameState.taskProgress, taskActive: gameState.taskActive,
+            activeCourseId: gameState.activeCourseId, courseStartTime: gameState.courseStartTime,
+            completedCourses: gameState.completedCourses, xpBoost: gameState.xpBoost,
+            ownedPlots: gameState.ownedPlots
         });
         const now = new Date();
-        $("save-status").textContent = "💾 " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
-    } catch(e) {
-        console.error("saveGame:", e);
-        $("save-status").textContent = "⚠ Помилка";
-        throw e;
-    } finally {
-        isSaving = false;
-    }
+        $("save-status").textContent = "💾 "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0")+":"+String(now.getSeconds()).padStart(2,"0");
+    } catch(e) { $("save-status").textContent = "⚠ Помилка"; throw e; }
+    finally { isSaving = false; }
 }
 
 function getCurrentJob() { return JOBS[gameState.jobIndex] || JOBS[0]; }
 function isCourseRunning() { return !!gameState.activeCourseId; }
-
 function getRemainingCourseMs() {
     if (!gameState.activeCourseId) return 0;
-    const course = COURSES.find(c => c.id === gameState.activeCourseId);
-    if (!course) return 0;
-    return Math.max(0, course.durationMs - (Date.now() - gameState.courseStartTime));
+    const c = COURSES.find(x=>x.id===gameState.activeCourseId);
+    if (!c) return 0;
+    return Math.max(0, c.durationMs - (Date.now() - gameState.courseStartTime));
 }
-
 function checkCourseCompletion() {
     if (!gameState.activeCourseId) return;
     if (getRemainingCourseMs() <= 0) {
-        const course = COURSES.find(c => c.id === gameState.activeCourseId);
-        if (course && !gameState.completedCourses.includes(course.id)) {
-            gameState.completedCourses.push(course.id);
+        const c = COURSES.find(x=>x.id===gameState.activeCourseId);
+        if (c && !gameState.completedCourses.includes(c.id)) {
+            gameState.completedCourses.push(c.id);
             recalculateBoost();
         }
         gameState.activeCourseId = null;
         gameState.courseStartTime = 0;
         setGameStatus("Курс завершено!");
-        showDialog("Курс завершено!", (course ? course.name : "Курс") + "\n+" + (course ? course.boost : 0) + "% XP", "🎓");
+        showDialog("Курс завершено!", (c?c.name:"Курс")+"\n+"+(c?c.boost:0)+"% XP", "🎓");
         saveGame();
     }
 }
 
-// ===== MAP LOGIC =====
-function getPlotRent(plotData) {
-    if (!plotData || !plotData.owned || !plotData.buildingId) return 0;
-    const b = BUILDINGS.find(x => x.id === plotData.buildingId);
-    if (!b) return 0;
-    const lvl = Math.min(Math.max((plotData.level || 1) - 1, 0), 2);
-    return b.rents[lvl] || 0;
-}
-
-function calcPendingRent() {
-    let total = 0;
-    const now = Date.now();
-    const last = gameState.lastRentCollect || now;
-    const periods = Math.floor((now - last) / RENT_INTERVAL_MS);
-    if (periods <= 0) return 0;
-
-    Object.values(gameState.plots || {}).forEach(p => {
-        total += getPlotRent(p) * periods;
-    });
-    return total;
-}
-
-window.collectAllRent = function() {
-    const amount = calcPendingRent();
-    if (amount <= 0) {
-        showDialog("Рента", "Поки нічого немає для збору.\nЧекай 5 хвилин.", "ℹ️");
-        return;
-    }
-    gameState.coins += amount;
-    gameState.lastRentCollect = Date.now();
-    renderAll();
-    saveGame();
-    setGameStatus("Зібрано ренту: +" + formatNumber(amount));
-    showDialog("Рента зібрана!", "+" + formatNumberFull(amount) + " монет", "💰");
-};
-
-window.buyLand = function(plotId) {
+// ===== MAP =====
+window.buyPlot = function(plotId) {
     const plot = PLOTS.find(p => p.id === plotId);
     if (!plot) return;
-    if (gameState.plots[plotId] && gameState.plots[plotId].owned) return;
-    if (gameState.coins < plot.landPrice) {
-        showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(plot.landPrice), "💸");
+    if (gameState.ownedPlots[plotId]) return;
+    if (gameState.coins < plot.price) {
+        showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(plot.price) + " монет", "💸");
         return;
     }
-    gameState.coins -= plot.landPrice;
-    if (!gameState.plots[plotId]) gameState.plots[plotId] = {};
-    gameState.plots[plotId].owned = true;
-    gameState.plots[plotId].buildingId = null;
-    gameState.plots[plotId].level = 0;
+    gameState.coins -= plot.price;
+    gameState.ownedPlots[plotId] = true;
     renderAll();
     saveGame();
-    setGameStatus("Ділянку куплено!");
+    setGameStatus("Ділянку куплено: " + plot.name);
+    showDialog("Ділянку куплено!", plot.name, "🗺️");
 };
 
-window.buildOnPlot = function(plotId, buildingId) {
-    const plotData = gameState.plots[plotId];
-    if (!plotData || !plotData.owned || plotData.buildingId) return;
-    const b = BUILDINGS.find(x => x.id === buildingId);
-    if (!b) return;
-    // Будівництво безкоштовне після купівлі землі (можна змінити)
-    plotData.buildingId = buildingId;
-    plotData.level = 1;
-    renderAll();
-    saveGame();
-    setGameStatus("Побудовано: " + b.name);
-};
-
-window.upgradePlot = function(plotId) {
-    const plotData = gameState.plots[plotId];
-    if (!plotData || !plotData.owned || !plotData.buildingId) return;
-    const b = BUILDINGS.find(x => x.id === plotData.buildingId);
-    if (!b) return;
-    const lvl = plotData.level || 1;
-    if (lvl >= 3) return;
-    const cost = b.upgradeCost[lvl - 1];
-    if (gameState.coins < cost) {
-        showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(cost), "💸");
-        return;
-    }
-    gameState.coins -= cost;
-    plotData.level = lvl + 1;
-    renderAll();
-    saveGame();
-    setGameStatus("Покращено до рівня " + plotData.level);
-};
-   function renderAll() {
+function renderMap() {
+    const layer = $("plots-layer");
+    let html = "";
+    PLOTS.forEach(p => {
+        const owned = !!gameState.ownedPlots[p.id];
+        html += `<div class="map-plot${owned?" owned":""}" style="left:${p.x}px;top:${p.y}px" onclick="buyPlot(${p.id})">
+            <div class="plot-label">${owned ? "✓ Ваша" : p.name}</div>
+            ${owned ? "" : `<div class="plot-price">${formatNumber(p.price)}</div>`}
+        </div>`;
+    });
+    layer.innerHTML = html;
+}
+    function renderAll() {
     renderStats();
     renderTask();
     renderJobsList();
     renderShop();
     renderMap();
     updateWorkButtonState();
-    updateRentInfo();
 }
 
 function renderStats() {
@@ -864,31 +607,25 @@ function renderStats() {
     $("stat-xp").textContent = formatNumber(gameState.xp);
     $("stat-boost").textContent = gameState.xpBoost + "%";
     $("big-coins").textContent = formatNumberFull(gameState.coins);
-
     const needed = job.xpNeeded || 1;
     const pct = job.xpNeeded === 0 ? 100 : Math.min(100, (gameState.xp / needed) * 100);
     $("xp-bar").style.width = pct + "%";
     $("xp-text").textContent = job.xpNeeded === 0 ? "Макс. рівень" : formatNumber(gameState.xp) + " / " + formatNumber(needed);
-
-    const canPromote = job.xpNeeded > 0 && gameState.xp >= job.xpNeeded;
-    $("promote-btn").classList.toggle("show", canPromote);
+    $("promote-btn").classList.toggle("show", job.xpNeeded > 0 && gameState.xp >= job.xpNeeded);
 }
 
 function renderTask() {
     const job = getCurrentJob();
     const needed = job.taskClicks;
     const prog = gameState.taskActive ? gameState.taskProgress : 0;
-    const pct = needed > 0 ? Math.min(100, (prog / needed) * 100) : 0;
-    $("task-bar").style.width = pct + "%";
+    $("task-bar").style.width = (needed > 0 ? Math.min(100, (prog / needed) * 100) : 0) + "%";
     $("task-text").textContent = prog + " / " + needed;
     $("task-reward").textContent = "Нагорода: " + formatNumberFull(job.taskReward) + " 💰";
     $("task-title").textContent = gameState.taskActive ? "Поточна задача (" + job.name + ")" : "Задача не почата";
 }
 
 function updateWorkButtonState() {
-    const btn = $("big-click");
-    const label = $("big-click-label");
-    const blocker = $("course-blocker");
+    const btn = $("big-click"), label = $("big-click-label"), blocker = $("course-blocker");
     if (isCourseRunning()) {
         btn.disabled = true;
         label.textContent = "КУРС У ПРОЦЕСІ";
@@ -902,120 +639,49 @@ function updateWorkButtonState() {
 }
 
 function renderJobsList() {
-    const listEl = $("jobs-list");
     let html = "";
     JOBS.forEach((job, i) => {
-        const isCurrent = i === gameState.jobIndex;
-        const isLocked = i > gameState.jobIndex;
+        const isCurrent = i === gameState.jobIndex, isLocked = i > gameState.jobIndex;
         const status = isCurrent ? "← зараз" : (isLocked ? "🔒" : "✓");
         html += `<div class="job-row${isCurrent?" current":""}${isLocked?" locked":""}">
             <span class="job-name">${i+1}. ${job.name}</span>
             <span class="job-pay">+${formatNumber(job.taskReward)}</span>
-            <span class="job-status">${status}</span>
-        </div>`;
+            <span class="job-status">${status}</span></div>`;
     });
-    listEl.innerHTML = html;
+    $("jobs-list").innerHTML = html;
 }
 
 function renderShop() {
-    const listEl = $("shop-list");
     let html = "";
-    COURSES.forEach(course => {
-        const isCompleted = gameState.completedCourses.includes(course.id);
-        const isActive = gameState.activeCourseId === course.id;
-        const canBuy = !isCompleted && !isActive && !gameState.activeCourseId && gameState.coins >= course.price;
-        let statusHtml = "";
-        if (isCompleted) statusHtml = `<span style="color:#008000;font-weight:bold">✓ Пройдено (+${course.boost}%)</span>`;
-        else if (isActive) statusHtml = `<span class="course-timer">Залишилось: ${formatDuration(getRemainingCourseMs())}</span>`;
-        else statusHtml = `<button class="btn" ${canBuy?"":"disabled"} onclick="buyCourse('${course.id}')">Купити (${formatNumber(course.price)})</button>`;
-        html += `<div class="shop-item${isCompleted?" completed":""}${isActive?" active-course":""}">
-            <div class="shop-item-header">
-                <span class="shop-item-name">${course.name}</span>
-                <span class="shop-item-boost">+${course.boost}% XP</span>
-            </div>
-            <div class="shop-item-info">Тривалість: ${Math.round(course.durationMs/3600000)} год</div>
-            <div class="shop-item-actions">${statusHtml}</div>
-        </div>`;
+    COURSES.forEach(c => {
+        const done = gameState.completedCourses.includes(c.id);
+        const active = gameState.activeCourseId === c.id;
+        const can = !done && !active && !gameState.activeCourseId && gameState.coins >= c.price;
+        let status = done ? `<span style="color:#008000;font-weight:bold">✓ Пройдено (+${c.boost}%)</span>` :
+                    active ? `<span class="course-timer">Залишилось: ${formatDuration(getRemainingCourseMs())}</span>` :
+                    `<button class="btn" ${can?"":"disabled"} onclick="buyCourse('${c.id}')">Купити (${formatNumber(c.price)})</button>`;
+        html += `<div class="shop-item${done?" completed":""}${active?" active-course":""}">
+            <div class="shop-item-header"><span class="shop-item-name">${c.name}</span><span class="shop-item-boost">+${c.boost}% XP</span></div>
+            <div class="shop-item-info">Тривалість: ${Math.round(c.durationMs/3600000)} год</div>
+            <div class="shop-item-actions">${status}</div></div>`;
     });
-    listEl.innerHTML = html;
+    $("shop-list").innerHTML = html;
 }
 
-function updateRentInfo() {
-    const pending = calcPendingRent();
-    $("rent-info").textContent = "Накопичено: " + formatNumberFull(pending);
-}
-
-function renderMap() {
-    const street = $("street");
-    let html = "";
-    PLOTS.forEach(plot => {
-        const data = gameState.plots[plot.id] || {};
-        const owned = !!data.owned;
-        let name = plot.name;
-        let status = "Вільна земля";
-        let rentText = "";
-        let actions = "";
-
-        if (owned) {
-            if (data.buildingId) {
-                const b = BUILDINGS.find(x => x.id === data.buildingId);
-                name = b ? b.name : "Будівля";
-                status = "Рівень " + (data.level || 1);
-                rentText = "Рента: +" + getPlotRent(data) + " / 5хв";
-                if ((data.level || 1) < 3) {
-                    const cost = b.upgradeCost[(data.level || 1) - 1];
-                    actions = `<button class="btn" onclick="upgradePlot(${plot.id})">Покращити (${formatNumber(cost)})</button>`;
-                } else {
-                    actions = `<button class="btn" disabled>Макс. рівень</button>`;
-                }
-            } else {
-                status = "Порожня ділянка";
-                actions = BUILDINGS.map(b => 
-                    `<button class="btn" onclick="buildOnPlot(${plot.id},'${b.id}')">${b.name}</button>`
-                ).join("");
-            }
-        } else {
-            actions = `<button class="btn" onclick="buyLand(${plot.id})">Купити землю (${formatNumber(plot.landPrice)})</button>`;
-        }
-
-        html += `<div class="plot${owned?" owned":""}">
-            <div class="plot-number">№${plot.id + 1}</div>
-            <div class="plot-name">${name}</div>
-            <div class="plot-status">${status}</div>
-            <div class="plot-rent">${rentText}</div>
-            <div class="plot-actions">${actions}</div>
-        </div>`;
-    });
-    street.innerHTML = html;
-    updateRentInfo();
-}
-
-window.doWork = function(event) {
+window.doWork = function(e) {
     if (!currentUser || isCourseRunning()) return;
     const job = getCurrentJob();
-
     if (!gameState.taskActive) {
-        gameState.taskActive = true;
-        gameState.taskProgress = 0;
-        renderTask();
-        updateWorkButtonState();
-        setGameStatus("Задачу розпочато!");
-        return;
+        gameState.taskActive = true; gameState.taskProgress = 0;
+        renderTask(); updateWorkButtonState(); setGameStatus("Задачу розпочато!"); return;
     }
-
     gameState.taskProgress += 1;
-    const xpGain = 1 * (1 + gameState.xpBoost / 100);
-    gameState.xp += xpGain;
-    renderStats();
-    renderTask();
-
+    gameState.xp += 1 * (1 + gameState.xpBoost / 100);
+    renderStats(); renderTask();
     if (gameState.taskProgress >= job.taskClicks) {
         gameState.coins += job.taskReward;
-        gameState.taskActive = false;
-        gameState.taskProgress = 0;
-        renderStats();
-        renderTask();
-        updateWorkButtonState();
+        gameState.taskActive = false; gameState.taskProgress = 0;
+        renderStats(); renderTask(); updateWorkButtonState();
         setGameStatus("Задачу закрито! +" + formatNumber(job.taskReward));
         showDialog("Задачу виконано!", "+" + formatNumberFull(job.taskReward) + " монет", "💰");
     }
@@ -1026,53 +692,36 @@ window.doPromote = function() {
     if (job.xpNeeded <= 0 || gameState.xp < job.xpNeeded) return;
     gameState.xp -= job.xpNeeded;
     gameState.jobIndex = Math.min(gameState.jobIndex + 1, JOBS.length - 1);
-    gameState.taskActive = false;
-    gameState.taskProgress = 0;
+    gameState.taskActive = false; gameState.taskProgress = 0;
     renderAll();
-    setGameStatus("Підвищення! Тепер ви — " + getCurrentJob().name);
+    setGameStatus("Підвищення! " + getCurrentJob().name);
     showDialog("Підвищення!", "Ви стали: " + getCurrentJob().name, "🎉");
 };
 
-window.buyCourse = async function(courseId) {
-    if (isCourseRunning()) { showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️"); return; }
-    const course = COURSES.find(c => c.id === courseId);
-    if (!course || gameState.completedCourses.includes(courseId)) return;
-    if (gameState.coins < course.price) { showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(course.price), "💸"); return; }
-
-    gameState.coins -= course.price;
-    gameState.activeCourseId = course.id;
+window.buyCourse = async function(id) {
+    if (isCourseRunning()) return showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️");
+    const c = COURSES.find(x => x.id === id);
+    if (!c || gameState.completedCourses.includes(id)) return;
+    if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price), "💸");
+    gameState.coins -= c.price;
+    gameState.activeCourseId = c.id;
     gameState.courseStartTime = Date.now();
-    gameState.taskActive = false;
-    gameState.taskProgress = 0;
-
-    renderAll();
-    startCourseTimer();
-    setGameStatus("Зберігаємо курс...");
-    try {
-        isSaving = false;
-        await saveGame();
-        setGameStatus("Курс розпочато: " + course.name);
-        showDialog("Курс розпочато!", course.name + "\nТривалість: " + Math.round(course.durationMs/3600000) + " год", "📚");
-    } catch(e) {
-        showDialog("Помилка", "Не вдалося зберегти покупку", "⚠️");
-    }
+    gameState.taskActive = false; gameState.taskProgress = 0;
+    renderAll(); startCourseTimer();
+    try { isSaving = false; await saveGame(); setGameStatus("Курс розпочато"); showDialog("Курс розпочато!", c.name, "📚"); }
+    catch(e) { showDialog("Помилка", "Не вдалося зберегти", "⚠️"); }
 };
 
 function startCourseTimer() {
     if (courseTimerInterval) clearInterval(courseTimerInterval);
     courseTimerInterval = setInterval(() => {
         checkCourseCompletion();
-        if (isCourseRunning()) {
-            updateWorkButtonState();
-            if (currentPage === "shop") renderShop();
-        } else {
-            clearInterval(courseTimerInterval);
-            courseTimerInterval = null;
-            renderAll();
-        }
+        if (isCourseRunning()) { updateWorkButtonState(); if (currentPage === "shop") renderShop(); }
+        else { clearInterval(courseTimerInterval); courseTimerInterval = null; renderAll(); }
     }, 1000);
 }
-   function startHeartbeat() {
+
+function startHeartbeat() {
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     sendHeartbeat();
     heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
@@ -1086,10 +735,9 @@ window.switchPage = function(page) {
     currentPage = page;
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     document.querySelectorAll(".tab-strip .tab").forEach(t => t.classList.remove("active"));
-    const pageEl = $("page-" + page);
-    const tabEl = $("tabnav-" + page);
-    if (pageEl) pageEl.classList.add("active");
-    if (tabEl) tabEl.classList.add("active");
+    const pe = $("page-"+page), te = $("tabnav-"+page);
+    if (pe) pe.classList.add("active");
+    if (te) te.classList.add("active");
     if (page === "leaderboard") loadLeaderboard();
     if (page === "online") loadOnline();
     if (page === "shop") renderShop();
@@ -1097,114 +745,68 @@ window.switchPage = function(page) {
 };
 
 window.loadLeaderboard = async function() {
-    const listEl = $("lb-list");
-    const myRankEl = $("lb-my-rank");
-    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
-    myRankEl.textContent = "—";
+    const listEl = $("lb-list"), myRankEl = $("lb-my-rank");
+    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>'; myRankEl.textContent = "—";
     try {
         const snap = await get(child(ref(db), "users"));
         if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Ще немає гравців</div>'; return; }
-        const users = snap.val();
-        const list = [];
-        for (const [name, data] of Object.entries(users)) {
-            list.push({ name, coins: (data?.clicker?.coins) || 0 });
-        }
-        list.sort((a, b) => b.coins - a.coins);
-        const top = list.slice(0, LEADERBOARD_LIMIT);
+        const list = Object.entries(snap.val()).map(([name, d]) => ({ name, coins: d?.clicker?.coins || 0 }));
+        list.sort((a,b) => b.coins - a.coins);
         let html = "";
-        top.forEach((u, i) => {
-            const rank = i + 1;
-            const rankClass = rank === 1 ? "top1" : rank === 2 ? "top2" : rank === 3 ? "top3" : "";
-            const isSelf = u.name === currentUser;
-            const medal = rank === 1 ? "🥇 " : rank === 2 ? "🥈 " : rank === 3 ? "🥉 " : "";
-            html += `<div class="lb-row${isSelf?" self":""}">
-                <span class="lb-rank ${rankClass}">${medal}${rank}</span>
-                <span class="lb-name">${escapeHtml(u.name)}</span>
-                <span class="lb-coins">${formatNumberFull(u.coins)}</span>
-            </div>`;
+        list.slice(0, LEADERBOARD_LIMIT).forEach((u, i) => {
+            const rank = i+1, rc = rank===1?"top1":rank===2?"top2":rank===3?"top3":"";
+            const self = u.name === currentUser;
+            const medal = rank===1?"🥇 ":rank===2?"🥈 ":rank===3?"🥉 ":"";
+            html += `<div class="lb-row${self?" self":""}"><span class="lb-rank ${rc}">${medal}${rank}</span>
+                <span class="lb-name">${escapeHtml(u.name)}</span><span class="lb-coins">${formatNumberFull(u.coins)}</span></div>`;
         });
         listEl.innerHTML = html;
-        const myIndex = list.findIndex(u => u.name === currentUser);
-        myRankEl.textContent = myIndex >= 0 
-            ? `Ваше місце: #${myIndex+1} з ${list.length} (${formatNumberFull(list[myIndex].coins)})`
-            : "Вас немає в списку";
-    } catch(e) {
-        listEl.innerHTML = '<div class="lb-empty">Помилка: ' + escapeHtml(e.message) + '</div>';
-    }
+        const idx = list.findIndex(u => u.name === currentUser);
+        myRankEl.textContent = idx >= 0 ? `Ваше місце: #${idx+1} з ${list.length}` : "Вас немає в списку";
+    } catch(e) { listEl.innerHTML = '<div class="lb-empty">Помилка</div>'; }
 };
 
 window.loadOnline = async function() {
-    const listEl = $("online-list");
-    const countEl = $("online-count");
-    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
-    countEl.textContent = "—";
+    const listEl = $("online-list"), countEl = $("online-count");
+    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>'; countEl.textContent = "—";
     try {
         const snap = await get(child(ref(db), "users"));
-        if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Немає гравців</div>'; countEl.textContent = "0 онлайн"; return; }
-        const users = snap.val();
+        if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Немає гравців</div>'; countEl.textContent="0 онлайн"; return; }
         const now = Date.now();
-        const list = [];
-        for (const [name, data] of Object.entries(users)) {
-            const lastOnline = Number(data?.lastOnline) || 0;
-            const online = (now - lastOnline) < ONLINE_THRESHOLD_MS;
-            list.push({ name, coins: (data?.clicker?.coins) || 0, lastOnline, online });
-        }
-        const onlineList = list.filter(u => u.online).sort((a, b) => {
-            if (a.name === currentUser) return -1;
-            if (b.name === currentUser) return 1;
-            return b.lastOnline - a.lastOnline;
-        });
-        if (onlineList.length === 0) {
-            listEl.innerHTML = '<div class="lb-empty">Нікого немає онлайн</div>';
-            countEl.textContent = "0 онлайн";
-            return;
-        }
+        const online = Object.entries(snap.val())
+            .map(([name, d]) => ({ name, coins: d?.clicker?.coins||0, lastOnline: Number(d?.lastOnline)||0, online: (now - (Number(d?.lastOnline)||0)) < ONLINE_THRESHOLD_MS }))
+            .filter(u => u.online)
+            .sort((a,b) => a.name===currentUser?-1:b.name===currentUser?1:b.lastOnline-a.lastOnline);
+        if (!online.length) { listEl.innerHTML = '<div class="lb-empty">Нікого немає онлайн</div>'; countEl.textContent="0 онлайн"; return; }
         let html = "";
-        onlineList.forEach(u => {
-            const isSelf = u.name === currentUser;
-            html += `<div class="online-row${isSelf?" self":""}">
-                <span class="online-dot"></span>
-                <span class="lb-name">${escapeHtml(u.name)}${isSelf?" (ви)":""}</span>
+        online.forEach(u => {
+            const self = u.name === currentUser;
+            html += `<div class="online-row${self?" self":""}"><span class="online-dot"></span>
+                <span class="lb-name">${escapeHtml(u.name)}${self?" (ви)":""}</span>
                 <span class="lb-coins">${formatNumberFull(u.coins)}</span>
-                <span class="muted" style="min-width:70px;text-align:right">${formatTimeAgo(u.lastOnline)}</span>
-            </div>`;
+                <span class="muted" style="min-width:70px;text-align:right">${formatTimeAgo(u.lastOnline)}</span></div>`;
         });
-        listEl.innerHTML = html;
-        countEl.textContent = onlineList.length + " онлайн";
-    } catch(e) {
-        listEl.innerHTML = '<div class="lb-empty">Помилка: ' + escapeHtml(e.message) + '</div>';
-    }
+        listEl.innerHTML = html; countEl.textContent = online.length + " онлайн";
+    } catch(e) { listEl.innerHTML = '<div class="lb-empty">Помилка</div>'; }
 };
 
-function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 window.logout = async function() {
     if (!currentUser) return;
     await saveGame();
-    try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
-    try { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); } catch(e) {}
-
-    if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
-    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-    if (courseTimerInterval) { clearInterval(courseTimerInterval); courseTimerInterval = null; }
+    try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e){}
+    try { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); } catch(e){}
+    if (saveTimer) clearInterval(saveTimer);
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (courseTimerInterval) clearInterval(courseTimerInterval);
     if (dataListener) { off(dataListener); dataListener = null; }
-
     currentUser = "";
-    gameState = {
-        coins:0, jobIndex:0, xp:0, taskProgress:0, taskActive:false,
-        activeCourseId:null, courseStartTime:0, completedCourses:[], xpBoost:0,
-        plots:{}, lastRentCollect:0
-    };
-
+    gameState = { coins:0, jobIndex:0, xp:0, taskProgress:0, taskActive:false, activeCourseId:null, courseStartTime:0, completedCourses:[], xpBoost:0, ownedPlots:{} };
     $("game-screen").classList.remove("active");
     $("auth-window").style.display = "flex";
-    $("auth-username").value = "";
-    $("auth-password").value = "";
-    $("auth-password2").value = "";
-    switchAuthTab("login");
-    setStatus("Вихід виконано");
+    $("auth-username").value = $("auth-password").value = $("auth-password2").value = "";
+    switchAuthTab("login"); setStatus("Вихід виконано");
 };
 
 window.addEventListener("beforeunload", () => {
@@ -1215,33 +817,30 @@ window.addEventListener("beforeunload", () => {
                 taskProgress: gameState.taskProgress, taskActive: gameState.taskActive,
                 activeCourseId: gameState.activeCourseId, courseStartTime: gameState.courseStartTime,
                 completedCourses: gameState.completedCourses, xpBoost: gameState.xpBoost,
-                plots: gameState.plots, lastRentCollect: gameState.lastRentCollect
+                ownedPlots: gameState.ownedPlots
             });
             update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
-        } catch(e) {}
+        } catch(e){}
     }
 });
 
 (async function autoLogin() {
     try {
-        const savedUser = localStorage.getItem("w95_user");
-        const savedHash = localStorage.getItem("w95_hash");
-        if (!savedUser || !savedHash) return;
-        const snap = await get(child(ref(db), `users/${savedUser}`));
-        if (snap.exists() && snap.val().password === savedHash) {
-            currentUser = savedUser;
-            try { await update(ref(db, `users/${savedUser}`), { lastOnline: Date.now() }); } catch(e) {}
+        const u = localStorage.getItem("w95_user"), h = localStorage.getItem("w95_hash");
+        if (!u || !h) return;
+        const snap = await get(child(ref(db), `users/${u}`));
+        if (snap.exists() && snap.val().password === h) {
+            currentUser = u;
+            try { await update(ref(db, `users/${u}`), { lastOnline: Date.now() }); } catch(e){}
             startGame();
-        } else {
-            try { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); } catch(e) {}
-        }
-    } catch(e) { console.error("autoLogin:", e); }
+        } else { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); }
+    } catch(e){}
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
     switchAuthTab("login");
     $("auth-username").focus();
-    console.log("%cWin95 Clicker v" + APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace;");
+    console.log("%cWin95 Clicker v"+APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace");
 });
 </script>
 </body>
