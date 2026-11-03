@@ -2,702 +2,234 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="version" content="1.3.0">
-<title>Win95 Clicker — v1.3.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="version" content="1.4.0">
+<title>Win95 Clicker — v1.4.0</title>
 <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; width: 100%; overflow: hidden; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden}
+body{
+    background:#008080;
+    font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif;
+    font-size:13px;color:#000;
+    display:flex;align-items:stretch;justify-content:center;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+}
+.window{
+    background:#c0c0c0;
+    border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;
+    display:flex;flex-direction:column;
+    width:100%;height:100%;max-width:100%;max-height:100%;
+}
+.title-bar{
+    background:linear-gradient(90deg,#000080,#1084d0);
+    color:#fff;padding:8px 10px;display:flex;align-items:center;gap:8px;
+    font-weight:bold;font-size:14px;flex-shrink:0;
+}
+.title-bar .title-icon{font-size:16px}
+.title-bar .title-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.win-controls{display:flex;gap:4px}
+.win-btn{
+    width:28px;height:24px;background:#c0c0c0;border:1px solid;
+    border-color:#fff #000 #000 #fff;font-size:12px;font-weight:bold;color:#000;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1;font-family:inherit;
+}
+.win-btn:active{border-color:#000 #fff #fff #000}
+.win-btn:disabled{color:#808080;cursor:default}
 
-    body {
-        background: #008080;
-        font-family: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
-        font-size: 13px;
-        color: #000;
-        display: flex;
-        align-items: stretch;
-        justify-content: center;
-        padding: 0;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
-        position: relative;
-        /* safe area for notched phones */
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    }
+.status-bar{background:#c0c0c0;padding:4px;display:flex;gap:4px;border-top:1px solid #fff;flex-shrink:0}
+.status-bar .panel{flex:1;border:1px inset #808080;padding:4px 8px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.status-bar .panel.small{flex:0 0 auto;min-width:70px}
 
-    .window {
-        background: #c0c0c0;
-        border: 2px solid;
-        border-color: #dfdfdf #808080 #808080 #dfdfdf;
-        box-shadow: none;
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        max-width: 100%;
-        height: 100%;
-        max-height: 100%;
-        border-radius: 0;
-        animation: none;
-    }
+.group-box{border:2px groove #fff;padding:12px 10px 10px;position:relative;margin-top:10px}
+.group-box::before{content:attr(data-label);position:absolute;top:-9px;left:10px;background:#c0c0c0;padding:0 5px;font-size:12px;color:#000}
 
-    .title-bar {
-        background: linear-gradient(90deg, #000080, #1084d0);
-        color: #fff;
-        padding: 8px 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: bold;
-        font-size: 14px;
-        flex-shrink: 0;
-    }
-    .title-bar .title-icon { font-size: 16px; }
-    .title-bar .title-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .title-bar .win-controls { display: flex; gap: 4px; }
-    .win-btn {
-        width: 28px; height: 24px;
-        background: #c0c0c0;
-        border: 1px solid;
-        border-color: #fff #000 #000 #fff;
-        font-size: 12px;
-        font-weight: bold;
-        color: #000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        padding: 0;
-        line-height: 1;
-        font-family: inherit;
-    }
-    .win-btn:active { border-color: #000 #fff #fff #000; }
-    .win-btn:disabled { color: #808080; cursor: default; }
+.form-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.form-row label{font-size:13px;min-width:70px}
+.input-field{
+    flex:1;padding:8px 10px;font-family:inherit;font-size:15px;background:#fff;color:#000;
+    border:2px solid;border-color:#808080 #fff #fff #808080;outline:none;min-width:0;
+}
+.input-field:focus{outline:1px dotted #000;outline-offset:-4px}
 
-    .status-bar {
-        background: #c0c0c0;
-        padding: 4px;
-        display: flex;
-        gap: 4px;
-        border-top: 1px solid #fff;
-        flex-shrink: 0;
-    }
-    .status-bar .panel {
-        flex: 1;
-        border: 1px inset #808080;
-        padding: 4px 8px;
-        font-size: 12px;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-    .status-bar .panel.small { flex: 0 0 auto; min-width: 70px; }
+.btn{
+    font-family:inherit;font-size:14px;background:#c0c0c0;color:#000;
+    border:2px solid;border-color:#fff #808080 #808080 #fff;
+    padding:10px 16px;cursor:pointer;min-width:90px;min-height:42px;font-weight:400;
+}
+.btn:active:not(:disabled){border-color:#808080 #fff #fff #808080;padding:11px 15px 9px 17px}
+.btn:disabled{color:#808080;text-shadow:1px 1px 0 #fff;cursor:default}
+.btn.default{outline:1px solid #000;outline-offset:-4px}
+.btn-link{background:transparent;border:none;color:#0000ff;text-decoration:underline;cursor:pointer;font-size:13px;padding:6px 0;font-family:inherit}
+.btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
 
-    .group-box {
-        border: 2px groove #fff;
-        padding: 12px 10px 10px;
-        position: relative;
-        margin-top: 10px;
-    }
-    .group-box::before {
-        content: attr(data-label);
-        position: absolute;
-        top: -9px;
-        left: 10px;
-        background: #c0c0c0;
-        padding: 0 5px;
-        font-size: 12px;
-        color: #000;
-    }
+.auth-tabs{display:flex;gap:4px;margin-bottom:12px}
+.auth-tab{
+    flex:1;padding:12px 8px;background:#c0c0c0;border:2px solid;
+    border-color:#fff #808080 #808080 #fff;cursor:pointer;font-size:14px;font-family:inherit;text-align:center;min-height:46px;
+}
+.auth-tab.active{background:#dfdfdf;border-color:#808080 #fff #fff #808080;font-weight:bold;padding:13px 8px 11px}
 
-    .form-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 10px;
-    }
-    .form-row label { font-size: 13px; min-width: 70px; }
-    .input-field {
-        flex: 1;
-        padding: 8px 10px;
-        font-family: "MS Sans Serif", Tahoma, sans-serif;
-        font-size: 15px;
-        background: #fff;
-        color: #000;
-        border: 2px solid;
-        border-color: #808080 #fff #fff #808080;
-        outline: none;
-        min-width: 0;
-        border-radius: 0;
-    }
-    .input-field:focus { outline: 1px dotted #000; outline-offset: -4px; }
+.error-msg,.info-msg{border:1px solid #808080;padding:8px 10px;font-size:13px;margin-top:8px;display:none}
+.error-msg{background:#ffffcc;color:#800000}
+.info-msg{background:#ccffcc;color:#006000}
+.error-msg.show,.info-msg.show{display:block}
+.auth-footer{margin-top:12px;text-align:center}
 
-    .btn {
-        font-family: "MS Sans Serif", Tahoma, sans-serif;
-        font-size: 14px;
-        background: #c0c0c0;
-        color: #000;
-        border: 2px solid;
-        border-color: #fff #808080 #808080 #fff;
-        padding: 10px 16px;
-        cursor: pointer;
-        min-width: 90px;
-        font-weight: 400;
-        min-height: 42px;
-    }
-    .btn:active:not(:disabled) {
-        border-color: #808080 #fff #fff #808080;
-        padding: 11px 15px 9px 17px;
-    }
-    .btn:disabled {
-        color: #808080;
-        text-shadow: 1px 1px 0 #fff;
-        cursor: default;
-    }
-    .btn.default { outline: 1px solid #000; outline-offset: -4px; }
-    .btn-link {
-        background: transparent;
-        border: none;
-        color: #0000ff;
-        text-decoration: underline;
-        cursor: pointer;
-        font-size: 13px;
-        padding: 6px 0;
-        text-align: left;
-        font-family: inherit;
-    }
-    .btn-link:hover { color: #ff0000; }
+#game-screen{display:none}
+#game-screen.active{display:flex}
 
-    .btn-row {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-        margin-top: 8px;
-        flex-wrap: wrap;
-    }
+.tab-strip{
+    display:flex;gap:2px;padding:4px 4px 0;background:#c0c0c0;
+    border-bottom:1px solid #808080;flex-shrink:0;align-items:flex-end;overflow:hidden;
+}
+.tab-strip .tab{
+    flex:1 1 0;min-width:0;padding:9px 4px;background:#c0c0c0;border:2px solid;
+    border-color:#fff #808080 #c0c0c0 #fff;border-bottom:none;cursor:pointer;
+    font-size:12px;font-family:inherit;font-weight:400;color:#000;margin-bottom:-1px;
+    position:relative;top:2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:38px;
+}
+.tab-strip .tab.active{
+    background:#dfdfdf;border-color:#fff #808080 #dfdfdf #fff;border-bottom:2px solid #dfdfdf;
+    font-weight:bold;top:0;padding:10px 4px 8px;z-index:2;
+}
 
-    .auth-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
-    .auth-tab {
-        flex: 1;
-        padding: 12px 8px;
-        background: #c0c0c0;
-        border: 2px solid;
-        border-color: #fff #808080 #808080 #fff;
-        cursor: pointer;
-        font-size: 14px;
-        font-family: inherit;
-        text-align: center;
-        min-height: 46px;
-    }
-    .auth-tab.active {
-        background: #dfdfdf;
-        border-color: #808080 #fff #fff #808080;
-        font-weight: bold;
-        padding: 13px 8px 11px;
-    }
+.page{display:none;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px}
+.page.active{display:flex}
 
-    .error-msg, .info-msg {
-        border: 1px solid #808080;
-        padding: 8px 10px;
-        font-size: 13px;
-        margin-top: 8px;
-        display: none;
-    }
-    .error-msg { background: #ffffcc; color: #800000; }
-    .info-msg { background: #ccffcc; color: #006000; }
-    .error-msg.show, .info-msg.show { display: block; }
-    .auth-footer { margin-top: 12px; text-align: center; }
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat-item{
+    background:#dfdfdf;border:1px inset #808080;padding:8px 10px;
+    display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:6px;
+}
+.stat-item .label{color:#000}
+.stat-item .value{font-weight:bold;font-family:"Courier New",monospace;color:#000080;font-size:14px}
 
-    #game-screen { display: none; }
-    #game-screen.active { display: flex; }
+.click-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0 10px;gap:12px;flex-shrink:0}
+#big-click{
+    width:85%;max-width:280px;height:150px;background:#c0c0c0;border:4px solid;
+    border-color:#fff #808080 #808080 #fff;box-shadow:3px 3px 0 #808080;cursor:pointer;
+    font-family:inherit;font-size:16px;font-weight:bold;color:#000080;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#big-click:active:not(:disabled){border-color:#808080 #fff #fff #808080;box-shadow:none}
+#big-click:disabled{color:#808080;cursor:default;opacity:.75}
+#big-click .big-emoji{font-size:52px;line-height:1}
+#big-click .click-label{font-size:14px;color:#000}
 
-    .tab-strip {
-        display: flex;
-        gap: 2px;
-        padding: 4px 6px 0;
-        background: #c0c0c0;
-        border-bottom: 1px solid #808080;
-        flex-shrink: 0;
-        align-items: flex-end;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .tab-strip .tab {
-        padding: 10px 12px;
-        background: #c0c0c0;
-        border: 2px solid;
-        border-color: #fff #808080 #c0c0c0 #fff;
-        border-bottom: none;
-        cursor: pointer;
-        font-size: 13px;
-        font-family: inherit;
-        font-weight: 400;
-        color: #000;
-        margin-bottom: -1px;
-        position: relative;
-        top: 2px;
-        white-space: nowrap;
-        min-height: 40px;
-        flex-shrink: 0;
-    }
-    .tab-strip .tab.active {
-        background: #dfdfdf;
-        border-color: #fff #808080 #dfdfdf #fff;
-        border-bottom: 2px solid #dfdfdf;
-        font-weight: bold;
-        top: 0;
-        padding: 11px 12px 9px;
-        z-index: 2;
-    }
+.big-coins-display{
+    font-family:"Courier New",monospace;font-size:26px;font-weight:bold;color:#000080;
+    background:#dfdfdf;border:2px inset #808080;padding:10px 16px;text-align:center;
+    width:90%;max-width:300px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.big-coins-display .coin-icon{font-size:24px}
 
-    .page {
-        display: none;
-        flex-direction: column;
-        gap: 10px;
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 12px;
-    }
-    .page.active { display: flex; }
+.float-text{
+    position:fixed;pointer-events:none;font-weight:bold;font-size:18px;color:#008000;
+    text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;
+    animation:floatUp .8s ease-out forwards;z-index:9999;font-family:"Courier New",monospace;
+}
+@keyframes floatUp{0%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-70px) scale(1.3)}}
 
-    .stats-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-    }
-    .stat-item {
-        background: #dfdfdf;
-        border: 1px inset #808080;
-        padding: 8px 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 13px;
-        gap: 6px;
-    }
-    .stat-item .label { color: #000; }
-    .stat-item .value {
-        font-weight: bold;
-        font-family: "Courier New", monospace;
-        color: #000080;
-        font-size: 14px;
-    }
+.promote-btn{display:none;margin-top:4px;background:#000080;color:#fff;border-color:#1084d0 #000040 #000040 #1084d0;font-weight:bold;min-height:44px;font-size:15px;padding:10px 20px}
+.promote-btn.show{display:inline-block}
 
-    .click-area {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 6px 0 10px;
-        gap: 12px;
-        flex-shrink: 0;
-    }
+.task-box{width:92%;max-width:320px}
+.task-title{font-size:13px;font-weight:bold;margin-bottom:6px;text-align:center}
+.task-bar-wrap{background:#dfdfdf;border:2px inset #808080;height:28px;position:relative;overflow:hidden}
+.task-bar{height:100%;background:linear-gradient(90deg,#008000,#00c000);width:0%;transition:width .12s ease}
+.task-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
+.task-reward{text-align:center;font-size:13px;margin-top:6px;color:#000080;font-weight:bold}
 
-    #big-click {
-        width: 85%;
-        max-width: 280px;
-        height: 150px;
-        background: #c0c0c0;
-        border: 4px solid;
-        border-color: #fff #808080 #808080 #fff;
-        box-shadow: 3px 3px 0 #808080;
-        cursor: pointer;
-        font-family: "MS Sans Serif", Tahoma, sans-serif;
-        font-size: 16px;
-        font-weight: bold;
-        color: #000080;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        transition: none;
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
-    }
-    #big-click:active:not(:disabled) {
-        border-color: #808080 #fff #fff #808080;
-        box-shadow: none;
-    }
-    #big-click:disabled {
-        color: #808080;
-        cursor: default;
-        opacity: 0.75;
-    }
-    #big-click .big-emoji { font-size: 52px; line-height: 1; }
-    #big-click .click-label { font-size: 14px; color: #000; }
+.jobs-list{display:flex;flex-direction:column;gap:4px;border:2px inset #808080;background:#fff;padding:4px}
+.job-row{display:flex;align-items:center;gap:8px;padding:9px 10px;font-size:13px;border-bottom:1px solid #e0e0e0}
+.job-row:last-child{border-bottom:none}
+.job-row.current{background:#000080;color:#fff}
+.job-row.locked{color:#808080}
+.job-row .job-name{flex:1;font-weight:600}
+.job-row .job-pay{font-family:"Courier New",monospace;font-weight:bold;min-width:55px;text-align:right}
+.job-row.current .job-pay{color:#ffff00}
+.job-row .job-status{font-size:12px;min-width:55px;text-align:right}
 
-    .big-coins-display {
-        font-family: "Courier New", monospace;
-        font-size: 26px;
-        font-weight: bold;
-        color: #000080;
-        background: #dfdfdf;
-        border: 2px inset #808080;
-        padding: 10px 16px;
-        text-align: center;
-        width: 90%;
-        max-width: 300px;
-        letter-spacing: 1px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-    }
-    .big-coins-display .coin-icon { font-size: 24px; }
+.xp-bar-wrap{margin-top:8px;margin-bottom:10px;background:#dfdfdf;border:1px inset #808080;height:20px;position:relative;overflow:hidden}
+.xp-bar{height:100%;background:linear-gradient(90deg,#000080,#1084d0);width:0%;transition:width .15s ease}
+.xp-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
 
-    .float-text {
-        position: fixed;
-        pointer-events: none;
-        font-weight: bold;
-        font-size: 18px;
-        color: #008000;
-        text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
-        animation: floatUp 0.8s ease-out forwards;
-        z-index: 9999;
-        font-family: "Courier New", monospace;
-    }
-    @keyframes floatUp {
-        0%   { opacity: 1; transform: translate(-50%, 0) scale(1); }
-        100% { opacity: 0; transform: translate(-50%, -70px) scale(1.3); }
-    }
+.shop-list{display:flex;flex-direction:column;gap:10px}
+.shop-item{border:2px groove #fff;padding:12px;background:#dfdfdf}
+.shop-item.completed{opacity:.7}
+.shop-item.active-course{background:#cce5ff;border-color:#000080}
+.shop-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.shop-item-name{font-weight:bold;font-size:14px;flex:1}
+.shop-item-boost{font-family:"Courier New",monospace;color:#008000;font-weight:bold;font-size:14px;white-space:nowrap}
+.shop-item-info{font-size:12px;color:#000;margin-bottom:10px}
+.shop-item-actions{display:flex;justify-content:space-between;align-items:center}
+.course-timer{font-family:"Courier New",monospace;font-weight:bold;color:#000080;font-size:14px}
 
-    .promote-btn {
-        display: none;
-        margin-top: 4px;
-        background: #000080;
-        color: #fff;
-        border-color: #1084d0 #000040 #000040 #1084d0;
-        font-weight: bold;
-        min-height: 44px;
-        font-size: 15px;
-        padding: 10px 20px;
-    }
-    .promote-btn.show { display: inline-block; }
-    .promote-btn:active:not(:disabled) {
-        border-color: #000040 #1084d0 #1084d0 #000040;
-    }
+.lb-refresh-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lb-list,.online-list{display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;min-height:0;border:2px inset #808080;background:#fff;padding:2px;-webkit-overflow-scrolling:touch}
+.lb-row,.online-row{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:14px;border-bottom:1px solid #e0e0e0}
+.lb-row:last-child,.online-row:last-child{border-bottom:none}
+.lb-row.self,.online-row.self{background:#000080;color:#fff}
+.lb-row.self .lb-coins,.online-row.self .lb-coins{color:#ffff00}
+.lb-rank{font-family:"Courier New",monospace;font-weight:bold;min-width:36px;text-align:right}
+.lb-rank.top1{color:#c89600}.lb-rank.top2{color:#808080}.lb-rank.top3{color:#a05000}
+.lb-row.self .lb-rank{color:#fff}
+.lb-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.lb-coins{font-family:"Courier New",monospace;font-weight:bold;color:#000080;text-align:right;min-width:70px}
+.lb-empty,.lb-loading{text-align:center;color:#808080;padding:24px;font-size:14px}
+.lb-loading{color:#000080}
+.online-dot{width:10px;height:10px;border-radius:50%;background:#00c000;box-shadow:0 0 4px #00ff00;flex-shrink:0}
 
-    /* ===== TASK ===== */
-    .task-box {
-        width: 92%;
-        max-width: 320px;
-    }
-    .task-title {
-        font-size: 13px;
-        font-weight: bold;
-        margin-bottom: 6px;
-        text-align: center;
-    }
-    .task-bar-wrap {
-        background: #dfdfdf;
-        border: 2px inset #808080;
-        height: 28px;
-        position: relative;
-        overflow: hidden;
-    }
-    .task-bar {
-        height: 100%;
-        background: linear-gradient(90deg, #008000, #00c000);
-        width: 0%;
-        transition: width 0.12s ease;
-    }
-    .task-text {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        font-weight: bold;
-        color: #000;
-        text-shadow: 0 0 2px #fff;
-        pointer-events: none;
-    }
-    .task-reward {
-        text-align: center;
-        font-size: 13px;
-        margin-top: 6px;
-        color: #000080;
-        font-weight: bold;
-    }
+.tab-content{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+.tab-content .page{flex:1}
+.sub-title{font-size:13px;color:#000;font-weight:bold;margin-bottom:4px}
+.muted{color:#808080;font-size:12px}
 
-    .jobs-list {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        border: 2px inset #808080;
-        background: #fff;
-        padding: 4px;
-    }
-    .job-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 9px 10px;
-        font-size: 13px;
-        border-bottom: 1px solid #e0e0e0;
-    }
-    .job-row:last-child { border-bottom: none; }
-    .job-row.current { background: #000080; color: #fff; }
-    .job-row.locked { color: #808080; }
-    .job-row .job-name { flex: 1; font-weight: 600; }
-    .job-row .job-pay {
-        font-family: "Courier New", monospace;
-        font-weight: bold;
-        min-width: 55px;
-        text-align: right;
-    }
-    .job-row.current .job-pay { color: #ffff00; }
-    .job-row .job-status {
-        font-size: 12px;
-        min-width: 55px;
-        text-align: right;
-    }
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.dialog-overlay.active{display:flex}
+.dialog{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;box-shadow:2px 2px 0 #000;width:100%;max-width:340px}
+.dialog-body{padding:16px 14px;display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45}
+.dialog-icon{font-size:32px;flex-shrink:0}
+.dialog-text{flex:1}
 
-    .xp-bar-wrap {
-        margin-top: 8px;
-        margin-bottom: 10px;
-        background: #dfdfdf;
-        border: 1px inset #808080;
-        height: 20px;
-        position: relative;
-        overflow: hidden;
-    }
-    .xp-bar {
-        height: 100%;
-        background: linear-gradient(90deg, #000080, #1084d0);
-        width: 0%;
-        transition: width 0.15s ease;
-    }
-    .xp-text {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: bold;
-        color: #000;
-        text-shadow: 0 0 2px #fff;
-        pointer-events: none;
-    }
+.course-blocker{background:#ffffcc;border:1px solid #808080;padding:10px 12px;font-size:13px;color:#800000;text-align:center;margin-bottom:4px;display:none;line-height:1.4}
+.course-blocker.show{display:block}
 
-    /* ===== SHOP ===== */
-    .shop-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .shop-item {
-        border: 2px groove #fff;
-        padding: 12px;
-        background: #dfdfdf;
-    }
-    .shop-item.completed { opacity: 0.7; }
-    .shop-item.active-course {
-        background: #cce5ff;
-        border-color: #000080;
-    }
-    .shop-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 6px;
-        gap: 8px;
-    }
-    .shop-item-name {
-        font-weight: bold;
-        font-size: 14px;
-        flex: 1;
-    }
-    .shop-item-boost {
-        font-family: "Courier New", monospace;
-        color: #008000;
-        font-weight: bold;
-        font-size: 14px;
-        white-space: nowrap;
-    }
-    .shop-item-info {
-        font-size: 12px;
-        color: #000;
-        margin-bottom: 10px;
-    }
-    .shop-item-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .course-timer {
-        font-family: "Courier New", monospace;
-        font-weight: bold;
-        color: #000080;
-        font-size: 14px;
-    }
+/* MAP */
+.street{display:flex;gap:10px;overflow-x:auto;padding:12px 6px 16px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+.plot{
+    flex:0 0 150px;width:150px;background:#dfdfdf;border:2px solid;
+    border-color:#fff #808080 #808080 #fff;padding:10px 8px;scroll-snap-align:start;
+    display:flex;flex-direction:column;gap:6px;min-height:190px;
+}
+.plot.owned{background:#e8f5e9;border-color:#4caf50 #2e7d32 #2e7d32 #4caf50}
+.plot-number{font-size:11px;color:#555;font-weight:bold}
+.plot-name{font-weight:bold;font-size:13px;line-height:1.25;min-height:34px}
+.plot-status{font-size:11px;color:#000080}
+.plot-rent{font-family:"Courier New",monospace;font-size:12px;font-weight:bold;color:#008000}
+.plot-actions{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+.plot-actions .btn{width:100%;min-width:0;padding:7px 6px;font-size:12px;min-height:34px}
 
-    .lb-refresh-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-    }
-    .lb-list, .online-list {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        overflow-y: auto;
-        flex: 1;
-        min-height: 0;
-        border: 2px inset #808080;
-        background: #fff;
-        padding: 2px;
-        -webkit-overflow-scrolling: touch;
-    }
-    .lb-row, .online-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        font-size: 14px;
-        border-bottom: 1px solid #e0e0e0;
-    }
-    .lb-row:last-child, .online-row:last-child { border-bottom: none; }
-    .lb-row.self, .online-row.self { background: #000080; color: #fff; }
-    .lb-row.self .lb-coins, .online-row.self .lb-coins { color: #ffff00; }
-    .lb-rank {
-        font-family: "Courier New", monospace;
-        font-weight: bold;
-        min-width: 36px;
-        text-align: right;
-    }
-    .lb-rank.top1 { color: #c89600; }
-    .lb-rank.top2 { color: #808080; }
-    .lb-rank.top3 { color: #a05000; }
-    .lb-row.self .lb-rank { color: #fff; }
-    .lb-name {
-        flex: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-weight: 600;
-    }
-    .lb-coins {
-        font-family: "Courier New", monospace;
-        font-weight: bold;
-        color: #000080;
-        text-align: right;
-        min-width: 70px;
-    }
-    .lb-empty, .lb-loading {
-        text-align: center;
-        color: #808080;
-        padding: 24px;
-        font-size: 14px;
-    }
-    .lb-loading { color: #000080; }
-
-    .online-dot {
-        width: 10px; height: 10px;
-        border-radius: 50%;
-        background: #00c000;
-        box-shadow: 0 0 4px #00ff00;
-        flex-shrink: 0;
-    }
-
-    .tab-content {
-        padding: 12px 10px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-height: 0;
-        overflow: hidden;
-    }
-    .tab-content .page { flex: 1; }
-
-    .sub-title {
-        font-size: 13px;
-        color: #000;
-        font-weight: bold;
-        margin-bottom: 4px;
-    }
-    .muted { color: #808080; font-size: 12px; }
-
-    .dialog-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.35);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 16px;
-    }
-    .dialog-overlay.active { display: flex; }
-    .dialog {
-        background: #c0c0c0;
-        border: 2px solid;
-        border-color: #dfdfdf #808080 #808080 #dfdfdf;
-        box-shadow: 2px 2px 0 #000;
-        width: 100%;
-        max-width: 340px;
-    }
-    .dialog-body {
-        padding: 16px 14px;
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-        font-size: 14px;
-        line-height: 1.45;
-    }
-    .dialog-icon { font-size: 32px; flex-shrink: 0; }
-    .dialog-text { flex: 1; }
-
-    .course-blocker {
-        background: #ffffcc;
-        border: 1px solid #808080;
-        padding: 10px 12px;
-        font-size: 13px;
-        color: #800000;
-        text-align: center;
-        margin-bottom: 4px;
-        display: none;
-        line-height: 1.4;
-    }
-    .course-blocker.show { display: block; }
-
-    /* ===== Desktop improvements (secondary) ===== */
-    @media (min-width: 600px) {
-        body {
-            padding: 20px;
-            align-items: center;
-        }
-        .window {
-            max-width: 480px;
-            height: calc(100vh - 40px);
-            max-height: 820px;
-            box-shadow: 2px 2px 0 #000;
-        }
-        #big-click {
-            width: 260px;
-            height: 160px;
-        }
-        .big-coins-display { font-size: 30px; }
-        .stats-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-
-    @media (min-width: 900px) {
-        .window { max-width: 640px; }
-        .tab-content { padding: 16px; }
-        #big-click { width: 280px; height: 170px; }
-        #big-click .big-emoji { font-size: 60px; }
-    }
+@media(min-width:600px){
+    body{padding:20px;align-items:center}
+    .window{max-width:480px;height:calc(100vh - 40px);max-height:820px;box-shadow:2px 2px 0 #000}
+    #big-click{width:260px;height:160px}
+    .big-coins-display{font-size:30px}
+    .stats-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(min-width:900px){
+    .window{max-width:640px}
+    .tab-content{padding:16px}
+    #big-click{width:280px;height:170px}
+    #big-click .big-emoji{font-size:60px}
+}
 </style>
 </head>
 <body>
-   <!-- ===== AUTH WINDOW ===== -->
+   <!-- AUTH -->
 <div class="window" id="auth-window">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -708,7 +240,7 @@
             <button class="win-btn" disabled>✕</button>
         </div>
     </div>
-    <div class="window-body" style="padding:10px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+    <div style="padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
         <div class="auth-tabs">
             <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
             <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
@@ -738,11 +270,11 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v1.3.0</div>
+        <div class="panel small">v1.4.0</div>
     </div>
 </div>
 
-<!-- ===== GAME WINDOW ===== -->
+<!-- GAME -->
 <div class="window" id="game-screen">
     <div class="title-bar">
         <span class="title-icon">🖱️</span>
@@ -756,13 +288,14 @@
 
     <div class="tab-strip">
         <button class="tab active" id="tabnav-clicker" onclick="switchPage('clicker')">💼 Робота</button>
+        <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа</button>
         <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🛒 Магазин</button>
         <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
-        <button class="tab" id="tabnav-online" onclick="switchPage('online')">👥 Онлайн</button>
+        <button class="tab" id="tabnav-online" onclick="switchPage('online')">👥</button>
     </div>
 
     <div class="tab-content">
-        <!-- ===== PAGE: РОБОТА ===== -->
+        <!-- РОБОТА -->
         <div class="page active" id="page-clicker">
             <div class="group-box" data-label="Статистика">
                 <div class="stats-grid">
@@ -770,7 +303,7 @@
                     <div class="stat-item"><span class="label">💼 Робота:</span><span class="value" id="stat-job">Стажер</span></div>
                     <div class="stat-item"><span class="label">⭐ Досвід:</span><span class="value" id="stat-xp">0</span></div>
                     <div class="stat-item"><span class="label">📈 Буст XP:</span><span class="value" id="stat-boost">0%</span></div>
-                    <div class="stat-item" style="grid-column: span 2;"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
+                    <div class="stat-item" style="grid-column:span 2"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
                 </div>
             </div>
 
@@ -781,8 +314,7 @@
 
             <div class="click-area">
                 <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
-
-                <div class="task-box" id="task-box">
+                <div class="task-box">
                     <div class="task-title" id="task-title">Задача не почата</div>
                     <div class="task-bar-wrap">
                         <div class="task-bar" id="task-bar"></div>
@@ -790,12 +322,10 @@
                     </div>
                     <div class="task-reward" id="task-reward">Нагорода: —</div>
                 </div>
-
                 <button id="big-click" onclick="doWork(event)">
                     <span class="big-emoji">💼</span>
                     <span class="click-label" id="big-click-label">ПОЧАТИ ЗАДАЧУ</span>
                 </button>
-
                 <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись</button>
             </div>
 
@@ -808,28 +338,39 @@
             </div>
         </div>
 
-        <!-- ===== PAGE: МАГАЗИН ===== -->
+        <!-- МАПА -->
+        <div class="page" id="page-map">
+            <div class="sub-title">🗺️ Вулиця Незалежності</div>
+            <div class="muted" style="margin-bottom:8px">Купуй землю → будуй → рента кожні 5 хв (офлайн теж)</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+                <button class="btn" onclick="collectAllRent()">💰 Забрати ренту</button>
+                <span class="muted" id="rent-info">Накопичено: 0</span>
+            </div>
+            <div class="street" id="street"></div>
+        </div>
+
+        <!-- МАГАЗИН -->
         <div class="page" id="page-shop">
-            <div class="sub-title">🛒 Курси та книжки (постійний буст до досвіду)</div>
-            <div class="muted" style="margin-bottom:8px;">Під час проходження курсу працювати неможливо. Час іде навіть офлайн.</div>
+            <div class="sub-title">🛒 Курси та книжки</div>
+            <div class="muted" style="margin-bottom:8px">Під час курсу працювати неможливо. Час іде офлайн.</div>
             <div class="shop-list" id="shop-list"></div>
         </div>
 
-        <!-- ===== PAGE: ТОП ===== -->
+        <!-- ТОП -->
         <div class="page" id="page-leaderboard">
             <div class="lb-refresh-row">
-                <div class="sub-title">🏆 Топ гравців за весь час (по монетах)</div>
-                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:3px 10px;font-size:11px;">↻</button>
+                <div class="sub-title">🏆 Топ гравців</div>
+                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
             </div>
             <div class="lb-list" id="lb-list"><div class="lb-loading">Завантаження...</div></div>
             <div class="muted" id="lb-my-rank">—</div>
         </div>
 
-        <!-- ===== PAGE: ОНЛАЙН ===== -->
+        <!-- ОНЛАЙН -->
         <div class="page" id="page-online">
             <div class="lb-refresh-row">
-                <div class="sub-title">👥 Гравці онлайн (за останні 5 хв)</div>
-                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:3px 10px;font-size:11px;">↻</button>
+                <div class="sub-title">👥 Онлайн (5 хв)</div>
+                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
             </div>
             <div class="online-list" id="online-list"><div class="lb-loading">Завантаження...</div></div>
             <div class="muted" id="online-count">—</div>
@@ -842,7 +383,7 @@
     </div>
 </div>
 
-<!-- ===== DIALOG ===== -->
+<!-- DIALOG -->
 <div class="dialog-overlay" id="dialog-overlay">
     <div class="dialog">
         <div class="title-bar">
@@ -858,770 +399,850 @@
             <div class="dialog-icon" id="dialog-icon">ℹ️</div>
             <div class="dialog-text" id="dialog-text">—</div>
         </div>
-        <div class="btn-row" style="padding: 0 12px 12px;">
+        <div class="btn-row" style="padding:0 12px 12px">
             <button class="btn default" onclick="closeDialog()">OK</button>
         </div>
     </div>
 </div>
-   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, set, get, child, update, onValue, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const APP_VERSION = "1.3.0";
-    const SAVE_INTERVAL_MS = 5000;
-    const HEARTBEAT_MS = 30000;
-    const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
-    const LEADERBOARD_LIMIT = 100;
+const APP_VERSION = "1.4.0";
+const SAVE_INTERVAL_MS = 5000;
+const HEARTBEAT_MS = 30000;
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+const LEADERBOARD_LIMIT = 100;
+const RENT_INTERVAL_MS = 5 * 60 * 1000; // 5 хвилин
 
-    // ===== JOBS =====
-    const JOBS = [
-        { name: "Стажер",               pay: 1,    xpNeeded: 500,   taskClicks: 10,  taskReward: 5 },
-        { name: "Оператор підтримки",   pay: 3,    xpNeeded: 1500,  taskClicks: 15,  taskReward: 18 },
-        { name: "Junior QA",            pay: 8,    xpNeeded: 4000,  taskClicks: 22,  taskReward: 60 },
-        { name: "Junior Developer",     pay: 20,   xpNeeded: 10000, taskClicks: 30,  taskReward: 180 },
-        { name: "Middle Developer",     pay: 50,   xpNeeded: 25000, taskClicks: 40,  taskReward: 500 },
-        { name: "Senior Developer",     pay: 120,  xpNeeded: 60000, taskClicks: 55,  taskReward: 1500 },
-        { name: "Team Lead",            pay: 300,  xpNeeded: 150000,taskClicks: 75,  taskReward: 4500 },
-        { name: "Tech Lead",            pay: 700,  xpNeeded: 400000,taskClicks: 100, taskReward: 12000 },
-        { name: "CTO",                  pay: 1500, xpNeeded: 0,     taskClicks: 140, taskReward: 35000 }
-    ];
+// ===== JOBS =====
+const JOBS = [
+    { name: "Стажер",             pay: 1,   xpNeeded: 500,   taskClicks: 10,  taskReward: 5 },
+    { name: "Оператор підтримки", pay: 3,   xpNeeded: 1500,  taskClicks: 15,  taskReward: 18 },
+    { name: "Junior QA",          pay: 8,   xpNeeded: 4000,  taskClicks: 22,  taskReward: 60 },
+    { name: "Junior Developer",   pay: 20,  xpNeeded: 10000, taskClicks: 30,  taskReward: 180 },
+    { name: "Middle Developer",   pay: 50,  xpNeeded: 25000, taskClicks: 40,  taskReward: 500 },
+    { name: "Senior Developer",   pay: 120, xpNeeded: 60000, taskClicks: 55,  taskReward: 1500 },
+    { name: "Team Lead",          pay: 300, xpNeeded: 150000,taskClicks: 75,  taskReward: 4500 },
+    { name: "Tech Lead",          pay: 700, xpNeeded: 400000,taskClicks: 100, taskReward: 12000 },
+    { name: "CTO",                pay: 1500,xpNeeded: 0,     taskClicks: 140, taskReward: 35000 }
+];
 
-    // ===== COURSES =====
-    const COURSES = [
-        { id: "basics",      name: "Основи програмування",              price: 800,   durationMs: 1 * 3600 * 1000,  boost: 10 },
-        { id: "algorithms",  name: "Алгоритми та структури даних",      price: 3500,  durationMs: 3 * 3600 * 1000,  boost: 15 },
-        { id: "cleancode",   name: "Clean Code (книга)",                price: 9000,  durationMs: 5 * 3600 * 1000,  boost: 20 },
-        { id: "sysdesign",   name: "Системний дизайн",                  price: 22000, durationMs: 8 * 3600 * 1000,  boost: 25 },
-        { id: "leadership",  name: "Лідерство і менеджмент",            price: 45000, durationMs: 12 * 3600 * 1000, boost: 30 },
-        { id: "architecture",name: "Архітектура високих навантажень",   price: 90000, durationMs: 18 * 3600 * 1000, boost: 40 }
-    ];
+// ===== COURSES =====
+const COURSES = [
+    { id: "basics",       name: "Основи програмування",            price: 800,   durationMs: 1*3600000,  boost: 10 },
+    { id: "algorithms",   name: "Алгоритми та структури даних",    price: 3500,  durationMs: 3*3600000,  boost: 15 },
+    { id: "cleancode",    name: "Clean Code (книга)",              price: 9000,  durationMs: 5*3600000,  boost: 20 },
+    { id: "sysdesign",    name: "Системний дизайн",                price: 22000, durationMs: 8*3600000,  boost: 25 },
+    { id: "leadership",   name: "Лідерство і менеджмент",          price: 45000, durationMs: 12*3600000, boost: 30 },
+    { id: "architecture", name: "Архітектура високих навантажень", price: 90000, durationMs: 18*3600000, boost: 40 }
+];
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
-        authDomain: "uniquestone.firebaseapp.com",
-        databaseURL: "https://uniquestone-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "uniquestone",
-        storageBucket: "uniquestone.firebasestorage.app",
-        messagingSenderId: "114557024409",
-        appId: "1:114557024409:web:23f1e0ad213e9cf7d2e008",
-        measurementId: "G-TZ6SZXTJTF"
-    };
+// ===== MAP: 12 ділянок землі =====
+const PLOTS = [
+    { id: 0,  name: "Ділянка №1",  landPrice: 300 },
+    { id: 1,  name: "Ділянка №2",  landPrice: 600 },
+    { id: 2,  name: "Ділянка №3",  landPrice: 1200 },
+    { id: 3,  name: "Ділянка №4",  landPrice: 2500 },
+    { id: 4,  name: "Ділянка №5",  landPrice: 5000 },
+    { id: 5,  name: "Ділянка №6",  landPrice: 9000 },
+    { id: 6,  name: "Ділянка №7",  landPrice: 16000 },
+    { id: 7,  name: "Ділянка №8",  landPrice: 28000 },
+    { id: 8,  name: "Ділянка №9",  landPrice: 45000 },
+    { id: 9,  name: "Ділянка №10", landPrice: 70000 },
+    { id: 10, name: "Ділянка №11", landPrice: 110000 },
+    { id: 11, name: "Ділянка №12", landPrice: 180000 }
+];
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+// Що можна будувати на землі
+const BUILDINGS = [
+    { id: "shed",    name: "Сарай",     rents: [8, 15, 25],     upgradeCost: [400, 900] },
+    { id: "house",   name: "Будинок",   rents: [25, 50, 85],    upgradeCost: [1200, 2800] },
+    { id: "shop",    name: "Магазин",   rents: [60, 120, 200],  upgradeCost: [3500, 8000] },
+    { id: "office",  name: "Офіс",      rents: [120, 240, 400], upgradeCost: [8000, 18000] },
+    { id: "cafe",    name: "Кав’ярня",  rents: [200, 400, 650], upgradeCost: [15000, 35000] },
+    { id: "it",      name: "IT-офіс",   rents: [350, 700, 1200],upgradeCost: [30000, 70000] }
+];
 
-    let currentUser = "";
-    let authMode = "login";
-    let gameState = {
-        coins: 0,
-        jobIndex: 0,
-        xp: 0,
-        taskProgress: 0,          // кліки по поточній задачі
-        taskActive: false,        // чи почата задача
-        activeCourseId: null,
-        courseStartTime: 0,
-        completedCourses: [],     // масив id
-        xpBoost: 0                // сумарний %
-    };
-    let saveTimer = null;
-    let heartbeatTimer = null;
-    let courseTimerInterval = null;
-    let isSaving = false;
-    let currentPage = "clicker";
+const firebaseConfig = {
+    apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
+    authDomain: "uniquestone.firebaseapp.com",
+    databaseURL: "https://uniquestone-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "uniquestone",
+    storageBucket: "uniquestone.firebasestorage.app",
+    messagingSenderId: "114557024409",
+    appId: "1:114557024409:web:23f1e0ad213e9cf7d2e008",
+    measurementId: "G-TZ6SZXTJTF"
+};
 
-    function $(id) { return document.getElementById(id); }
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    function formatNumber(n) {
-        if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-        if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-        if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
-        return Math.floor(n).toString();
-    }
-    function formatNumberFull(n) { return Math.floor(n).toLocaleString("uk-UA"); }
-    function formatTimeAgo(ts) {
-        if (!ts) return "—";
-        const diff = Date.now() - ts;
-        if (diff < 60000) return "щойно";
-        if (diff < 3600000) return Math.floor(diff / 60000) + " хв тому";
-        if (diff < 86400000) return Math.floor(diff / 3600000) + " год тому";
-        return Math.floor(diff / 86400000) + " дн тому";
-    }
-    function formatDuration(ms) {
-        if (ms <= 0) return "0:00:00";
-        const totalSec = Math.floor(ms / 1000);
-        const h = Math.floor(totalSec / 3600);
-        const m = Math.floor((totalSec % 3600) / 60);
-        const s = totalSec % 60;
-        return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-    }
+let currentUser = "";
+let authMode = "login";
+let gameState = {
+    coins: 0,
+    jobIndex: 0,
+    xp: 0,
+    taskProgress: 0,
+    taskActive: false,
+    activeCourseId: null,
+    courseStartTime: 0,
+    completedCourses: [],
+    xpBoost: 0,
+    // map
+    plots: {},           // { "0": { owned: true, buildingId: "shed", level: 1, lastCollect: timestamp }, ... }
+    lastRentCollect: 0
+};
+let saveTimer = null;
+let heartbeatTimer = null;
+let courseTimerInterval = null;
+let dataListener = null;
+let isSaving = false;
+let currentPage = "clicker";
 
-    async function sha256(text) {
-        const buf = new TextEncoder().encode(text);
-        const hash = await crypto.subtle.digest("SHA-256", buf);
-        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-    }
+function $(id) { return document.getElementById(id); }
 
-    window.showDialog = function(title, text, icon) {
-        $("dialog-title").textContent = title;
-        $("dialog-text").textContent = text;
-        $("dialog-icon").textContent = icon || "ℹ️";
-        $("dialog-overlay").classList.add("active");
-    };
-    window.closeDialog = function() { $("dialog-overlay").classList.remove("active"); };
+function formatNumber(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
+    return Math.floor(n).toString();
+}
+function formatNumberFull(n) { return Math.floor(n).toLocaleString("uk-UA"); }
+function formatTimeAgo(ts) {
+    if (!ts) return "—";
+    const diff = Date.now() - ts;
+    if (diff < 60000) return "щойно";
+    if (diff < 3600000) return Math.floor(diff / 60000) + " хв тому";
+    if (diff < 86400000) return Math.floor(diff / 3600000) + " год тому";
+    return Math.floor(diff / 86400000) + " дн тому";
+}
+function formatDuration(ms) {
+    if (ms <= 0) return "0:00:00";
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return h + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+}
 
-    window.switchAuthTab = function(tab) {
-        authMode = tab;
-        $("tab-login").classList.toggle("active", tab === "login");
-        $("tab-register").classList.toggle("active", tab === "register");
-        $("confirm-row").style.display = tab === "register" ? "flex" : "none";
-        $("auth-submit").textContent = tab === "login" ? "Увійти" : "Зареєструватись";
-        $("auth-switch-link").textContent = tab === "login"
-            ? "Ще немає акаунта? Зареєструватись"
-            : "Вже є акаунт? Увійти";
-        clearMessages();
-    };
-    window.toggleAuthMode = function() { switchAuthTab(authMode === "login" ? "register" : "login"); };
+async function sha256(text) {
+    const buf = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
 
-    function clearMessages() {
-        $("auth-error").classList.remove("show");
-        $("auth-info").classList.remove("show");
-    }
-    function showError(msg) {
-        const el = $("auth-error");
-        el.textContent = msg;
-        el.classList.add("show");
-        $("auth-info").classList.remove("show");
-    }
-    function showInfo(msg) {
-        const el = $("auth-info");
-        el.textContent = msg;
-        el.classList.add("show");
-        $("auth-error").classList.remove("show");
-    }
-    function setStatus(msg) { $("auth-status").textContent = msg; }
-    function setGameStatus(msg) { $("game-status").textContent = msg; }
+window.showDialog = function(title, text, icon) {
+    $("dialog-title").textContent = title;
+    $("dialog-text").textContent = text;
+    $("dialog-icon").textContent = icon || "ℹ️";
+    $("dialog-overlay").classList.add("active");
+};
+window.closeDialog = function() { $("dialog-overlay").classList.remove("active"); };
 
-    window.handleAuth = async function() {
-        clearMessages();
-        const username = $("auth-username").value.trim();
-        const password = $("auth-password").value;
-        const password2 = $("auth-password2").value;
-        const btn = $("auth-submit");
+window.switchAuthTab = function(tab) {
+    authMode = tab;
+    $("tab-login").classList.toggle("active", tab === "login");
+    $("tab-register").classList.toggle("active", tab === "register");
+    $("confirm-row").style.display = tab === "register" ? "flex" : "none";
+    $("auth-submit").textContent = tab === "login" ? "Увійти" : "Зареєструватись";
+    $("auth-switch-link").textContent = tab === "login" ? "Ще немає акаунта? Зареєструватись" : "Вже є акаунт? Увійти";
+    clearMessages();
+};
+window.toggleAuthMode = function() { switchAuthTab(authMode === "login" ? "register" : "login"); };
 
-        if (!username || !password) { showError("Заповніть усі поля!"); return; }
-        if (username.length < 3) { showError("Логін має бути мінімум 3 символи!"); return; }
-        if (username.length > 20) { showError("Логін занадто довгий (макс. 20)!"); return; }
-        if (!/^[a-zA-Z0-9_]+$/.test(username)) { showError("Логін: лише латиниця, цифри, _"); return; }
-        if (password.length < 4) { showError("Пароль має бути мінімум 4 символи!"); return; }
-        if (authMode === "register" && password !== password2) { showError("Паролі не співпадають!"); return; }
+function clearMessages() {
+    $("auth-error").classList.remove("show");
+    $("auth-info").classList.remove("show");
+}
+function showError(msg) {
+    const el = $("auth-error");
+    el.textContent = msg;
+    el.classList.add("show");
+    $("auth-info").classList.remove("show");
+}
+function setStatus(msg) { $("auth-status").textContent = msg; }
+function setGameStatus(msg) { $("game-status").textContent = msg; }
+   window.handleAuth = async function() {
+    clearMessages();
+    const username = $("auth-username").value.trim();
+    const password = $("auth-password").value;
+    const password2 = $("auth-password2").value;
+    const btn = $("auth-submit");
 
-        btn.disabled = true;
-        setStatus("Обробка...");
+    if (!username || !password) { showError("Заповніть усі поля!"); return; }
+    if (username.length < 3) { showError("Логін мінімум 3 символи!"); return; }
+    if (username.length > 20) { showError("Логін занадто довгий!"); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) { showError("Логін: лише латиниця, цифри, _"); return; }
+    if (password.length < 4) { showError("Пароль мінімум 4 символи!"); return; }
+    if (authMode === "register" && password !== password2) { showError("Паролі не співпадають!"); return; }
 
-        try {
-            const hash = await sha256(password);
-            const snap = await get(child(ref(db), `users/${username}`));
+    btn.disabled = true;
+    setStatus("Обробка...");
 
-            if (authMode === "register") {
-                if (snap.exists()) { showError("Такий користувач вже існує!"); return; }
-                await set(ref(db, `users/${username}`), {
-                    password: hash,
-                    createdAt: Date.now(),
-                    lastOnline: Date.now(),
-                    clicker: {
-                        coins: 0, jobIndex: 0, xp: 0,
-                        taskProgress: 0, taskActive: false,
-                        activeCourseId: null, courseStartTime: 0,
-                        completedCourses: [], xpBoost: 0
-                    }
-                });
-                currentUser = username;
-                try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
-                setStatus("Акаунт створено");
-                startGame();
-            } else {
-                if (!snap.exists()) { showError("Користувача не знайдено!"); return; }
-                if (snap.val().password !== hash) { showError("Невірний пароль!"); return; }
-                currentUser = username;
-                try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
-                try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e) {}
-                setStatus("Вхід виконано");
-                startGame();
-            }
-        } catch(e) {
-            console.error(e);
-            showError("Помилка: " + e.message);
-            setStatus("Помилка");
-        } finally {
-            btn.disabled = false;
-        }
-    };
+    try {
+        const hash = await sha256(password);
+        const snap = await get(child(ref(db), `users/${username}`));
 
-    ["auth-username", "auth-password", "auth-password2"].forEach(id => {
-        const el = $(id);
-        if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
-    });
-          // ===== GAME =====
-    async function startGame() {
-        $("auth-window").style.display = "none";
-        $("game-screen").classList.add("active");
-        $("stat-user").textContent = currentUser;
-        $("game-title").textContent = "Win95 Clicker — " + currentUser;
-
-        await loadGame();
-        checkCourseCompletion();
-        renderAll();
-        switchPage("clicker");
-
-        if (saveTimer) clearInterval(saveTimer);
-        saveTimer = setInterval(saveGame, SAVE_INTERVAL_MS);
-
-        startHeartbeat();
-        startCourseTimer();
-        setGameStatus("Вітаємо, " + currentUser + "!");
-    }
-
-    async function loadGame() {
-        try {
-            const snap = await get(child(ref(db), `users/${currentUser}/clicker`));
-            if (snap.exists()) {
-                const data = snap.val();
-                gameState = {
-                    coins: Number(data.coins) || 0,
-                    jobIndex: Math.min(Number(data.jobIndex) || 0, JOBS.length - 1),
-                    xp: Number(data.xp) || 0,
-                    taskProgress: Number(data.taskProgress) || 0,
-                    taskActive: Boolean(data.taskActive),
-                    activeCourseId: data.activeCourseId || null,
-                    courseStartTime: Number(data.courseStartTime) || 0,
-                    completedCourses: Array.isArray(data.completedCourses) ? data.completedCourses : [],
-                    xpBoost: Number(data.xpBoost) || 0
-                };
-            } else {
-                gameState = {
+        if (authMode === "register") {
+            if (snap.exists()) { showError("Такий користувач вже існує!"); return; }
+            await set(ref(db, `users/${username}`), {
+                password: hash,
+                createdAt: Date.now(),
+                lastOnline: Date.now(),
+                clicker: {
                     coins: 0, jobIndex: 0, xp: 0,
                     taskProgress: 0, taskActive: false,
                     activeCourseId: null, courseStartTime: 0,
-                    completedCourses: [], xpBoost: 0
-                };
-            }
-            // recalculate boost from completed courses (на випадок старих сейвів)
-            recalculateBoost();
-        } catch(e) {
-            console.error("loadGame:", e);
-            showDialog("Помилка", "Не вдалося завантажити збереження: " + e.message, "⚠️");
-        }
-    }
-
-    function recalculateBoost() {
-        let boost = 0;
-        gameState.completedCourses.forEach(id => {
-            const c = COURSES.find(x => x.id === id);
-            if (c) boost += c.boost;
-        });
-        gameState.xpBoost = boost;
-    }
-
-    async function saveGame() {
-        if (!currentUser || isSaving) return;
-        isSaving = true;
-        try {
-            await update(ref(db, `users/${currentUser}/clicker`), {
-                coins: gameState.coins,
-                jobIndex: gameState.jobIndex,
-                xp: gameState.xp,
-                taskProgress: gameState.taskProgress,
-                taskActive: gameState.taskActive,
-                activeCourseId: gameState.activeCourseId,
-                courseStartTime: gameState.courseStartTime,
-                completedCourses: gameState.completedCourses,
-                xpBoost: gameState.xpBoost
+                    completedCourses: [], xpBoost: 0,
+                    plots: {}, lastRentCollect: Date.now()
+                }
             });
-            const now = new Date();
-            $("save-status").textContent = "💾 " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
-        } catch(e) {
-            console.error("saveGame:", e);
-            $("save-status").textContent = "⚠ Помилка";
-        } finally {
-            isSaving = false;
+            currentUser = username;
+            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
+            setStatus("Акаунт створено");
+            startGame();
+        } else {
+            if (!snap.exists()) { showError("Користувача не знайдено!"); return; }
+            if (snap.val().password !== hash) { showError("Невірний пароль!"); return; }
+            currentUser = username;
+            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e) {}
+            try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e) {}
+            setStatus("Вхід виконано");
+            startGame();
         }
+    } catch(e) {
+        console.error(e);
+        showError("Помилка: " + e.message);
+        setStatus("Помилка");
+    } finally {
+        btn.disabled = false;
     }
+};
 
-    function getCurrentJob() {
-        return JOBS[gameState.jobIndex] || JOBS[0];
+["auth-username","auth-password","auth-password2"].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
+});
+
+// ===== GAME CORE =====
+async function startGame() {
+    $("auth-window").style.display = "none";
+    $("game-screen").classList.add("active");
+    $("stat-user").textContent = currentUser;
+    $("game-title").textContent = "Win95 Clicker — " + currentUser;
+
+    await loadGame();
+    startLiveSync();
+    checkCourseCompletion();
+    renderAll();
+    switchPage("clicker");
+
+    if (saveTimer) clearInterval(saveTimer);
+    saveTimer = setInterval(saveGame, SAVE_INTERVAL_MS);
+    startHeartbeat();
+    startCourseTimer();
+    setGameStatus("Вітаємо, " + currentUser + "!");
+}
+
+async function loadGame() {
+    try {
+        const snap = await get(child(ref(db), `users/${currentUser}/clicker`));
+        if (snap.exists()) {
+            const data = snap.val();
+            gameState = {
+                coins: Number(data.coins) || 0,
+                jobIndex: Math.min(Number(data.jobIndex) || 0, JOBS.length - 1),
+                xp: Number(data.xp) || 0,
+                taskProgress: Number(data.taskProgress) || 0,
+                taskActive: Boolean(data.taskActive),
+                activeCourseId: data.activeCourseId || null,
+                courseStartTime: Number(data.courseStartTime) || 0,
+                completedCourses: Array.isArray(data.completedCourses) ? data.completedCourses : [],
+                xpBoost: Number(data.xpBoost) || 0,
+                plots: data.plots || {},
+                lastRentCollect: Number(data.lastRentCollect) || Date.now()
+            };
+        }
+        recalculateBoost();
+    } catch(e) {
+        console.error("loadGame:", e);
+        showDialog("Помилка", "Не вдалося завантажити: " + e.message, "⚠️");
     }
+}
 
-    function isCourseRunning() {
-        return !!gameState.activeCourseId;
+function startLiveSync() {
+    if (dataListener) { off(dataListener); dataListener = null; }
+    const userRef = ref(db, `users/${currentUser}/clicker`);
+    dataListener = onValue(userRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.val();
+        gameState.coins = Number(data.coins) || 0;
+        gameState.jobIndex = Math.min(Number(data.jobIndex) || 0, JOBS.length - 1);
+        gameState.xp = Number(data.xp) || 0;
+        gameState.taskProgress = Number(data.taskProgress) || 0;
+        gameState.taskActive = Boolean(data.taskActive);
+        gameState.activeCourseId = data.activeCourseId || null;
+        gameState.courseStartTime = Number(data.courseStartTime) || 0;
+        gameState.completedCourses = Array.isArray(data.completedCourses) ? data.completedCourses : [];
+        gameState.xpBoost = Number(data.xpBoost) || 0;
+        gameState.plots = data.plots || {};
+        gameState.lastRentCollect = Number(data.lastRentCollect) || Date.now();
+        recalculateBoost();
+        checkCourseCompletion();
+        renderAll();
+    });
+}
+
+function recalculateBoost() {
+    let boost = 0;
+    gameState.completedCourses.forEach(id => {
+        const c = COURSES.find(x => x.id === id);
+        if (c) boost += c.boost;
+    });
+    gameState.xpBoost = boost;
+}
+
+async function saveGame() {
+    if (!currentUser) return;
+    if (isSaving) {
+        await new Promise(r => setTimeout(r, 200));
+        if (isSaving) return;
     }
+    isSaving = true;
+    try {
+        await update(ref(db, `users/${currentUser}/clicker`), {
+            coins: gameState.coins,
+            jobIndex: gameState.jobIndex,
+            xp: gameState.xp,
+            taskProgress: gameState.taskProgress,
+            taskActive: gameState.taskActive,
+            activeCourseId: gameState.activeCourseId,
+            courseStartTime: gameState.courseStartTime,
+            completedCourses: gameState.completedCourses,
+            xpBoost: gameState.xpBoost,
+            plots: gameState.plots,
+            lastRentCollect: gameState.lastRentCollect
+        });
+        const now = new Date();
+        $("save-status").textContent = "💾 " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
+    } catch(e) {
+        console.error("saveGame:", e);
+        $("save-status").textContent = "⚠ Помилка";
+        throw e;
+    } finally {
+        isSaving = false;
+    }
+}
 
-    function getRemainingCourseMs() {
-        if (!gameState.activeCourseId) return 0;
+function getCurrentJob() { return JOBS[gameState.jobIndex] || JOBS[0]; }
+function isCourseRunning() { return !!gameState.activeCourseId; }
+
+function getRemainingCourseMs() {
+    if (!gameState.activeCourseId) return 0;
+    const course = COURSES.find(c => c.id === gameState.activeCourseId);
+    if (!course) return 0;
+    return Math.max(0, course.durationMs - (Date.now() - gameState.courseStartTime));
+}
+
+function checkCourseCompletion() {
+    if (!gameState.activeCourseId) return;
+    if (getRemainingCourseMs() <= 0) {
         const course = COURSES.find(c => c.id === gameState.activeCourseId);
-        if (!course) return 0;
-        const elapsed = Date.now() - gameState.courseStartTime;
-        return Math.max(0, course.durationMs - elapsed);
-    }
-
-    function checkCourseCompletion() {
-        if (!gameState.activeCourseId) return;
-        const remaining = getRemainingCourseMs();
-        if (remaining <= 0) {
-            // курс завершено
-            const course = COURSES.find(c => c.id === gameState.activeCourseId);
-            if (course && !gameState.completedCourses.includes(course.id)) {
-                gameState.completedCourses.push(course.id);
-                recalculateBoost();
-            }
-            gameState.activeCourseId = null;
-            gameState.courseStartTime = 0;
-            setGameStatus("Курс завершено! Отримано постійний буст.");
-            showDialog("Курс завершено!", (course ? course.name : "Курс") + "\n+" + (course ? course.boost : 0) + "% до досвіду назавжди", "🎓");
-            saveGame();
+        if (course && !gameState.completedCourses.includes(course.id)) {
+            gameState.completedCourses.push(course.id);
+            recalculateBoost();
         }
-    }
-
-    function renderAll() {
-        renderStats();
-        renderTask();
-        renderJobsList();
-        renderShop();
-        updateWorkButtonState();
-    }
-
-    function renderStats() {
-        const job = getCurrentJob();
-        $("stat-coins").textContent = formatNumber(gameState.coins);
-        $("stat-job").textContent = job.name;
-        $("stat-xp").textContent = formatNumber(gameState.xp);
-        $("stat-boost").textContent = gameState.xpBoost + "%";
-        $("big-coins").textContent = formatNumberFull(gameState.coins);
-
-        const needed = job.xpNeeded || 1;
-        const pct = job.xpNeeded === 0 ? 100 : Math.min(100, (gameState.xp / needed) * 100);
-        $("xp-bar").style.width = pct + "%";
-        $("xp-text").textContent = job.xpNeeded === 0
-            ? "Макс. рівень"
-            : formatNumber(gameState.xp) + " / " + formatNumber(needed);
-
-        const canPromote = job.xpNeeded > 0 && gameState.xp >= job.xpNeeded;
-        $("promote-btn").classList.toggle("show", canPromote);
-    }
-
-    function renderTask() {
-        const job = getCurrentJob();
-        const needed = job.taskClicks;
-        const prog = gameState.taskActive ? gameState.taskProgress : 0;
-        const pct = needed > 0 ? Math.min(100, (prog / needed) * 100) : 0;
-
-        $("task-bar").style.width = pct + "%";
-        $("task-text").textContent = prog + " / " + needed;
-        $("task-reward").textContent = "Нагорода: " + formatNumberFull(job.taskReward) + " 💰";
-
-        if (!gameState.taskActive) {
-            $("task-title").textContent = "Задача не почата";
-        } else {
-            $("task-title").textContent = "Поточна задача (" + job.name + ")";
-        }
-    }
-
-    function updateWorkButtonState() {
-        const btn = $("big-click");
-        const label = $("big-click-label");
-        const blocker = $("course-blocker");
-
-        if (isCourseRunning()) {
-            btn.disabled = true;
-            label.textContent = "КУРС У ПРОЦЕСІ";
-            blocker.classList.add("show");
-            const rem = getRemainingCourseMs();
-            $("course-blocker-timer").textContent = "Залишилось: " + formatDuration(rem);
-        } else {
-            blocker.classList.remove("show");
-            btn.disabled = false;
-            if (!gameState.taskActive) {
-                label.textContent = "ПОЧАТИ ЗАДАЧУ";
-            } else {
-                label.textContent = "ПРАЦЮВАТИ";
-            }
-        }
-    }
-
-    function renderJobsList() {
-        const listEl = $("jobs-list");
-        let html = "";
-        JOBS.forEach((job, i) => {
-            const isCurrent = i === gameState.jobIndex;
-            const isLocked = i > gameState.jobIndex;
-            let status = isCurrent ? "← зараз" : (isLocked ? "🔒" : "✓");
-            html += `<div class="job-row${isCurrent ? " current" : ""}${isLocked ? " locked" : ""}">
-                <span class="job-name">${i + 1}. ${job.name}</span>
-                <span class="job-pay">+${formatNumber(job.taskReward)}</span>
-                <span class="job-status">${status}</span>
-            </div>`;
-        });
-        listEl.innerHTML = html;
-    }
-
-    function renderShop() {
-        const listEl = $("shop-list");
-        let html = "";
-        COURSES.forEach(course => {
-            const isCompleted = gameState.completedCourses.includes(course.id);
-            const isActive = gameState.activeCourseId === course.id;
-            const canBuy = !isCompleted && !isActive && !gameState.activeCourseId && gameState.coins >= course.price;
-
-            let statusHtml = "";
-            if (isCompleted) {
-                statusHtml = `<span style="color:#008000;font-weight:bold;">✓ Пройдено (+${course.boost}%)</span>`;
-            } else if (isActive) {
-                const rem = getRemainingCourseMs();
-                statusHtml = `<span class="course-timer">Залишилось: ${formatDuration(rem)}</span>`;
-            } else {
-                statusHtml = `<button class="btn" ${canBuy ? "" : "disabled"} onclick="buyCourse('${course.id}')">
-                    Купити (${formatNumber(course.price)} 💰)
-                </button>`;
-            }
-
-            html += `<div class="shop-item${isCompleted ? " completed" : ""}${isActive ? " active-course" : ""}">
-                <div class="shop-item-header">
-                    <span class="shop-item-name">${course.name}</span>
-                    <span class="shop-item-boost">+${course.boost}% XP</span>
-                </div>
-                <div class="shop-item-info">
-                    Тривалість: ${Math.round(course.durationMs / 3600000)} год
-                </div>
-                <div class="shop-item-actions">
-                    ${statusHtml}
-                </div>
-            </div>`;
-        });
-        listEl.innerHTML = html;
-    }
-
-    window.doWork = function(event) {
-        if (!currentUser || isCourseRunning()) return;
-
-        const job = getCurrentJob();
-
-        // Якщо задача не почата — починаємо
-        if (!gameState.taskActive) {
-            gameState.taskActive = true;
-            gameState.taskProgress = 0;
-            renderTask();
-            updateWorkButtonState();
-            setGameStatus("Задачу розпочато!");
-            return;
-        }
-
-        // Працюємо по задачі
-        gameState.taskProgress += 1;
-
-        // Досвід (з бустом)
-        const xpGain = 1 * (1 + gameState.xpBoost / 100);
-        gameState.xp += xpGain;
-
-        renderStats();
-        renderTask();
-
-        // Перевірка завершення задачі
-        if (gameState.taskProgress >= job.taskClicks) {
-            gameState.coins += job.taskReward;
-            gameState.taskActive = false;
-            gameState.taskProgress = 0;
-
-            renderStats();
-            renderTask();
-            updateWorkButtonState();
-
-            setGameStatus("Задачу закрито! +" + formatNumber(job.taskReward) + " монет");
-            showDialog("Задачу виконано!", "+" + formatNumberFull(job.taskReward) + " монет", "💰");
-
-            // float text
-            const floatEl = document.createElement("div");
-            floatEl.className = "float-text";
-            floatEl.textContent = "+" + job.taskReward;
-            floatEl.style.left = (event?.clientX || window.innerWidth/2) + "px";
-            floatEl.style.top = (event?.clientY || window.innerHeight/2) + "px";
-            document.body.appendChild(floatEl);
-            setTimeout(() => floatEl.remove(), 800);
-        }
-    };
-
-    window.doPromote = function() {
-        const job = getCurrentJob();
-        if (job.xpNeeded <= 0 || gameState.xp < job.xpNeeded) return;
-
-        gameState.xp -= job.xpNeeded;
-        gameState.jobIndex = Math.min(gameState.jobIndex + 1, JOBS.length - 1);
-
-        // скидаємо поточну задачу при підвищенні
-        gameState.taskActive = false;
-        gameState.taskProgress = 0;
-
-        renderAll();
-        setGameStatus("Вітаємо з підвищенням! Тепер ви — " + getCurrentJob().name);
-        showDialog("Підвищення!", "Ви стали: " + getCurrentJob().name, "🎉");
-    };
-
-    window.buyCourse = function(courseId) {
-        if (isCourseRunning()) {
-            showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️");
-            return;
-        }
-        const course = COURSES.find(c => c.id === courseId);
-        if (!course) return;
-        if (gameState.completedCourses.includes(courseId)) return;
-        if (gameState.coins < course.price) {
-            showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(course.price) + " монет", "💸");
-            return;
-        }
-
-        gameState.coins -= course.price;
-        gameState.activeCourseId = course.id;
-        gameState.courseStartTime = Date.now();
-
-        // скидаємо задачу, бо працювати не можна
-        gameState.taskActive = false;
-        gameState.taskProgress = 0;
-
-        renderAll();
-        startCourseTimer();
-        setGameStatus("Курс розпочато: " + course.name);
-        showDialog("Курс розпочато!", course.name + "\nТривалість: " + Math.round(course.durationMs/3600000) + " год\nПрацювати під час курсу неможливо.", "📚");
+        gameState.activeCourseId = null;
+        gameState.courseStartTime = 0;
+        setGameStatus("Курс завершено!");
+        showDialog("Курс завершено!", (course ? course.name : "Курс") + "\n+" + (course ? course.boost : 0) + "% XP", "🎓");
         saveGame();
-    };
+    }
+}
 
-    function startCourseTimer() {
-        if (courseTimerInterval) clearInterval(courseTimerInterval);
-        courseTimerInterval = setInterval(() => {
-            checkCourseCompletion();
-            if (isCourseRunning()) {
-                updateWorkButtonState();
-                if (currentPage === "shop") renderShop();
+// ===== MAP LOGIC =====
+function getPlotRent(plotData) {
+    if (!plotData || !plotData.owned || !plotData.buildingId) return 0;
+    const b = BUILDINGS.find(x => x.id === plotData.buildingId);
+    if (!b) return 0;
+    const lvl = Math.min(Math.max((plotData.level || 1) - 1, 0), 2);
+    return b.rents[lvl] || 0;
+}
+
+function calcPendingRent() {
+    let total = 0;
+    const now = Date.now();
+    const last = gameState.lastRentCollect || now;
+    const periods = Math.floor((now - last) / RENT_INTERVAL_MS);
+    if (periods <= 0) return 0;
+
+    Object.values(gameState.plots || {}).forEach(p => {
+        total += getPlotRent(p) * periods;
+    });
+    return total;
+}
+
+window.collectAllRent = function() {
+    const amount = calcPendingRent();
+    if (amount <= 0) {
+        showDialog("Рента", "Поки нічого немає для збору.\nЧекай 5 хвилин.", "ℹ️");
+        return;
+    }
+    gameState.coins += amount;
+    gameState.lastRentCollect = Date.now();
+    renderAll();
+    saveGame();
+    setGameStatus("Зібрано ренту: +" + formatNumber(amount));
+    showDialog("Рента зібрана!", "+" + formatNumberFull(amount) + " монет", "💰");
+};
+
+window.buyLand = function(plotId) {
+    const plot = PLOTS.find(p => p.id === plotId);
+    if (!plot) return;
+    if (gameState.plots[plotId] && gameState.plots[plotId].owned) return;
+    if (gameState.coins < plot.landPrice) {
+        showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(plot.landPrice), "💸");
+        return;
+    }
+    gameState.coins -= plot.landPrice;
+    if (!gameState.plots[plotId]) gameState.plots[plotId] = {};
+    gameState.plots[plotId].owned = true;
+    gameState.plots[plotId].buildingId = null;
+    gameState.plots[plotId].level = 0;
+    renderAll();
+    saveGame();
+    setGameStatus("Ділянку куплено!");
+};
+
+window.buildOnPlot = function(plotId, buildingId) {
+    const plotData = gameState.plots[plotId];
+    if (!plotData || !plotData.owned || plotData.buildingId) return;
+    const b = BUILDINGS.find(x => x.id === buildingId);
+    if (!b) return;
+    // Будівництво безкоштовне після купівлі землі (можна змінити)
+    plotData.buildingId = buildingId;
+    plotData.level = 1;
+    renderAll();
+    saveGame();
+    setGameStatus("Побудовано: " + b.name);
+};
+
+window.upgradePlot = function(plotId) {
+    const plotData = gameState.plots[plotId];
+    if (!plotData || !plotData.owned || !plotData.buildingId) return;
+    const b = BUILDINGS.find(x => x.id === plotData.buildingId);
+    if (!b) return;
+    const lvl = plotData.level || 1;
+    if (lvl >= 3) return;
+    const cost = b.upgradeCost[lvl - 1];
+    if (gameState.coins < cost) {
+        showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(cost), "💸");
+        return;
+    }
+    gameState.coins -= cost;
+    plotData.level = lvl + 1;
+    renderAll();
+    saveGame();
+    setGameStatus("Покращено до рівня " + plotData.level);
+};
+   function renderAll() {
+    renderStats();
+    renderTask();
+    renderJobsList();
+    renderShop();
+    renderMap();
+    updateWorkButtonState();
+    updateRentInfo();
+}
+
+function renderStats() {
+    const job = getCurrentJob();
+    $("stat-coins").textContent = formatNumber(gameState.coins);
+    $("stat-job").textContent = job.name;
+    $("stat-xp").textContent = formatNumber(gameState.xp);
+    $("stat-boost").textContent = gameState.xpBoost + "%";
+    $("big-coins").textContent = formatNumberFull(gameState.coins);
+
+    const needed = job.xpNeeded || 1;
+    const pct = job.xpNeeded === 0 ? 100 : Math.min(100, (gameState.xp / needed) * 100);
+    $("xp-bar").style.width = pct + "%";
+    $("xp-text").textContent = job.xpNeeded === 0 ? "Макс. рівень" : formatNumber(gameState.xp) + " / " + formatNumber(needed);
+
+    const canPromote = job.xpNeeded > 0 && gameState.xp >= job.xpNeeded;
+    $("promote-btn").classList.toggle("show", canPromote);
+}
+
+function renderTask() {
+    const job = getCurrentJob();
+    const needed = job.taskClicks;
+    const prog = gameState.taskActive ? gameState.taskProgress : 0;
+    const pct = needed > 0 ? Math.min(100, (prog / needed) * 100) : 0;
+    $("task-bar").style.width = pct + "%";
+    $("task-text").textContent = prog + " / " + needed;
+    $("task-reward").textContent = "Нагорода: " + formatNumberFull(job.taskReward) + " 💰";
+    $("task-title").textContent = gameState.taskActive ? "Поточна задача (" + job.name + ")" : "Задача не почата";
+}
+
+function updateWorkButtonState() {
+    const btn = $("big-click");
+    const label = $("big-click-label");
+    const blocker = $("course-blocker");
+    if (isCourseRunning()) {
+        btn.disabled = true;
+        label.textContent = "КУРС У ПРОЦЕСІ";
+        blocker.classList.add("show");
+        $("course-blocker-timer").textContent = "Залишилось: " + formatDuration(getRemainingCourseMs());
+    } else {
+        blocker.classList.remove("show");
+        btn.disabled = false;
+        label.textContent = gameState.taskActive ? "ПРАЦЮВАТИ" : "ПОЧАТИ ЗАДАЧУ";
+    }
+}
+
+function renderJobsList() {
+    const listEl = $("jobs-list");
+    let html = "";
+    JOBS.forEach((job, i) => {
+        const isCurrent = i === gameState.jobIndex;
+        const isLocked = i > gameState.jobIndex;
+        const status = isCurrent ? "← зараз" : (isLocked ? "🔒" : "✓");
+        html += `<div class="job-row${isCurrent?" current":""}${isLocked?" locked":""}">
+            <span class="job-name">${i+1}. ${job.name}</span>
+            <span class="job-pay">+${formatNumber(job.taskReward)}</span>
+            <span class="job-status">${status}</span>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+}
+
+function renderShop() {
+    const listEl = $("shop-list");
+    let html = "";
+    COURSES.forEach(course => {
+        const isCompleted = gameState.completedCourses.includes(course.id);
+        const isActive = gameState.activeCourseId === course.id;
+        const canBuy = !isCompleted && !isActive && !gameState.activeCourseId && gameState.coins >= course.price;
+        let statusHtml = "";
+        if (isCompleted) statusHtml = `<span style="color:#008000;font-weight:bold">✓ Пройдено (+${course.boost}%)</span>`;
+        else if (isActive) statusHtml = `<span class="course-timer">Залишилось: ${formatDuration(getRemainingCourseMs())}</span>`;
+        else statusHtml = `<button class="btn" ${canBuy?"":"disabled"} onclick="buyCourse('${course.id}')">Купити (${formatNumber(course.price)})</button>`;
+        html += `<div class="shop-item${isCompleted?" completed":""}${isActive?" active-course":""}">
+            <div class="shop-item-header">
+                <span class="shop-item-name">${course.name}</span>
+                <span class="shop-item-boost">+${course.boost}% XP</span>
+            </div>
+            <div class="shop-item-info">Тривалість: ${Math.round(course.durationMs/3600000)} год</div>
+            <div class="shop-item-actions">${statusHtml}</div>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+}
+
+function updateRentInfo() {
+    const pending = calcPendingRent();
+    $("rent-info").textContent = "Накопичено: " + formatNumberFull(pending);
+}
+
+function renderMap() {
+    const street = $("street");
+    let html = "";
+    PLOTS.forEach(plot => {
+        const data = gameState.plots[plot.id] || {};
+        const owned = !!data.owned;
+        let name = plot.name;
+        let status = "Вільна земля";
+        let rentText = "";
+        let actions = "";
+
+        if (owned) {
+            if (data.buildingId) {
+                const b = BUILDINGS.find(x => x.id === data.buildingId);
+                name = b ? b.name : "Будівля";
+                status = "Рівень " + (data.level || 1);
+                rentText = "Рента: +" + getPlotRent(data) + " / 5хв";
+                if ((data.level || 1) < 3) {
+                    const cost = b.upgradeCost[(data.level || 1) - 1];
+                    actions = `<button class="btn" onclick="upgradePlot(${plot.id})">Покращити (${formatNumber(cost)})</button>`;
+                } else {
+                    actions = `<button class="btn" disabled>Макс. рівень</button>`;
+                }
             } else {
-                clearInterval(courseTimerInterval);
-                courseTimerInterval = null;
-                renderAll();
+                status = "Порожня ділянка";
+                actions = BUILDINGS.map(b => 
+                    `<button class="btn" onclick="buildOnPlot(${plot.id},'${b.id}')">${b.name}</button>`
+                ).join("");
             }
-        }, 1000);
-    }
-
-    // ===== HEARTBEAT =====
-    function startHeartbeat() {
-        if (heartbeatTimer) clearInterval(heartbeatTimer);
-        sendHeartbeat();
-        heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
-    }
-    async function sendHeartbeat() {
-        if (!currentUser) return;
-        try {
-            await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
-        } catch(e) { console.error("heartbeat:", e); }
-    }
-
-    // ===== PAGE SWITCH =====
-    window.switchPage = function(page) {
-        currentPage = page;
-        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-        document.querySelectorAll(".tab-strip .tab").forEach(t => t.classList.remove("active"));
-        const pageEl = $("page-" + page);
-        const tabEl = $("tabnav-" + page);
-        if (pageEl) pageEl.classList.add("active");
-        if (tabEl) tabEl.classList.add("active");
-
-        if (page === "leaderboard") loadLeaderboard();
-        if (page === "online") loadOnline();
-        if (page === "shop") renderShop();
-    };
-
-    // ===== LEADERBOARD =====
-    window.loadLeaderboard = async function() {
-        const listEl = $("lb-list");
-        const myRankEl = $("lb-my-rank");
-        listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
-        myRankEl.textContent = "—";
-
-        try {
-            const snap = await get(child(ref(db), "users"));
-            if (!snap.exists()) {
-                listEl.innerHTML = '<div class="lb-empty">Ще немає гравців</div>';
-                return;
-            }
-            const users = snap.val();
-            const list = [];
-            for (const [name, data] of Object.entries(users)) {
-                const coins = (data && data.clicker && Number(data.clicker.coins)) || 0;
-                list.push({ name, coins });
-            }
-            list.sort((a, b) => b.coins - a.coins);
-            const top = list.slice(0, LEADERBOARD_LIMIT);
-            let html = "";
-            top.forEach((u, i) => {
-                const rank = i + 1;
-                const rankClass = rank === 1 ? "top1" : rank === 2 ? "top2" : rank === 3 ? "top3" : "";
-                const isSelf = u.name === currentUser;
-                const medal = rank === 1 ? "🥇 " : rank === 2 ? "🥈 " : rank === 3 ? "🥉 " : "";
-                html += `<div class="lb-row${isSelf ? " self" : ""}">
-                    <span class="lb-rank ${rankClass}">${medal}${rank}</span>
-                    <span class="lb-name">${escapeHtml(u.name)}</span>
-                    <span class="lb-coins">${formatNumberFull(u.coins)}</span>
-                </div>`;
-            });
-            listEl.innerHTML = html;
-
-            const myIndex = list.findIndex(u => u.name === currentUser);
-            if (myIndex >= 0) {
-                myRankEl.textContent = "Ваше місце: #" + (myIndex + 1) + " з " + list.length + " (" + formatNumberFull(list[myIndex].coins) + " монет)";
-            } else {
-                myRankEl.textContent = "Вас немає в списку";
-            }
-        } catch(e) {
-            console.error("leaderboard:", e);
-            listEl.innerHTML = '<div class="lb-empty">Помилка завантаження: ' + escapeHtml(e.message) + '</div>';
+        } else {
+            actions = `<button class="btn" onclick="buyLand(${plot.id})">Купити землю (${formatNumber(plot.landPrice)})</button>`;
         }
-    };
 
-    // ===== ONLINE =====
-    window.loadOnline = async function() {
-        const listEl = $("online-list");
-        const countEl = $("online-count");
-        listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
-        countEl.textContent = "—";
+        html += `<div class="plot${owned?" owned":""}">
+            <div class="plot-number">№${plot.id + 1}</div>
+            <div class="plot-name">${name}</div>
+            <div class="plot-status">${status}</div>
+            <div class="plot-rent">${rentText}</div>
+            <div class="plot-actions">${actions}</div>
+        </div>`;
+    });
+    street.innerHTML = html;
+    updateRentInfo();
+}
 
-        try {
-            const snap = await get(child(ref(db), "users"));
-            if (!snap.exists()) {
-                listEl.innerHTML = '<div class="lb-empty">Немає гравців</div>';
-                countEl.textContent = "0 онлайн";
-                return;
-            }
-            const users = snap.val();
-            const now = Date.now();
-            const list = [];
-            for (const [name, data] of Object.entries(users)) {
-                const lastOnline = (data && Number(data.lastOnline)) || 0;
-                const coins = (data && data.clicker && Number(data.clicker.coins)) || 0;
-                const online = (now - lastOnline) < ONLINE_THRESHOLD_MS;
-                list.push({ name, coins, lastOnline, online });
-            }
-            const onlineList = list.filter(u => u.online);
-            onlineList.sort((a, b) => {
-                if (a.name === currentUser) return -1;
-                if (b.name === currentUser) return 1;
-                return b.lastOnline - a.lastOnline;
-            });
+window.doWork = function(event) {
+    if (!currentUser || isCourseRunning()) return;
+    const job = getCurrentJob();
 
-            if (onlineList.length === 0) {
-                listEl.innerHTML = '<div class="lb-empty">Нікого немає онлайн</div>';
-                countEl.textContent = "0 онлайн";
-                return;
-            }
-
-            let html = "";
-            onlineList.forEach(u => {
-                const isSelf = u.name === currentUser;
-                html += `<div class="online-row${isSelf ? " self" : ""}">
-                    <span class="online-dot"></span>
-                    <span class="lb-name">${escapeHtml(u.name)}${isSelf ? " (ви)" : ""}</span>
-                    <span class="lb-coins">${formatNumberFull(u.coins)}</span>
-                    <span class="muted" style="min-width:70px;text-align:right;">${formatTimeAgo(u.lastOnline)}</span>
-                </div>`;
-            });
-            listEl.innerHTML = html;
-            countEl.textContent = onlineList.length + " онлайн";
-        } catch(e) {
-            console.error("online:", e);
-            listEl.innerHTML = '<div class="lb-empty">Помилка завантаження: ' + escapeHtml(e.message) + '</div>';
-        }
-    };
-
-    function escapeHtml(str) {
-        return String(str).replace(/[&<>"']/g, c => ({
-            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-        }[c]));
+    if (!gameState.taskActive) {
+        gameState.taskActive = true;
+        gameState.taskProgress = 0;
+        renderTask();
+        updateWorkButtonState();
+        setGameStatus("Задачу розпочато!");
+        return;
     }
 
-    // ===== LOGOUT =====
-    window.logout = async function() {
-        if (!currentUser) return;
+    gameState.taskProgress += 1;
+    const xpGain = 1 * (1 + gameState.xpBoost / 100);
+    gameState.xp += xpGain;
+    renderStats();
+    renderTask();
+
+    if (gameState.taskProgress >= job.taskClicks) {
+        gameState.coins += job.taskReward;
+        gameState.taskActive = false;
+        gameState.taskProgress = 0;
+        renderStats();
+        renderTask();
+        updateWorkButtonState();
+        setGameStatus("Задачу закрито! +" + formatNumber(job.taskReward));
+        showDialog("Задачу виконано!", "+" + formatNumberFull(job.taskReward) + " монет", "💰");
+    }
+};
+
+window.doPromote = function() {
+    const job = getCurrentJob();
+    if (job.xpNeeded <= 0 || gameState.xp < job.xpNeeded) return;
+    gameState.xp -= job.xpNeeded;
+    gameState.jobIndex = Math.min(gameState.jobIndex + 1, JOBS.length - 1);
+    gameState.taskActive = false;
+    gameState.taskProgress = 0;
+    renderAll();
+    setGameStatus("Підвищення! Тепер ви — " + getCurrentJob().name);
+    showDialog("Підвищення!", "Ви стали: " + getCurrentJob().name, "🎉");
+};
+
+window.buyCourse = async function(courseId) {
+    if (isCourseRunning()) { showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️"); return; }
+    const course = COURSES.find(c => c.id === courseId);
+    if (!course || gameState.completedCourses.includes(courseId)) return;
+    if (gameState.coins < course.price) { showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(course.price), "💸"); return; }
+
+    gameState.coins -= course.price;
+    gameState.activeCourseId = course.id;
+    gameState.courseStartTime = Date.now();
+    gameState.taskActive = false;
+    gameState.taskProgress = 0;
+
+    renderAll();
+    startCourseTimer();
+    setGameStatus("Зберігаємо курс...");
+    try {
+        isSaving = false;
         await saveGame();
-        try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
-        try {
-            localStorage.removeItem("w95_user");
-            localStorage.removeItem("w95_hash");
-        } catch(e) {}
+        setGameStatus("Курс розпочато: " + course.name);
+        showDialog("Курс розпочато!", course.name + "\nТривалість: " + Math.round(course.durationMs/3600000) + " год", "📚");
+    } catch(e) {
+        showDialog("Помилка", "Не вдалося зберегти покупку", "⚠️");
+    }
+};
 
-        if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
-        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-        if (courseTimerInterval) { clearInterval(courseTimerInterval); courseTimerInterval = null; }
+function startCourseTimer() {
+    if (courseTimerInterval) clearInterval(courseTimerInterval);
+    courseTimerInterval = setInterval(() => {
+        checkCourseCompletion();
+        if (isCourseRunning()) {
+            updateWorkButtonState();
+            if (currentPage === "shop") renderShop();
+        } else {
+            clearInterval(courseTimerInterval);
+            courseTimerInterval = null;
+            renderAll();
+        }
+    }, 1000);
+}
+   function startHeartbeat() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    sendHeartbeat();
+    heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
+}
+async function sendHeartbeat() {
+    if (!currentUser) return;
+    try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
+}
 
-        currentUser = "";
-        gameState = {
-            coins: 0, jobIndex: 0, xp: 0,
-            taskProgress: 0, taskActive: false,
-            activeCourseId: null, courseStartTime: 0,
-            completedCourses: [], xpBoost: 0
-        };
+window.switchPage = function(page) {
+    currentPage = page;
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-strip .tab").forEach(t => t.classList.remove("active"));
+    const pageEl = $("page-" + page);
+    const tabEl = $("tabnav-" + page);
+    if (pageEl) pageEl.classList.add("active");
+    if (tabEl) tabEl.classList.add("active");
+    if (page === "leaderboard") loadLeaderboard();
+    if (page === "online") loadOnline();
+    if (page === "shop") renderShop();
+    if (page === "map") renderMap();
+};
 
-        $("game-screen").classList.remove("active");
-        $("auth-window").style.display = "flex";
-        $("auth-username").value = "";
-        $("auth-password").value = "";
-        $("auth-password2").value = "";
-        switchAuthTab("login");
-        setStatus("Вихід виконано");
+window.loadLeaderboard = async function() {
+    const listEl = $("lb-list");
+    const myRankEl = $("lb-my-rank");
+    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
+    myRankEl.textContent = "—";
+    try {
+        const snap = await get(child(ref(db), "users"));
+        if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Ще немає гравців</div>'; return; }
+        const users = snap.val();
+        const list = [];
+        for (const [name, data] of Object.entries(users)) {
+            list.push({ name, coins: (data?.clicker?.coins) || 0 });
+        }
+        list.sort((a, b) => b.coins - a.coins);
+        const top = list.slice(0, LEADERBOARD_LIMIT);
+        let html = "";
+        top.forEach((u, i) => {
+            const rank = i + 1;
+            const rankClass = rank === 1 ? "top1" : rank === 2 ? "top2" : rank === 3 ? "top3" : "";
+            const isSelf = u.name === currentUser;
+            const medal = rank === 1 ? "🥇 " : rank === 2 ? "🥈 " : rank === 3 ? "🥉 " : "";
+            html += `<div class="lb-row${isSelf?" self":""}">
+                <span class="lb-rank ${rankClass}">${medal}${rank}</span>
+                <span class="lb-name">${escapeHtml(u.name)}</span>
+                <span class="lb-coins">${formatNumberFull(u.coins)}</span>
+            </div>`;
+        });
+        listEl.innerHTML = html;
+        const myIndex = list.findIndex(u => u.name === currentUser);
+        myRankEl.textContent = myIndex >= 0 
+            ? `Ваше місце: #${myIndex+1} з ${list.length} (${formatNumberFull(list[myIndex].coins)})`
+            : "Вас немає в списку";
+    } catch(e) {
+        listEl.innerHTML = '<div class="lb-empty">Помилка: ' + escapeHtml(e.message) + '</div>';
+    }
+};
+
+window.loadOnline = async function() {
+    const listEl = $("online-list");
+    const countEl = $("online-count");
+    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>';
+    countEl.textContent = "—";
+    try {
+        const snap = await get(child(ref(db), "users"));
+        if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Немає гравців</div>'; countEl.textContent = "0 онлайн"; return; }
+        const users = snap.val();
+        const now = Date.now();
+        const list = [];
+        for (const [name, data] of Object.entries(users)) {
+            const lastOnline = Number(data?.lastOnline) || 0;
+            const online = (now - lastOnline) < ONLINE_THRESHOLD_MS;
+            list.push({ name, coins: (data?.clicker?.coins) || 0, lastOnline, online });
+        }
+        const onlineList = list.filter(u => u.online).sort((a, b) => {
+            if (a.name === currentUser) return -1;
+            if (b.name === currentUser) return 1;
+            return b.lastOnline - a.lastOnline;
+        });
+        if (onlineList.length === 0) {
+            listEl.innerHTML = '<div class="lb-empty">Нікого немає онлайн</div>';
+            countEl.textContent = "0 онлайн";
+            return;
+        }
+        let html = "";
+        onlineList.forEach(u => {
+            const isSelf = u.name === currentUser;
+            html += `<div class="online-row${isSelf?" self":""}">
+                <span class="online-dot"></span>
+                <span class="lb-name">${escapeHtml(u.name)}${isSelf?" (ви)":""}</span>
+                <span class="lb-coins">${formatNumberFull(u.coins)}</span>
+                <span class="muted" style="min-width:70px;text-align:right">${formatTimeAgo(u.lastOnline)}</span>
+            </div>`;
+        });
+        listEl.innerHTML = html;
+        countEl.textContent = onlineList.length + " онлайн";
+    } catch(e) {
+        listEl.innerHTML = '<div class="lb-empty">Помилка: ' + escapeHtml(e.message) + '</div>';
+    }
+};
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+window.logout = async function() {
+    if (!currentUser) return;
+    await saveGame();
+    try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
+    try { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); } catch(e) {}
+
+    if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (courseTimerInterval) { clearInterval(courseTimerInterval); courseTimerInterval = null; }
+    if (dataListener) { off(dataListener); dataListener = null; }
+
+    currentUser = "";
+    gameState = {
+        coins:0, jobIndex:0, xp:0, taskProgress:0, taskActive:false,
+        activeCourseId:null, courseStartTime:0, completedCourses:[], xpBoost:0,
+        plots:{}, lastRentCollect:0
     };
 
-    // Save on page close
-    window.addEventListener("beforeunload", () => {
-        if (currentUser) {
-            try {
-                update(ref(db, `users/${currentUser}/clicker`), {
-                    coins: gameState.coins,
-                    jobIndex: gameState.jobIndex,
-                    xp: gameState.xp,
-                    taskProgress: gameState.taskProgress,
-                    taskActive: gameState.taskActive,
-                    activeCourseId: gameState.activeCourseId,
-                    courseStartTime: gameState.courseStartTime,
-                    completedCourses: gameState.completedCourses,
-                    xpBoost: gameState.xpBoost
-                });
-                update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
-            } catch(e) {}
-        }
-    });
+    $("game-screen").classList.remove("active");
+    $("auth-window").style.display = "flex";
+    $("auth-username").value = "";
+    $("auth-password").value = "";
+    $("auth-password2").value = "";
+    switchAuthTab("login");
+    setStatus("Вихід виконано");
+};
 
-    // ===== AUTO LOGIN =====
-    (async function autoLogin() {
+window.addEventListener("beforeunload", () => {
+    if (currentUser) {
         try {
-            const savedUser = localStorage.getItem("w95_user");
-            const savedHash = localStorage.getItem("w95_hash");
-            if (!savedUser || !savedHash) return;
+            update(ref(db, `users/${currentUser}/clicker`), {
+                coins: gameState.coins, jobIndex: gameState.jobIndex, xp: gameState.xp,
+                taskProgress: gameState.taskProgress, taskActive: gameState.taskActive,
+                activeCourseId: gameState.activeCourseId, courseStartTime: gameState.courseStartTime,
+                completedCourses: gameState.completedCourses, xpBoost: gameState.xpBoost,
+                plots: gameState.plots, lastRentCollect: gameState.lastRentCollect
+            });
+            update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
+        } catch(e) {}
+    }
+});
 
-            const snap = await get(child(ref(db), `users/${savedUser}`));
-            if (snap.exists() && snap.val().password === savedHash) {
-                currentUser = savedUser;
-                try { await update(ref(db, `users/${savedUser}`), { lastOnline: Date.now() }); } catch(e) {}
-                startGame();
-            } else {
-                try {
-                    localStorage.removeItem("w95_user");
-                    localStorage.removeItem("w95_hash");
-                } catch(e) {}
-            }
-        } catch(e) {
-            console.error("autoLogin:", e);
+(async function autoLogin() {
+    try {
+        const savedUser = localStorage.getItem("w95_user");
+        const savedHash = localStorage.getItem("w95_hash");
+        if (!savedUser || !savedHash) return;
+        const snap = await get(child(ref(db), `users/${savedUser}`));
+        if (snap.exists() && snap.val().password === savedHash) {
+            currentUser = savedUser;
+            try { await update(ref(db, `users/${savedUser}`), { lastOnline: Date.now() }); } catch(e) {}
+            startGame();
+        } else {
+            try { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); } catch(e) {}
         }
-    })();
+    } catch(e) { console.error("autoLogin:", e); }
+})();
 
-    // ===== INIT =====
-    document.addEventListener("DOMContentLoaded", () => {
-        switchAuthTab("login");
-        $("auth-username").focus();
-        console.log("%cWin95 Clicker v" + APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace;");
-    });
+document.addEventListener("DOMContentLoaded", () => {
+    switchAuthTab("login");
+    $("auth-username").focus();
+    console.log("%cWin95 Clicker v" + APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace;");
+});
 </script>
 </body>
 </html>
