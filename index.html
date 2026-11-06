@@ -2,384 +2,1498 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Машини та Доставка</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="version" content="2.0.0">
+<title>Win95 Clicker — v2.0.0</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
-  body {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    min-height: 100vh; color: #fff; padding: 15px;
-    display: flex; flex-direction: column; align-items: center;
-  }
-  .container { width: 100%; max-width: 900px; }
-
-  h1 { text-align: center; margin-bottom: 15px; font-size: 1.8em;
-       text-shadow: 2px 2px 4px rgba(0,0,0,0.5); letter-spacing: 1px; }
-
-  #loginScreen {
-    background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-    padding: 30px; border-radius: 16px; text-align: center;
-    max-width: 400px; margin: 60px auto;
-    border: 1px solid rgba(255,255,255,0.2);
-  }
-  #loginScreen p { margin-bottom: 15px; }
-  #loginScreen input {
-    width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px;
-    border: none; font-size: 1em; outline: none; color: #222;
-  }
-
-  .btn {
-    background: #ff6b35; color: #fff; border: none; padding: 12px 22px;
-    border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: 600;
-    transition: transform 0.15s, background 0.15s; margin: 5px;
-  }
-  .btn:hover { transform: translateY(-2px); background: #ff8555; }
-  .btn:disabled { background: #666; cursor: not-allowed; transform: none; }
-  .btn-green { background: #2ecc71; }
-  .btn-green:hover { background: #45d985; }
-  .btn-red { background: #e74c3c; }
-  .btn-red:hover { background: #f2665a; }
-
-  #gameScreen { display: none; }
-
-  .hud {
-    display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between;
-    background: rgba(0,0,0,0.3); padding: 12px 16px; border-radius: 12px;
-    margin-bottom: 15px;
-  }
-  .hud-item { font-size: 0.95em; }
-  .hud-item b { color: #ffd700; }
-
-  .map {
-    background: rgba(0,0,0,0.25); border-radius: 16px; padding: 20px;
-    position: relative; min-height: 380px; overflow: hidden;
-    border: 2px solid rgba(255,255,255,0.15);
-  }
-
-  .city {
-    position: absolute; width: 70px; height: 70px; border-radius: 50%;
-    background: rgba(255,255,255,0.15); border: 2px solid #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.72em; text-align: center; cursor: pointer;
-    transition: all 0.25s; padding: 4px; font-weight: 600;
-  }
-  .city:hover { background: rgba(255,255,255,0.3); transform: scale(1.08); }
-  .city.target {
-    background: #ff6b35; box-shadow: 0 0 20px #ff6b35;
-    animation: pulse 1s infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.12); }
-  }
-
-  .car {
-    position: absolute; font-size: 1.6em; transition: all 1.5s ease-in-out;
-    z-index: 10; font-weight: 700;
-    background: #ff6b35; color: #fff; padding: 6px 10px; border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-  }
-
-  #log {
-    background: rgba(0,0,0,0.3); border-radius: 12px; padding: 12px;
-    margin-top: 15px; max-height: 120px; overflow-y: auto;
-    font-size: 0.85em; line-height: 1.6;
-  }
-  #log div { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-
-  #leaderboard {
-    background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px;
-    margin-top: 15px;
-  }
-  #leaderboard h3 { margin-bottom: 10px; }
-  .lb-row { display: flex; justify-content: space-between;
-            padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
-            font-size: 0.9em; }
-  .lb-row.you { color: #ffd700; font-weight: bold; }
-
-  .actions { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
-  .hidden { display: none !important; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden}
+body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif;font-size:13px;color:#000;display:flex;align-items:stretch;justify-content:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.window{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;display:flex;flex-direction:column;width:100%;height:100%;max-width:100%;max-height:100%}
+.title-bar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:8px 10px;display:flex;align-items:center;gap:8px;font-weight:bold;font-size:14px;flex-shrink:0}
+.title-bar .title-icon{font-size:16px}
+.title-bar .title-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.win-controls{display:flex;gap:4px}
+.win-btn{width:28px;height:24px;background:#c0c0c0;border:1px solid;border-color:#fff #000 #000 #fff;font-size:12px;font-weight:bold;color:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1;font-family:inherit}
+.win-btn:active{border-color:#000 #fff #fff #000}
+.win-btn:disabled{color:#808080;cursor:default}
+.status-bar{background:#c0c0c0;padding:4px;display:flex;gap:4px;border-top:1px solid #fff;flex-shrink:0}
+.status-bar .panel{flex:1;border:1px inset #808080;padding:4px 8px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.status-bar .panel.small{flex:0 0 auto;min-width:70px}
+.group-box{border:2px groove #fff;padding:12px 10px 10px;position:relative;margin-top:10px}
+.group-box::before{content:attr(data-label);position:absolute;top:-9px;left:10px;background:#c0c0c0;padding:0 5px;font-size:12px;color:#000}
+.form-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.form-row label{font-size:13px;min-width:70px}
+.input-field{flex:1;padding:8px 10px;font-family:inherit;font-size:15px;background:#fff;color:#000;border:2px solid;border-color:#808080 #fff #fff #808080;outline:none;min-width:0}
+.input-field:focus{outline:1px dotted #000;outline-offset:-4px}
+.btn{font-family:inherit;font-size:14px;background:#c0c0c0;color:#000;border:2px solid;border-color:#fff #808080 #808080 #fff;padding:10px 16px;cursor:pointer;min-width:90px;min-height:42px;font-weight:400}
+.btn:active:not(:disabled){border-color:#808080 #fff #fff #808080;padding:11px 15px 9px 17px}
+.btn:disabled{color:#808080;text-shadow:1px 1px 0 #fff;cursor:default}
+.btn.default{outline:1px solid #000;outline-offset:-4px}
+.btn-link{background:transparent;border:none;color:#0000ff;text-decoration:underline;cursor:pointer;font-size:13px;padding:6px 0;font-family:inherit}
+.btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+.auth-tabs{display:flex;gap:4px;margin-bottom:12px}
+.auth-tab{flex:1;padding:12px 8px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;cursor:pointer;font-size:14px;font-family:inherit;text-align:center;min-height:46px}
+.auth-tab.active{background:#dfdfdf;border-color:#808080 #fff #fff #808080;font-weight:bold;padding:13px 8px 11px}
+.error-msg,.info-msg{border:1px solid #808080;padding:8px 10px;font-size:13px;margin-top:8px;display:none}
+.error-msg{background:#ffffcc;color:#800000}
+.info-msg{background:#ccffcc;color:#006000}
+.error-msg.show,.info-msg.show{display:block}
+.auth-footer{margin-top:12px;text-align:center}
+#game-screen{display:none}
+#game-screen.active{display:flex}
+.tab-strip{display:flex;gap:2px;padding:4px 4px 0;background:#c0c0c0;border-bottom:1px solid #808080;flex-shrink:0;align-items:flex-end;overflow:hidden}
+.tab-strip .tab{flex:1 1 0;min-width:0;padding:9px 4px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #c0c0c0 #fff;border-bottom:none;cursor:pointer;font-size:12px;font-family:inherit;font-weight:400;color:#000;margin-bottom:-1px;position:relative;top:2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:38px}
+.tab-strip .tab.active{background:#dfdfdf;border-color:#fff #808080 #dfdfdf #fff;border-bottom:2px solid #dfdfdf;font-weight:bold;top:0;padding:10px 4px 8px;z-index:2}
+.page{display:none;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px}
+.page.active{display:flex}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat-item{background:#dfdfdf;border:1px inset #808080;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:6px}
+.stat-item .label{color:#000}
+.stat-item .value{font-weight:bold;font-family:"Courier New",monospace;color:#000080;font-size:14px}
+.click-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0 10px;gap:12px;flex-shrink:0}
+#big-click{width:85%;max-width:280px;height:150px;background:#c0c0c0;border:4px solid;border-color:#fff #808080 #808080 #fff;box-shadow:3px 3px 0 #808080;cursor:pointer;font-family:inherit;font-size:16px;font-weight:bold;color:#000080;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#big-click:active:not(:disabled){border-color:#808080 #fff #fff #808080;box-shadow:none}
+#big-click:disabled{color:#808080;cursor:default;opacity:.75}
+#big-click .big-emoji{font-size:52px;line-height:1}
+#big-click .click-label{font-size:14px;color:#000}
+.big-coins-display{font-family:"Courier New",monospace;font-size:26px;font-weight:bold;color:#000080;background:#dfdfdf;border:2px inset #808080;padding:10px 16px;text-align:center;width:90%;max-width:300px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden}
+.big-coins-display #big-coins{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.big-coins-display .coin-icon{font-size:24px;flex-shrink:0}
+.promote-btn{display:none;margin-top:4px;background:#000080;color:#fff;border-color:#1084d0 #000040 #000040 #1084d0;font-weight:bold;min-height:44px;font-size:15px;padding:10px 20px}
+.promote-btn.show{display:inline-block}
+.task-box{width:92%;max-width:320px}
+.task-title{font-size:13px;font-weight:bold;margin-bottom:6px;text-align:center}
+.task-bar-wrap{background:#dfdfdf;border:2px inset #808080;height:28px;position:relative;overflow:hidden}
+.task-bar{height:100%;background:linear-gradient(90deg,#008000,#00c000);width:0%;transition:width .12s ease}
+.task-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
+.task-reward{text-align:center;font-size:13px;margin-top:6px;color:#000080;font-weight:bold}
+.jobs-list{display:flex;flex-direction:column;gap:4px;border:2px inset #808080;background:#fff;padding:4px}
+.job-row{display:flex;align-items:center;gap:8px;padding:9px 10px;font-size:13px;border-bottom:1px solid #e0e0e0}
+.job-row:last-child{border-bottom:none}
+.job-row.current{background:#000080;color:#fff}
+.job-row.locked{color:#808080}
+.job-row .job-name{flex:1;font-weight:600}
+.job-row .job-pay{font-family:"Courier New",monospace;font-weight:bold;min-width:55px;text-align:right}
+.job-row.current .job-pay{color:#ffff00}
+.job-row .job-status{font-size:12px;min-width:55px;text-align:right}
+.xp-bar-wrap{margin-top:8px;margin-bottom:10px;background:#dfdfdf;border:1px inset #808080;height:20px;position:relative;overflow:hidden}
+.xp-bar{height:100%;background:linear-gradient(90deg,#000080,#1084d0);width:0%;transition:width .15s ease}
+.xp-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
+.course-blocker{background:#ffffcc;border:1px solid #808080;padding:10px 12px;font-size:13px;color:#800000;text-align:center;margin-bottom:4px;display:none;line-height:1.4}
+.course-blocker.show{display:block}
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Машини та Доставка</h1>
+ <style>
+/* MAP */
+.map-container{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:#7a7a7a;border:2px inset #808080;position:relative;padding:6px}
+.map-stage{position:relative;width:100%;aspect-ratio:900/560;background:#8a8a8a;overflow:hidden}
+.map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,0,0,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.12) 1px,transparent 1px);background-size:5% 8%;pointer-events:none}
+.map-plot{position:absolute;background:#c8b88a;border:2px solid #8a7a4a;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#3a2a0a;transition:transform .1s,box-shadow .1s;z-index:5;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;box-shadow:2px 2px 0 rgba(0,0,0,.3);overflow:hidden;padding:2px;text-align:center;line-height:1.1}
+.map-plot:hover{transform:translateY(-2px);box-shadow:3px 4px 0 rgba(0,0,0,.35)}
+.map-plot:active{transform:scale(.97)}
+.map-plot.owned-self{background:#7fd47f;border-color:#2d7a2d;color:#0a2a0a}
+.map-plot.owned-other{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.6)}
+.map-plot.locked{background:#9a9a9a;border-color:#6a6a6a;color:#505050;cursor:not-allowed}
+.map-plot.locked:hover{transform:none;box-shadow:2px 2px 0 rgba(0,0,0,.3)}
+.map-plot.selected{outline:3px solid #ffff00;outline-offset:-3px;z-index:10}
+.map-plot .plot-owner{font-size:9px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.map-plot .plot-price{font-size:9px;margin-top:1px;opacity:.85;font-family:"Courier New",monospace}
+.map-plot .plot-name{font-size:9px;opacity:.7}
+.map-building{position:absolute;border:2px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;z-index:6;transition:transform .1s,box-shadow .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;box-shadow:3px 3px 0 rgba(0,0,0,.4);padding:4px;text-align:center;line-height:1.15}
+.map-building:hover{transform:translateY(-2px);box-shadow:4px 5px 0 rgba(0,0,0,.45)}
+.map-building:active{transform:scale(.97)}
+.map-building.bank{background:#d4c86a;border-color:#8a7a1a;color:#4a3a00}
+.map-building.corp{background:#6a8ad4;border-color:#1a3a8a;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+.map-building .bld-icon{font-size:22px;line-height:1}
+.map-building .bld-name{font-size:10px;font-weight:bold;margin-top:2px}
+.map-building .bld-sub{font-size:9px;opacity:.85}
+.map-info-panel{background:#c0c0c0;border:2px groove #fff;padding:10px;margin-top:10px;display:none;gap:8px;flex-direction:column}
+.map-info-panel.show{display:flex}
+.map-info-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+.map-info-row .label{color:#000}
+.map-info-row .value{font-family:"Courier New",monospace;font-weight:bold;color:#000080}
+.map-info-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;flex-wrap:wrap}
+.map-info-close{background:transparent;border:none;color:#800000;text-decoration:underline;cursor:pointer;font-size:12px;padding:4px 0;font-family:inherit;align-self:flex-end}
 
-  <div id="loginScreen">
-    <p>Введи своє ім'я водія:</p>
-    <input id="playerName" maxlength="15" placeholder="Ім'я водія...">
-    <button class="btn" id="loginBtn">Почати</button>
-  </div>
+/* SHOP */
+.shop-list{display:flex;flex-direction:column;gap:10px}
+.shop-item{border:2px groove #fff;padding:12px;background:#dfdfdf}
+.shop-item.completed{opacity:.7}
+.shop-item.active-course{background:#cce5ff;border-color:#000080}
+.shop-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.shop-item-name{font-weight:bold;font-size:14px;flex:1}
+.shop-item-boost{font-family:"Courier New",monospace;color:#008000;font-weight:bold;font-size:14px;white-space:nowrap}
+.shop-item-info{font-size:12px;color:#000;margin-bottom:10px}
+.shop-item-actions{display:flex;justify-content:space-between;align-items:center}
+.course-timer{font-family:"Courier New",monospace;font-weight:bold;color:#000080;font-size:14px}
 
-  <div id="gameScreen">
-    <div class="hud">
-      <div class="hud-item">Гравець: <b id="hudName">—</b></div>
-      <div class="hud-item">Гроші: <b id="hudMoney">0</b> грн</div>
-      <div class="hud-item">XP: <b id="hudXP">0</b></div>
-      <div class="hud-item">Доставок: <b id="hudDeliveries">0</b></div>
-      <div class="hud-item">Рівень: <b id="hudLevel">1</b></div>
+/* LEADERBOARD / ONLINE */
+.lb-refresh-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lb-list,.online-list{display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;min-height:0;border:2px inset #808080;background:#fff;padding:2px;-webkit-overflow-scrolling:touch}
+.lb-row,.online-row{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:14px;border-bottom:1px solid #e0e0e0}
+.lb-row:last-child,.online-row:last-child{border-bottom:none}
+.lb-row.self,.online-row.self{background:#000080;color:#fff}
+.lb-row.self .lb-coins,.online-row.self .lb-coins{color:#ffff00}
+.lb-rank{font-family:"Courier New",monospace;font-weight:bold;min-width:36px;text-align:right}
+.lb-rank.top1{color:#c89600}.lb-rank.top2{color:#808080}.lb-rank.top3{color:#a05000}
+.lb-row.self .lb-rank{color:#fff}
+.lb-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.lb-coins{font-family:"Courier New",monospace;font-weight:bold;color:#000080;text-align:right;min-width:70px}
+.lb-empty,.lb-loading{text-align:center;color:#808080;padding:24px;font-size:14px}
+.lb-loading{color:#000080}
+.online-dot{width:10px;height:10px;border-radius:50%;background:#00c000;box-shadow:0 0 4px #00ff00;flex-shrink:0}
+
+/* BANK */
+.bank-tabs{display:flex;gap:4px;margin-bottom:8px}
+.bank-tab{flex:1;padding:8px 6px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;cursor:pointer;font-size:13px;font-family:inherit;text-align:center;min-height:38px}
+.bank-tab.active{background:#dfdfdf;border-color:#808080 #fff #fff #808080;font-weight:bold;padding:9px 6px 7px}
+.credit-card{border:2px groove #fff;background:#dfdfdf;padding:12px;margin-bottom:8px}
+.credit-card.active-credit{background:#ffddaa;border-color:#a06000}
+.credit-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.credit-card-name{font-weight:bold;font-size:14px}
+.credit-card-limit{font-family:"Courier New",monospace;color:#000080;font-weight:bold}
+.credit-card-info{font-size:12px;margin-bottom:8px;line-height:1.5}
+.credit-card-info b{color:#000080}
+.credit-debt-bar{background:#dfdfdf;border:2px inset #808080;height:20px;position:relative;overflow:hidden;margin:6px 0}
+.credit-debt-fill{height:100%;background:linear-gradient(90deg,#c00000,#ff4040);width:0%;transition:width .15s ease}
+.credit-debt-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#000;text-shadow:0 0 2px #fff;pointer-events:none}
+.bank-warning{background:#ffe0e0;border:1px solid #a00000;padding:8px 10px;font-size:12px;color:#800000;margin-bottom:8px;line-height:1.4;display:none}
+.bank-warning.show{display:block}
+.bank-blocked{background:#ffffcc;border:2px solid #a00000;padding:10px;color:#800000;text-align:center;font-weight:bold;display:none;margin-bottom:8px;line-height:1.4}
+.bank-blocked.show{display:block}
+
+/* DIALOG + MISC */
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.dialog-overlay.active{display:flex}
+.dialog{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #808080 #808080 #dfdfdf;box-shadow:2px 2px 0 #000;width:100%;max-width:340px}
+.dialog-body{padding:16px 14px;display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45}
+.dialog-icon{font-size:32px;flex-shrink:0}
+.dialog-text{flex:1;white-space:pre-line}
+.tab-content{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+.tab-content .page{flex:1}
+.sub-title{font-size:13px;color:#000;font-weight:bold;margin-bottom:4px}
+.muted{color:#808080;font-size:12px}
+
+/* MINIGAME */
+#minigame-root{width:100%}
+.mg-title{font-size:14px;font-weight:bold;margin-bottom:10px;line-height:1.4;text-align:center}
+.mg-hint{font-size:12px;color:#000080;margin-bottom:8px;text-align:center;line-height:1.3}
+.mg-opt{display:block;width:100%;text-align:left;padding:9px 12px;min-height:44px;font-size:13px;margin-bottom:6px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;cursor:pointer;font-family:inherit;color:#000}
+.mg-opt:active{border-color:#808080 #fff #fff #808080;padding:10px 11px 8px 13px}
+.mg-opt:hover{background:#dfdfdf}
+.mg-grid{display:grid;gap:3px;margin:0 auto;max-width:320px}
+.mg-cell{font-size:24px;padding:4px;background:#dfdfdf;border:1px solid #808080;cursor:pointer;min-height:40px;line-height:1;font-family:inherit}
+.mg-cell:active{background:#c0c0c0}
+.mg-pre{background:#000;color:#0f0;padding:10px;font-family:"Courier New",monospace;font-size:13px;border:2px inset #808080;margin-bottom:10px;white-space:pre-wrap;word-break:break-all;line-height:1.5}
+.mg-input{margin-bottom:10px}
+.mg-stat{text-align:center;font-family:"Courier New",monospace;font-size:16px;color:#000080;font-weight:bold;margin-bottom:8px}
+.mg-arena{position:relative;background:#dfdfdf;border:2px inset #808080;height:220px;overflow:hidden;margin-bottom:8px}
+.mg-target{position:absolute;width:56px;height:56px;font-size:28px;background:#c0c0c0;border:3px solid #000080;border-radius:50%;cursor:pointer;padding:0;line-height:1;font-family:inherit;display:flex;align-items:center;justify-content:center}
+.mg-target:active{background:#dfdfdf;border-color:#000040}
+.mg-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:280px;margin:0 auto}
+.mg-pad-btn{font-size:28px;padding:10px;background:#dfdfdf;border:2px solid;border-color:#fff #808080 #808080 #fff;cursor:pointer;min-height:54px;font-family:inherit;line-height:1}
+.mg-pad-btn:active:not(:disabled){border-color:#808080 #fff #fff #808080;padding:11px 9px 9px 11px}
+.mg-pad-btn:disabled{opacity:.5;cursor:default}
+.mg-display{text-align:center;font-size:48px;height:70px;line-height:70px;letter-spacing:8px;margin-bottom:10px}
+.mg-math{text-align:center;font-size:32px;font-family:"Courier New",monospace;font-weight:bold;margin:14px 0;color:#000080}
+.mg-btn-full{width:100%}
+
+@media(min-width:600px){body{padding:20px;align-items:center}.window{max-width:520px;height:calc(100vh - 40px);max-height:860px;box-shadow:2px 2px 0 #000}#big-click{width:260px;height:160px}.big-coins-display{font-size:30px}.stats-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.window{max-width:720px}.tab-content{padding:16px}#big-click{width:280px;height:170px}#big-click .big-emoji{font-size:60px}}
+</style>
+</head>
+<body>
+ <!-- AUTH -->
+<div class="window" id="auth-window">
+    <div class="title-bar">
+        <span class="title-icon">🖱️</span>
+        <span class="title-text">Win95 Clicker — Вхід</span>
+        <div class="win-controls">
+            <button class="win-btn" disabled>_</button>
+            <button class="win-btn" disabled>□</button>
+            <button class="win-btn" disabled>✕</button>
+        </div>
     </div>
-
-    <div class="map" id="map"></div>
-
-    <div class="actions">
-      <button class="btn btn-green" id="deliverBtn">Взяти замовлення</button>
-      <button class="btn" id="upgradeBtn">Апгрейд</button>
-      <button class="btn btn-red" id="logoutBtn">Вийти</button>
+    <div style="padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
+            <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
+        </div>
+        <div class="group-box" data-label="Обліковий запис">
+            <div class="form-row"><label>Логін:</label><input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20"></div>
+            <div class="form-row"><label>Пароль:</label><input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40"></div>
+            <div class="form-row" id="confirm-row" style="display:none;"><label>Повторіть:</label><input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40"></div>
+        </div>
+        <div class="error-msg" id="auth-error"></div>
+        <div class="info-msg" id="auth-info"></div>
+        <div class="btn-row"><button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button></div>
+        <div class="auth-footer"><button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button></div>
     </div>
-
-    <div id="log"></div>
-
-    <div id="leaderboard">
-      <h3>Рейтинг водіїв</h3>
-      <div id="lbList"></div>
+    <div class="status-bar">
+        <div class="panel" id="auth-status">Готово</div>
+        <div class="panel small">v2.0.0</div>
     </div>
-  </div>
 </div>
 
+<!-- GAME -->
+<div class="window" id="game-screen">
+    <div class="title-bar">
+        <span class="title-icon">🖱️</span>
+        <span class="title-text" id="game-title">Win95 Clicker</span>
+        <div class="win-controls">
+            <button class="win-btn" disabled>_</button>
+            <button class="win-btn" disabled>□</button>
+            <button class="win-btn" onclick="logout()" title="Вийти">✕</button>
+        </div>
+    </div>
+
+    <div class="tab-strip">
+        <button class="tab active" id="tabnav-work" onclick="switchPage('work')">💼 Робота</button>
+        <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа</button>
+        <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🛒 Магазин</button>
+        <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
+    </div>
+
+    <div class="tab-content">
+        <!-- РОБОТА -->
+        <div class="page active" id="page-work">
+            <div class="group-box" data-label="Статистика">
+                <div class="stats-grid">
+                    <div class="stat-item"><span class="label">💰 Монети:</span><span class="value" id="stat-coins">0</span></div>
+                    <div class="stat-item"><span class="label">💼 Робота:</span><span class="value" id="stat-job">Стажер</span></div>
+                    <div class="stat-item"><span class="label">⭐ Досвід:</span><span class="value" id="stat-xp">0</span></div>
+                    <div class="stat-item"><span class="label">📈 Буст XP:</span><span class="value" id="stat-boost">0%</span></div>
+                    <div class="stat-item"><span class="label">🔥 Серія:</span><span class="value" id="stat-streak">0</span></div>
+                    <div class="stat-item"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
+                </div>
+            </div>
+            <div class="course-blocker" id="course-blocker">📚 Зараз ви проходите курс. Працювати неможливо.<br><span id="course-blocker-timer">—</span></div>
+            <div class="click-area">
+                <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
+                <div class="task-box">
+                    <div class="task-title" id="task-title">Готовий до роботи</div>
+                    <div class="task-bar-wrap"><div class="task-bar" id="task-bar"></div><div class="task-text" id="task-text">Натисніть «ПОЧАТИ ЗАДАЧУ»</div></div>
+                    <div class="task-reward" id="task-reward">Нагорода: —</div>
+                </div>
+                <button id="big-click" onclick="doWork(event)"><span class="big-emoji">💼</span><span class="click-label" id="big-click-label">ПОЧАТИ ЗАДАЧУ</span></button>
+                <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись</button>
+            </div>
+            <div class="group-box" data-label="Кар'єра">
+                <div class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
+                <div class="jobs-list" id="jobs-list"></div>
+            </div>
+        </div>
+
+        <!-- БАНК -->
+        <div class="page" id="page-bank">
+            <div class="bank-blocked" id="bank-blocked">🚫 Роботу заблоковано через прострочений кредит.<br>Погасіть борг, щоб продовжити.</div>
+            <div class="bank-warning" id="bank-warning">⚠️ У вас прострочений кредит! Штраф 10% монет кожні 5 хв.</div>
+            <div class="group-box" data-label="Кредити">
+                <div class="credit-card" id="credit-card-info">
+                    <div class="credit-card-header"><span class="credit-card-name">🏦 Кредитна лінія</span><span class="credit-card-limit" id="credit-limit">—</span></div>
+                    <div class="credit-card-info" id="credit-info-text">—</div>
+                    <div class="btn-row"><button class="btn default" id="credit-take-btn" onclick="takeCredit()">Взяти кредит</button></div>
+                </div>
+                <div class="credit-card active-credit" id="credit-active-card" style="display:none;">
+                    <div class="credit-card-header"><span class="credit-card-name">💳 Поточний борг</span><span class="credit-card-limit" id="credit-debt">0</span></div>
+                    <div class="credit-card-info" id="credit-due-text">—</div>
+                    <div class="credit-debt-bar"><div class="credit-debt-fill" id="credit-debt-fill"></div><div class="credit-debt-text" id="credit-debt-text">0 / 0</div></div>
+                    <div class="btn-row"><button class="btn" id="credit-repay-btn" onclick="repayCredit()">Погасити</button></div>
+                </div>
+            </div>
+            <div class="muted">Кредит: 5% відсотків, термін 30 хв. Прострочка — автосписання 10% боргу кожні 5 хв + блокування роботи.</div>
+        </div>
+                <!-- МАПА -->
+        <div class="page" id="page-map">
+            <div class="sub-title">🗺️ Місто Ковель</div>
+            <div class="muted" style="margin-bottom:8px">Спільна мапа. Натисни на ділянку або будівлю.</div>
+            <div class="map-container" id="map-container">
+                <div class="map-stage" id="map-stage">
+                    <div class="map-grid"></div>
+                    <div id="map-plots"></div>
+                    <div id="map-buildings"></div>
+                </div>
+            </div>
+            <div class="map-info-panel" id="map-info-panel">
+                <button class="map-info-close" onclick="closeMapInfo()">✕ Закрити</button>
+                <div class="map-info-row"><span class="label">Ділянка:</span><span class="value" id="info-name">—</span></div>
+                <div class="map-info-row"><span class="label">Власник:</span><span class="value" id="info-owner">—</span></div>
+                <div class="map-info-row"><span class="label">Ціна:</span><span class="value" id="info-price">—</span></div>
+                <div class="map-info-row"><span class="label">Бонуси:</span><span class="value" id="info-bonus">—</span></div>
+                <div class="map-info-actions">
+                    <button class="btn default" id="info-buy-btn" onclick="buySelectedPlot()">Купити</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- МАГАЗИН -->
+        <div class="page" id="page-shop">
+            <div class="sub-title">🛒 Курси та книжки</div>
+            <div class="muted" style="margin-bottom:8px">Під час курсу працювати неможливо. Час іде офлайн.</div>
+            <div class="shop-list" id="shop-list"></div>
+        </div>
+
+        <!-- ТОП + ОНЛАЙН -->
+        <div class="page" id="page-leaderboard">
+            <div class="lb-refresh-row">
+                <div class="sub-title">🏆 Топ гравців</div>
+                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
+            </div>
+            <div class="lb-list" id="lb-list"><div class="lb-loading">Завантаження...</div></div>
+            <div class="muted" id="lb-my-rank">—</div>
+
+            <div class="lb-refresh-row" style="margin-top:12px">
+                <div class="sub-title">👥 Онлайн (5 хв)</div>
+                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
+            </div>
+            <div class="online-list" id="online-list" style="max-height:220px"><div class="lb-loading">Завантаження...</div></div>
+            <div class="muted" id="online-count">—</div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="panel" id="game-status">Готово</div>
+        <div class="panel small" id="save-status">—</div>
+    </div>
+</div>
+
+<!-- DIALOG -->
+<div class="dialog-overlay" id="dialog-overlay">
+    <div class="dialog">
+        <div class="title-bar">
+            <span class="title-icon" id="dialog-title-icon">ℹ️</span>
+            <span class="title-text" id="dialog-title">Повідомлення</span>
+            <div class="win-controls">
+                <button class="win-btn" disabled>_</button>
+                <button class="win-btn" disabled>□</button>
+                <button class="win-btn" onclick="closeDialog()">✕</button>
+            </div>
+        </div>
+        <div class="dialog-body">
+            <div class="dialog-icon" id="dialog-icon">ℹ️</div>
+            <div class="dialog-text" id="dialog-text">—</div>
+        </div>
+        <div class="btn-row" id="dialog-ok-row" style="padding:0 12px 12px"><button class="btn default" onclick="closeDialog()">OK</button></div>
+    </div>
+</div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue }
-  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, get, child, update, onValue, off, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+const APP_VERSION = "2.0.0";
+const SAVE_INTERVAL_MS = 5000;
+const HEARTBEAT_MS = 30000;
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+const LEADERBOARD_LIMIT = 100;
+
+// ===== КОНСТАНТИ ГРИ =====
+const JOBS = [
+    { name: "Стажер", pay: 1, xpNeeded: 500, taskClicks: 10, taskReward: 5, creditLimit: 500 },
+    { name: "Оператор підтримки", pay: 3, xpNeeded: 1500, taskClicks: 15, taskReward: 18, creditLimit: 1500 },
+    { name: "Junior QA", pay: 8, xpNeeded: 4000, taskClicks: 22, taskReward: 60, creditLimit: 4000 },
+    { name: "Junior Developer", pay: 20, xpNeeded: 10000, taskClicks: 30, taskReward: 180, creditLimit: 10000 },
+    { name: "Middle Developer", pay: 50, xpNeeded: 25000, taskClicks: 40, taskReward: 500, creditLimit: 25000 },
+    { name: "Senior Developer", pay: 120, xpNeeded: 60000, taskClicks: 55, taskReward: 1500, creditLimit: 60000 },
+    { name: "Team Lead", pay: 300, xpNeeded: 150000, taskClicks: 75, taskReward: 4500, creditLimit: 150000 },
+    { name: "Tech Lead", pay: 700, xpNeeded: 400000, taskClicks: 100, taskReward: 12000, creditLimit: 400000 },
+    { name: "CTO", pay: 1500, xpNeeded: 0, taskClicks: 140, taskReward: 35000, creditLimit: 1000000 }
+];
+
+const COURSES = [
+    { id: "basics", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10 },
+    { id: "algorithms", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15 },
+    { id: "cleancode", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20 },
+    { id: "sysdesign", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25 },
+    { id: "leadership", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30 },
+    { id: "architecture", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40 }
+];
+
+// ===== ДАНІ МАПИ =====
+const MAP_W = 900, MAP_H = 560;
+const BASE_PLOT_PRICE = 500;
+
+const MAP_BUILDINGS = [
+    { id: "bank", name: "Банк", icon: "🏦", cls: "bank", x: 380, y: 230, w: 140, h: 100, sub: "Кредити" },
+    { id: "corp", name: "КовельКорп", icon: "🏢", cls: "corp", x: 380, y: 30,  w: 140, h: 90, sub: "Робота" }
+];
+
+const MAP_PLOTS_BASE = [
+    { id: 0,  name: "A1", x: 20,  y: 30,  w: 120, h: 110 },
+    { id: 1,  name: "A2", x: 20,  y: 160, w: 120, h: 90  },
+    { id: 2,  name: "A3", x: 20,  y: 270, w: 120, h: 120 },
+    { id: 3,  name: "A4", x: 20,  y: 410, w: 120, h: 120 },
+    { id: 4,  name: "B1", x: 160, y: 30,  w: 100, h: 140 },
+    { id: 5,  name: "B2", x: 160, y: 190, w: 100, h: 160 },
+    { id: 6,  name: "B3", x: 160, y: 370, w: 100, h: 160 },
+    { id: 7,  name: "C1", x: 280, y: 30,  w: 90,  h: 90  },
+    { id: 8,  name: "C2", x: 280, y: 140, w: 90,  h: 80  },
+    { id: 9,  name: "C3", x: 280, y: 350, w: 90,  h: 90  },
+    { id: 10, name: "C4", x: 280, y: 450, w: 90,  h: 80  },
+    { id: 11, name: "D1", x: 540, y: 30,  w: 130, h: 130 },
+    { id: 12, name: "D2", x: 540, y: 180, w: 130, h: 160 },
+    { id: 13, name: "D3", x: 540, y: 360, w: 130, h: 170 },
+    { id: 14, name: "E1", x: 690, y: 30,  w: 180, h: 240 },
+    { id: 15, name: "E2", x: 690, y: 290, w: 180, h: 240 }
+];
+
+function plotCenter(p) { return { cx: p.x + p.w/2, cy: p.y + p.h/2 }; }
+
+function getBuildingProximityBonus(plot) {
+    let bonus = 0;
+    MAP_BUILDINGS.forEach(b => {
+        const bcx = b.x + b.w/2, bcy = b.y + b.h/2;
+        const pcx = plot.x + plot.w/2, pcy = plot.y + plot.h/2;
+        const d = Math.sqrt((bcx-pcx)**2 + (bcy-pcy)**2);
+        if (d < 120) bonus += 40;
+        else if (d < 200) bonus += 20;
+        else if (d < 300) bonus += 10;
+    });
+    return bonus;
+}
+
+function getDensityBonus(plot) {
+    const c = plotCenter(plot);
+    let count = 0;
+    MAP_PLOTS_BASE.forEach(other => {
+        if (other.id === plot.id) return;
+        const oc = plotCenter(other);
+        const d = Math.sqrt((c.cx-oc.cx)**2 + (c.cy-oc.cy)**2);
+        if (d < 160) count++;
+    });
+    return count * 5;
+}
+
+function getPlotNeighbors(plotId) {
+    const a = MAP_PLOTS_BASE.find(p => p.id === plotId);
+    if (!a) return [];
+    const ca = plotCenter(a);
+    return MAP_PLOTS_BASE.filter(b => {
+        if (b.id === plotId) return false;
+        const cb = plotCenter(b);
+        const dx = ca.cx - cb.cx, dy = ca.cy - cb.cy;
+        return Math.sqrt(dx*dx + dy*dy) < 160;
+    }).map(b => b.id);
+}
+
+function countOwnedNeighbors(plotId, owners) {
+    return getPlotNeighbors(plotId).filter(id => owners && owners[id]).length;
+}
+
+function calcPlotPrice(plot, owners) {
+    const proximity = getBuildingProximityBonus(plot);
+    const density = getDensityBonus(plot);
+    const neighbors = countOwnedNeighbors(plot.id, owners);
+    const neighborBonus = neighbors * 10;
+    const totalMultiplier = 1 + (proximity + density + neighborBonus) / 100;
+    return Math.floor(BASE_PLOT_PRICE * totalMultiplier);
+}
+
+// ===== FIREBASE =====
 const firebaseConfig = {
-  apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
-  authDomain: "uniquestone.firebaseapp.com",
-  databaseURL: "https://uniquestone-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "uniquestone",
-  storageBucket: "uniquestone.firebasestorage.app",
-  messagingSenderId: "114557024409",
-  appId: "1:114557024409:web:23f1e0ad213e9cf7d2e008",
-  measurementId: "G-TZ6SZXTJTF"
+    apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
+    authDomain: "uniquestone.firebaseapp.com",
+    databaseURL: "https://uniquestone-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "uniquestone",
+    storageBucket: "uniquestone.firebasestorage.app",
+    messagingSenderId: "114557024409",
+    appId: "1:114557024409:web:23f1e0ad213e9cf7d2e008",
+    measurementId: "G-TZ6SZXTJTF"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const CITIES = [
-  { id: 'kyiv',    name: 'Київ',    x: 55, y: 25 },
-  { id: 'lviv',    name: 'Львів',   x: 15, y: 40 },
-  { id: 'odesa',   name: 'Одеса',   x: 55, y: 75 },
-  { id: 'kharkiv', name: 'Харків',  x: 85, y: 30 },
-  { id: 'dnipro',  name: 'Дніпро',  x: 70, y: 55 },
-];
-
-let state = {
-  name: null,
-  money: 0,
-  xp: 0,
-  deliveries: 0,
-  truckLevel: 1,
-  currentCity: 'kyiv',
-  targetCity: null,
-  busy: false,
+// ===== СТАН =====
+let currentUser = "";
+let authMode = "login";
+let gameState = {
+    coins: 0, jobIndex: 0, xp: 0,
+    taskProgress: 0, taskActive: false,
+    activeCourseId: null, courseStartTime: 0,
+    completedCourses: [], xpBoost: 0,
+    credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 },
+    streak: 0,
+    lastFailAt: 0
 };
-let lbUnsub = null;
-
-const $ = id => document.getElementById(id);
-
-function log(msg) {
-  const d = document.createElement('div');
-  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  $('log').prepend(d);
-  while ($('log').children.length > 20) $('log').lastChild.remove();
+let sharedPlots = {};
+let mapListener = null;
+let selectedPlotId = null;
+let saveTimer = null, heartbeatTimer = null, courseTimerInterval = null, dataListener = null, creditTimerInterval = null;
+let isSaving = false, currentPage = "work";
+let activeMinigame = null;
+ // ===== УТИЛІТИ =====
+function $(id) { return document.getElementById(id); }
+function formatNumber(n) {
+    if (n >= 1e9) return (n/1e9).toFixed(2)+"B";
+    if (n >= 1e6) return (n/1e6).toFixed(2)+"M";
+    if (n >= 1e3) return (n/1e3).toFixed(2)+"K";
+    return Math.floor(n).toString();
+}
+function formatNumberFull(n) { return Math.floor(n).toLocaleString("uk-UA"); }
+function formatTimeAgo(ts) {
+    if (!ts) return "—";
+    const d = Date.now() - ts;
+    if (d < 60000) return "щойно";
+    if (d < 3600000) return Math.floor(d/60000)+" хв тому";
+    if (d < 86400000) return Math.floor(d/3600000)+" год тому";
+    return Math.floor(d/86400000)+" дн тому";
+}
+function formatDuration(ms) {
+    if (ms <= 0) return "0:00:00";
+    const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    return h+":"+String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");
+}
+async function sha256(text) {
+    const buf = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function colorFromName(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+    return `hsl(${h},65%,55%)`;
 }
 
-$('loginBtn').onclick = async () => {
-  const name = $('playerName').value.trim();
-  if (name.length < 2) return alert("Ім'я мінімум 2 символи!");
-  if (!/^[\wА-Яа-яЇїІіЄєҐґ\s]+$/.test(name)) return alert("Лише літери та цифри!");
+// ===== ЗВУКИ WIN95 (Web Audio API) =====
+let audioCtx = null;
+function getAudio() {
+    if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+}
+function playTone(freq, dur, type, vol, when) {
+    const ctx = getAudio(); if (!ctx) return;
+    const t = when || ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(vol || 0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t); osc.stop(t + dur);
+}
+const SFX = {
+    click:   () => playTone(880, 0.03, "square", 0.04),
+    correct: () => { const t = getAudio()?.currentTime||0; playTone(1047, 0.08, "square", 0.08); playTone(1319, 0.12, "square", 0.08, t + 0.08); },
+    wrong:   () => { const t = getAudio()?.currentTime||0; playTone(220, 0.15, "sawtooth", 0.1); playTone(165, 0.2, "sawtooth", 0.1, t + 0.1); },
+    start:   () => { const t = getAudio()?.currentTime||0; playTone(523, 0.06, "square", 0.06); playTone(659, 0.06, "square", 0.06, t + 0.06); playTone(784, 0.1, "square", 0.06, t + 0.12); },
+    win:     () => { const t = getAudio()?.currentTime||0; [523,659,784,1047].forEach((f,i) => playTone(f, 0.12, "square", 0.09, t + i*0.1)); },
+    lose:    () => { const t = getAudio()?.currentTime||0; [392,330,262].forEach((f,i) => playTone(f, 0.18, "sawtooth", 0.1, t + i*0.15)); },
+    tick:    () => playTone(1200, 0.02, "square", 0.03)
+};
 
-  $('loginBtn').disabled = true;
-  $('loginBtn').textContent = 'Завантаження...';
+// ===== ДІАЛОГ =====
+window.showDialog = (title, text, icon) => {
+    $("dialog-title").textContent = title;
+    $("dialog-title-icon").textContent = icon || "ℹ️";
+    $("dialog-text").textContent = text;
+    $("dialog-icon").textContent = icon || "ℹ️";
+    $("dialog-overlay").classList.add("active");
+};
+window.closeDialog = () => {
+    if (activeMinigame) return;
+    $("dialog-overlay").classList.remove("active");
+};
+function closeMinigameDialog() {
+    const okRow = $("dialog-ok-row");
+    if (okRow) okRow.style.display = "";
+    $("dialog-overlay").classList.remove("active");
+    $("dialog-text").textContent = "—";
+}
 
-  try {
-    const key = name.toLowerCase();
-    const snap = await get(ref(db, `deliveryGame/players/${key}`));
-    if (snap.exists()) {
-      const data = snap.val();
-      state = {
-        name: data.name || name,
-        money: data.money || 0,
-        xp: data.xp || 0,
-        deliveries: data.deliveries || 0,
-        truckLevel: data.truckLevel || 1,
-        currentCity: data.currentCity || 'kyiv',
-        targetCity: null,
-        busy: false,
-      };
-      log(`З поверненням, ${state.name}!`);
-    } else {
-      state = {
-        name, money: 100, xp: 0, deliveries: 0,
-        truckLevel: 1, currentCity: 'kyiv',
-        targetCity: null, busy: false,
-      };
-      await set(ref(db, `deliveryGame/players/${key}`), {
-        name, money: 100, xp: 0, deliveries: 0, truckLevel: 1,
-        currentCity: 'kyiv', createdAt: Date.now()
-      });
-      log(`Вітаємо, ${name}! Ти отримав 100 грн на старт.`);
-    }
+// ===== AUTH =====
+window.switchAuthTab = (tab) => {
+    authMode = tab;
+    $("tab-login").classList.toggle("active", tab === "login");
+    $("tab-register").classList.toggle("active", tab === "register");
+    $("confirm-row").style.display = tab === "register" ? "flex" : "none";
+    $("auth-submit").textContent = tab === "login" ? "Увійти" : "Зареєструватись";
+    $("auth-switch-link").textContent = tab === "login" ? "Ще немає акаунта? Зареєструватись" : "Вже є акаунт? Увійти";
+    $("auth-error").classList.remove("show"); $("auth-info").classList.remove("show");
+};
+window.toggleAuthMode = () => switchAuthTab(authMode === "login" ? "register" : "login");
+function showError(msg) {
+    $("auth-error").textContent = msg; $("auth-error").classList.add("show"); $("auth-info").classList.remove("show");
+}
+function setStatus(msg) { $("auth-status").textContent = msg; }
+function setGameStatus(msg) { $("game-status").textContent = msg; }
 
-    $('loginScreen').classList.add('hidden');
-    $('gameScreen').style.display = 'block';
-    $('hudName').textContent = state.name;
-    buildMap();
+window.handleAuth = async function() {
+    const username = $("auth-username").value.trim();
+    const password = $("auth-password").value;
+    const password2 = $("auth-password2").value;
+    const btn = $("auth-submit");
+    if (!username || !password) return showError("Заповніть усі поля!");
+    if (username.length < 3) return showError("Логін мінімум 3 символи!");
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) return showError("Логін: лише латиниця, цифри, _");
+    if (password.length < 4) return showError("Пароль мінімум 4 символи!");
+    if (authMode === "register" && password !== password2) return showError("Паролі не співпадають!");
+
+    btn.disabled = true; setStatus("Обробка...");
+    try {
+        const hash = await sha256(password);
+        const snap = await get(child(ref(db), `users/${username}`));
+        if (authMode === "register") {
+            if (snap.exists()) return showError("Такий користувач вже існує!");
+            await set(ref(db, `users/${username}`), {
+                password: hash, createdAt: Date.now(), lastOnline: Date.now(),
+                clicker: {
+                    coins:0, jobIndex:0, xp:0, taskProgress:0, taskActive:false,
+                    activeCourseId:null, courseStartTime:0, completedCourses:[], xpBoost:0,
+                    credit: { amount:0, takenAt:0, dueAt:0, overdue:false, lastPenaltyAt:0 },
+                    streak: 0, lastFailAt: 0
+                }
+            });
+            currentUser = username;
+            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e){}
+            setStatus("Акаунт створено"); startGame();
+        } else {
+            if (!snap.exists()) return showError("Користувача не знайдено!");
+            if (snap.val().password !== hash) return showError("Невірний пароль!");
+            currentUser = username;
+            try { localStorage.setItem("w95_user", username); localStorage.setItem("w95_hash", hash); } catch(e){}
+            try { await update(ref(db, `users/${username}`), { lastOnline: Date.now() }); } catch(e){}
+            setStatus("Вхід виконано"); startGame();
+        }
+    } catch(e) { showError("Помилка: "+e.message); setStatus("Помилка"); }
+    finally { btn.disabled = false; }
+};
+["auth-username","auth-password","auth-password2"].forEach(id => {
+    const el = $(id); if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
+});
+ // ===== СТАРТ / ЗАВАНТАЖЕННЯ =====
+async function startGame() {
+    $("auth-window").style.display = "none";
+    $("game-screen").classList.add("active");
+    $("stat-user").textContent = currentUser;
+    $("game-title").textContent = "Win95 Clicker — " + currentUser;
+    await loadGame();
+    startLiveSync();
+    startMapSync();
+    checkCourseCompletion();
     renderAll();
-    startLeaderboard();
-  } catch (e) {
-    console.error(e);
-    alert('Помилка Firebase: ' + e.message);
-  } finally {
-    $('loginBtn').disabled = false;
-    $('loginBtn').textContent = 'Почати';
-  }
-};
-
-function buildMap() {
-  const map = $('map');
-  map.querySelectorAll('.city, .car').forEach(el => el.remove());
-  CITIES.forEach(c => {
-    const el = document.createElement('div');
-    el.className = 'city';
-    el.id = 'city-' + c.id;
-    el.style.left = c.x + '%';
-    el.style.top  = c.y + '%';
-    el.textContent = c.name;
-    el.onclick = () => { if (!state.busy) log(`${c.name} — тут нічого не потрібно.`); };
-    map.appendChild(el);
-  });
-  const car = document.createElement('div');
-  car.className = 'car';
-  car.id = 'car';
-  car.textContent = 'Вантажівка';
-  map.appendChild(car);
-  positionCar();
+    switchPage("work");
+    if (saveTimer) clearInterval(saveTimer);
+    saveTimer = setInterval(saveGame, SAVE_INTERVAL_MS);
+    startHeartbeat();
+    startCourseTimer();
+    startCreditTimer();
+    setGameStatus("Вітаємо, " + currentUser + "!");
 }
 
-function positionCar() {
-  const car = $('car');
-  if (!car) return;
-  const c = CITIES.find(x => x.id === state.currentCity) || CITIES[0];
-  car.style.left = `calc(${c.x}% - 20px)`;
-  car.style.top  = `calc(${c.y}% - 40px)`;
+async function loadGame() {
+    try {
+        const snap = await get(child(ref(db), `users/${currentUser}/clicker`));
+        if (snap.exists()) {
+            const d = snap.val();
+            gameState = {
+                coins: Number(d.coins)||0,
+                jobIndex: Math.min(Number(d.jobIndex)||0, JOBS.length-1),
+                xp: Number(d.xp)||0,
+                taskProgress: 0,
+                taskActive: false,
+                activeCourseId: d.activeCourseId||null,
+                courseStartTime: Number(d.courseStartTime)||0,
+                completedCourses: Array.isArray(d.completedCourses)?d.completedCourses:[],
+                xpBoost: Number(d.xpBoost)||0,
+                credit: d.credit || { amount:0, takenAt:0, dueAt:0, overdue:false, lastPenaltyAt:0 },
+                streak: Number(d.streak)||0,
+                lastFailAt: Number(d.lastFailAt)||0
+            };
+        }
+        recalculateBoost();
+    } catch(e) { showDialog("Помилка", "Не вдалося завантажити: "+e.message, "⚠️"); }
 }
 
-function renderAll() {
-  $('hudMoney').textContent = state.money;
-  $('hudXP').textContent = state.xp;
-  $('hudDeliveries').textContent = state.deliveries;
-  $('hudLevel').textContent = state.truckLevel;
-  positionCar();
-
-  CITIES.forEach(c => {
-    const el = $('city-' + c.id);
-    if (!el) return;
-    el.classList.toggle('target', state.targetCity === c.id);
-  });
-}
-
-$('deliverBtn').onclick = async () => {
-  if (state.busy) return;
-
-  if (state.targetCity) {
-    state.busy = true;
-    $('deliverBtn').disabled = true;
-    const dest = state.targetCity;
-    state.currentCity = dest;
-    positionCar();
-    log(`Вирушив до ${cityName(dest)}...`);
-
-    setTimeout(async () => {
-      const reward = 50 + state.truckLevel * 25;
-      const xpGain = 10 + state.truckLevel * 2;
-      state.money += reward;
-      state.xp += xpGain;
-      state.deliveries += 1;
-      state.targetCity = null;
-      state.busy = false;
-      $('deliverBtn').disabled = false;
-      $('deliverBtn').textContent = 'Взяти замовлення';
-
-      log(`Доставлено в ${cityName(dest)}! +${reward} грн, +${xpGain} XP`);
-      renderAll();
-      await savePlayer();
-    }, 1600);
-    return;
-  }
-
-  const available = CITIES.filter(c => c.id !== state.currentCity);
-  const target = available[Math.floor(Math.random() * available.length)];
-  state.targetCity = target.id;
-  log(`Нове замовлення: доставити в ${target.name}!`);
-  renderAll();
-};
-
-$('upgradeBtn').onclick = async () => {
-  const cost = 200 * state.truckLevel;
-  if (state.money < cost) return log(`Недостатньо грошей (потрібно ${cost} грн)`);
-  if (state.truckLevel >= 10) return log('Максимальний рівень вантажівки!');
-
-  state.money -= cost;
-  state.truckLevel += 1;
-  log(`Вантажівку покращено до рівня ${state.truckLevel}!`);
-  renderAll();
-  await savePlayer();
-};
-
-$('logoutBtn').onclick = () => {
-  if (lbUnsub) lbUnsub();
-  location.reload();
-};
-
-function cityName(id) { return (CITIES.find(c => c.id === id) || {}).name || id; }
-
-async function savePlayer() {
-  try {
-    await update(ref(db, `deliveryGame/players/${state.name.toLowerCase()}`), {
-      name: state.name,
-      money: state.money,
-      xp: state.xp,
-      deliveries: state.deliveries,
-      truckLevel: state.truckLevel,
-      currentCity: state.currentCity,
-      lastSeen: Date.now()
+function startLiveSync() {
+    if (dataListener) { off(dataListener); dataListener = null; }
+    dataListener = onValue(ref(db, `users/${currentUser}/clicker`), snap => {
+        if (!snap.exists()) return;
+        const d = snap.val();
+        gameState.coins = Number(d.coins)||0;
+        gameState.jobIndex = Math.min(Number(d.jobIndex)||0, JOBS.length-1);
+        gameState.xp = Number(d.xp)||0;
+        gameState.activeCourseId = d.activeCourseId||null;
+        gameState.courseStartTime = Number(d.courseStartTime)||0;
+        gameState.completedCourses = Array.isArray(d.completedCourses)?d.completedCourses:[];
+        gameState.xpBoost = Number(d.xpBoost)||0;
+        gameState.credit = d.credit || { amount:0, takenAt:0, dueAt:0, overdue:false, lastPenaltyAt:0 };
+        gameState.streak = Number(d.streak)||0;
+        gameState.lastFailAt = Number(d.lastFailAt)||0;
+        recalculateBoost();
+        checkCourseCompletion();
+        renderAll();
     });
-  } catch (e) {
-    console.error('savePlayer:', e);
-    log('Не вдалося зберегти прогрес');
-  }
 }
 
-function startLeaderboard() {
-  const lbRef = ref(db, 'deliveryGame/players');
-  lbUnsub = onValue(lbRef, snap => {
-    const list = $('lbList');
-    list.innerHTML = '';
-    if (!snap.exists()) {
-      list.innerHTML = '<div style="opacity:0.6">Поки нікого немає</div>';
-      return;
+function startMapSync() {
+    if (mapListener) { off(mapListener); mapListener = null; }
+    mapListener = onValue(ref(db, "plots"), snap => {
+        sharedPlots = snap.exists() ? snap.val() : {};
+        renderMap();
+        if (selectedPlotId !== null) showMapInfo(selectedPlotId);
+    });
+}
+
+function recalculateBoost() {
+    let b = 0;
+    gameState.completedCourses.forEach(id => { const c = COURSES.find(x=>x.id===id); if(c) b += c.boost; });
+    gameState.xpBoost = b;
+}
+
+async function saveGame() {
+    if (!currentUser) return;
+    if (isSaving) { await new Promise(r=>setTimeout(r,200)); if (isSaving) return; }
+    isSaving = true;
+    try {
+        await update(ref(db, `users/${currentUser}/clicker`), {
+            coins: gameState.coins, jobIndex: gameState.jobIndex, xp: gameState.xp,
+            taskProgress: 0, taskActive: false,
+            activeCourseId: gameState.activeCourseId, courseStartTime: gameState.courseStartTime,
+            completedCourses: gameState.completedCourses, xpBoost: gameState.xpBoost,
+            credit: gameState.credit,
+            streak: gameState.streak, lastFailAt: gameState.lastFailAt
+        });
+        const now = new Date();
+        $("save-status").textContent = "💾 "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0")+":"+String(now.getSeconds()).padStart(2,"0");
+    } catch(e) { $("save-status").textContent = "⚠ Помилка"; throw e; }
+    finally { isSaving = false; }
+}
+
+// ===== КУРСИ =====
+function getCurrentJob() { return JOBS[gameState.jobIndex] || JOBS[0]; }
+function isCourseRunning() { return !!gameState.activeCourseId; }
+function getRemainingCourseMs() {
+    if (!gameState.activeCourseId) return 0;
+    const c = COURSES.find(x=>x.id===gameState.activeCourseId);
+    if (!c) return 0;
+    return Math.max(0, c.durationMs - (Date.now() - gameState.courseStartTime));
+}
+function checkCourseCompletion() {
+    if (!gameState.activeCourseId) return;
+    if (getRemainingCourseMs() <= 0) {
+        const c = COURSES.find(x=>x.id===gameState.activeCourseId);
+        if (c && !gameState.completedCourses.includes(c.id)) {
+            gameState.completedCourses.push(c.id);
+            recalculateBoost();
+        }
+        gameState.activeCourseId = null;
+        gameState.courseStartTime = 0;
+        setGameStatus("Курс завершено!");
+        showDialog("Курс завершено!", (c?c.name:"Курс")+"\n+"+(c?c.boost:0)+"% XP", "🎓");
+        saveGame();
     }
-    const players = Object.entries(snap.val())
-      .map(([k, v]) => ({ key: k, ...v }))
-      .sort((a, b) => (b.xp || 0) - (a.xp || 0))
-      .slice(0, 10);
+}
 
-    players.forEach((p, i) => {
-      const row = document.createElement('div');
-      row.className = 'lb-row' + (p.key === state.name.toLowerCase() ? ' you' : '');
-      row.innerHTML = `<span>${i + 1}. ${escapeHtml(p.name || p.key)}</span>
-                       <span>${p.xp || 0} XP · ${p.deliveries || 0} доставок</span>`;
-      list.appendChild(row);
+// ===== КРЕДИТИ =====
+function isBankBlocked() {
+    return gameState.credit && gameState.credit.amount > 0 && gameState.credit.overdue;
+}
+function getCreditLimit() {
+    const jobLimit = getCurrentJob().creditLimit || 0;
+    const balanceLimit = Math.floor(gameState.coins * 0.5);
+    return Math.max(jobLimit, balanceLimit);
+}
+window.takeCredit = async function() {
+    if (gameState.credit.amount > 0) return showDialog("Кредит уже є", "Спочатку погасіть поточний борг.", "⚠️");
+    const limit = getCreditLimit();
+    if (limit <= 0) return showDialog("Ліміт 0", "Заробіть більше або підвищіть посаду.", "💸");
+    const now = Date.now();
+    gameState.credit = { amount: limit, takenAt: now, dueAt: now + 30*60*1000, overdue: false, lastPenaltyAt: 0 };
+    gameState.coins += limit;
+    renderAll(); saveGame();
+    setGameStatus("Кредит взято: +" + formatNumber(limit));
+    showDialog("Кредит взято!", "Сума: " + formatNumberFull(limit) + "\nПовернути до: +30 хв", "🏦");
+};
+window.repayCredit = async function() {
+    const debt = gameState.credit.amount;
+    if (debt <= 0) return;
+    if (gameState.coins < debt) return showDialog("Недостатньо монет", "Потрібно " + formatNumberFull(debt) + " для погашення.", "💸");
+    gameState.coins -= debt;
+    gameState.credit = { amount:0, takenAt:0, dueAt:0, overdue:false, lastPenaltyAt:0 };
+    renderAll(); saveGame();
+    setGameStatus("Кредит погашено");
+    showDialog("Кредит погашено!", "Борг закрито.", "✅");
+};
+function checkCreditPenalties() {
+    const c = gameState.credit;
+    if (!c || c.amount <= 0) return;
+    const now = Date.now();
+    if (now < c.dueAt) return;
+    if (!c.overdue) { c.overdue = true; c.lastPenaltyAt = now; setGameStatus("Кредит прострочено!"); }
+    if (now - c.lastPenaltyAt >= 5*60*1000) {
+        const penalty = Math.floor(c.amount * 0.1);
+        c.amount += penalty;
+        c.lastPenaltyAt = now;
+        renderAll(); saveGame();
+        setGameStatus("Штраф за прострочку: +" + formatNumber(penalty) + " до боргу");
+    }
+}
+function startCreditTimer() {
+    if (creditTimerInterval) clearInterval(creditTimerInterval);
+    creditTimerInterval = setInterval(() => {
+        checkCreditPenalties();
+        if (currentPage === "bank") renderBank();
+        if (currentPage === "work" && gameState.lastFailAt > 0) {
+            renderTask();
+            updateWorkButtonState();
+        }
+    }, 1000);
+}
+
+// ===== HEARTBEAT =====
+function startHeartbeat() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    sendHeartbeat();
+    heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
+}
+async function sendHeartbeat() {
+    if (!currentUser) return;
+    try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e) {}
+}
+ // ===== РЕНДЕР =====
+function renderAll() {
+    renderStats(); renderTask(); renderJobsList(); renderShop();
+    renderMap(); renderBank(); updateWorkButtonState();
+}
+function renderStats() {
+    const job = getCurrentJob();
+    $("stat-coins").textContent = formatNumber(gameState.coins);
+    $("stat-job").textContent = job.name;
+    $("stat-xp").textContent = formatNumber(gameState.xp);
+    $("stat-boost").textContent = gameState.xpBoost + "%";
+    $("stat-streak").textContent = gameState.streak;
+    $("big-coins").textContent = formatNumberFull(gameState.coins);
+    const needed = job.xpNeeded || 1;
+    const pct = job.xpNeeded === 0 ? 100 : Math.min(100, (gameState.xp / needed) * 100);
+    $("xp-bar").style.width = pct + "%";
+    $("xp-text").textContent = job.xpNeeded === 0 ? "Макс. рівень" : formatNumber(gameState.xp) + " / " + formatNumber(needed);
+    $("promote-btn").classList.toggle("show", job.xpNeeded > 0 && gameState.xp >= job.xpNeeded);
+}
+
+function renderTask() {
+    const job = getCurrentJob();
+    const titleEl = $("task-title"), barEl = $("task-bar"), textEl = $("task-text"), rewardEl = $("task-reward");
+    rewardEl.textContent = "Нагорода: " + formatNumberFull(job.taskReward) + " 💰";
+    if (activeMinigame) {
+        const meta = MINIGAME_META[activeMinigame.type];
+        titleEl.textContent = `${meta.icon} ${meta.name} — ${meta.desc}`;
+        barEl.style.width = "100%";
+        textEl.textContent = "Гра в процесі...";
+        return;
+    }
+    if (isOnCooldown()) {
+        titleEl.textContent = "⏳ Кулдаун після провалу";
+        barEl.style.width = "100%";
+        textEl.textContent = "Зачекайте " + Math.ceil(getCooldownRemaining()/1000) + " с";
+        return;
+    }
+    titleEl.textContent = gameState.streak > 0
+        ? `🔥 Серія: ${gameState.streak} (бонус +${Math.round(getStreakBonus()*100)}%)`
+        : "Готовий до роботи";
+    barEl.style.width = "0%";
+    textEl.textContent = "Натисніть «ПОЧАТИ ЗАДАЧУ»";
+}
+
+function updateWorkButtonState() {
+    const btn = $("big-click"), label = $("big-click-label"), blocker = $("course-blocker");
+    if (isBankBlocked()) {
+        btn.disabled = true; label.textContent = "🚫 БОРГ";
+        blocker.classList.remove("show"); return;
+    }
+    if (isCourseRunning()) {
+        btn.disabled = true; label.textContent = "КУРС У ПРОЦЕСІ";
+        blocker.classList.add("show");
+        $("course-blocker-timer").textContent = "Залишилось: " + formatDuration(getRemainingCourseMs());
+        return;
+    }
+    if (isOnCooldown()) {
+        btn.disabled = true; label.textContent = "⏳ ЗАЧЕКАЙТЕ";
+        blocker.classList.remove("show"); return;
+    }
+    blocker.classList.remove("show");
+    btn.disabled = false;
+    label.textContent = activeMinigame ? "ГРА В ПРОЦЕСІ" : "ПОЧАТИ ЗАДАЧУ";
+}
+
+function renderJobsList() {
+    let html = "";
+    JOBS.forEach((job, i) => {
+        const isCurrent = i === gameState.jobIndex, isLocked = i > gameState.jobIndex;
+        const status = isCurrent ? "← зараз" : (isLocked ? "🔒" : "✓");
+        html += `<div class="job-row${isCurrent?" current":""}${isLocked?" locked":""}">
+            <span class="job-name">${i+1}. ${job.name}</span>
+            <span class="job-pay">+${formatNumber(job.taskReward)}</span>
+            <span class="job-status">${status}</span></div>`;
     });
-  }, err => console.error('LB:', err));
+    $("jobs-list").innerHTML = html;
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, m =>
-    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+function renderShop() {
+    let html = "";
+    COURSES.forEach(c => {
+        const done = gameState.completedCourses.includes(c.id);
+        const active = gameState.activeCourseId === c.id;
+        const can = !done && !active && !gameState.activeCourseId && gameState.coins >= c.price;
+        let status = done ? `<span style="color:#008000;font-weight:bold">✓ Пройдено (+${c.boost}%)</span>` :
+                    active ? `<span class="course-timer">Залишилось: ${formatDuration(getRemainingCourseMs())}</span>` :
+                    `<button class="btn" ${can?"":"disabled"} onclick="buyCourse('${c.id}')">Купити (${formatNumber(c.price)})</button>`;
+        html += `<div class="shop-item${done?" completed":""}${active?" active-course":""}">
+            <div class="shop-item-header"><span class="shop-item-name">${c.name}</span><span class="shop-item-boost">+${c.boost}% XP</span></div>
+            <div class="shop-item-info">Тривалість: ${Math.round(c.durationMs/3600000)} год</div>
+            <div class="shop-item-actions">${status}</div></div>`;
+    });
+    $("shop-list").innerHTML = html;
 }
+
+function renderMap() {
+    const plotsLayer = $("map-plots"), bldLayer = $("map-buildings");
+    let html = "";
+    MAP_PLOTS_BASE.forEach(p => {
+        const owned = sharedPlots[p.id];
+        const price = calcPlotPrice(p, sharedPlots);
+        const canAfford = gameState.coins >= price && !owned;
+        const cls = owned
+            ? (owned.owner === currentUser ? "owned-self" : "owned-other")
+            : (canAfford ? "" : "locked");
+        const selected = selectedPlotId === p.id ? " selected" : "";
+        let style = `left:${p.x/MAP_W*100}%;top:${p.y/MAP_H*100}%;width:${p.w/MAP_W*100}%;height:${p.h/MAP_H*100}%`;
+        if (owned && owned.owner !== currentUser) style += `;background:${colorFromName(owned.owner)}`;
+        const inner = owned
+            ? `<div class="plot-owner">${escapeHtml(owned.owner)}</div>`
+            : `<div class="plot-name">${p.name}</div><div class="plot-price">${formatNumber(price)}</div>`;
+        html += `<div class="map-plot ${cls}${selected}" style="${style}" onclick="selectPlot(${p.id})">${inner}</div>`;
+    });
+    plotsLayer.innerHTML = html;
+    let bHtml = "";
+    MAP_BUILDINGS.forEach(b => {
+        bHtml += `<div class="map-building ${b.cls}" style="left:${b.x/MAP_W*100}%;top:${b.y/MAP_H*100}%;width:${b.w/MAP_W*100}%;height:${b.h/MAP_H*100}%" onclick="clickBuilding('${b.id}')">
+            <div class="bld-icon">${b.icon}</div><div class="bld-name">${b.name}</div><div class="bld-sub">${b.sub}</div></div>`;
+    });
+    bldLayer.innerHTML = bHtml;
+}
+
+window.selectPlot = function(plotId) {
+    selectedPlotId = plotId;
+    renderMap();
+    showMapInfo(plotId);
+};
+function showMapInfo(plotId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    if (!p) return;
+    $("map-info-panel").classList.add("show");
+    const owned = sharedPlots[plotId];
+    const price = calcPlotPrice(p, sharedPlots);
+    const proximity = getBuildingProximityBonus(p);
+    const density = getDensityBonus(p);
+    const neighbors = countOwnedNeighbors(plotId, sharedPlots);
+    const bonusText = [];
+    if (proximity > 0) bonusText.push(`поруч будівлі +${proximity}%`);
+    if (density > 0) bonusText.push(`густота +${density}%`);
+    if (neighbors > 0) bonusText.push(`сусідів ${neighbors} (+${neighbors*10}%)`);
+    $("info-name").textContent = p.name;
+    $("info-owner").textContent = owned ? owned.owner : "—";
+    $("info-price").textContent = owned ? "—" : formatNumberFull(price);
+    $("info-bonus").textContent = bonusText.length ? bonusText.join(", ") : "немає";
+    const buyBtn = $("info-buy-btn");
+    if (owned) { buyBtn.textContent = owned.owner === currentUser ? "Ваша ділянка" : "Зайнято"; buyBtn.disabled = true; }
+    else if (gameState.coins < price) { buyBtn.textContent = "Недостатньо монет"; buyBtn.disabled = true; }
+    else { buyBtn.textContent = "Купити (" + formatNumber(price) + ")"; buyBtn.disabled = false; }
+}
+window.closeMapInfo = function() {
+    selectedPlotId = null;
+    $("map-info-panel").classList.remove("show");
+    renderMap();
+};
+window.buySelectedPlot = async function() {
+    if (selectedPlotId === null) return;
+    const p = MAP_PLOTS_BASE.find(x => x.id === selectedPlotId);
+    if (!p) return;
+    if (sharedPlots[selectedPlotId]) return showDialog("Зайнято", "Ділянка вже куплена.", "⚠️");
+    const price = calcPlotPrice(p, sharedPlots);
+    if (gameState.coins < price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(price), "💸");
+    try {
+        const result = await runTransaction(ref(db, `plots/${selectedPlotId}`), (current) => {
+            if (current === null) return { owner: currentUser, price: price, boughtAt: Date.now() };
+            return;
+        });
+        if (!result.committed) return showDialog("Не встигли", "Хтось купив цю ділянку раніше.", "⚠️");
+        gameState.coins -= price;
+        renderAll(); saveGame();
+        setGameStatus("Ділянку куплено: " + p.name);
+        showDialog("Ділянку куплено!", p.name + "\nза " + formatNumberFull(price), "🗺️");
+    } catch(e) { showDialog("Помилка", e.message, "⚠️"); }
+};
+window.clickBuilding = function(id) {
+    if (id === "bank") switchPage("bank");
+    else if (id === "corp") {
+        switchPage("work");
+        setGameStatus("КовельКорп: переходьте до роботи");
+    }
+};
+
+function renderBank() {
+    const c = gameState.credit;
+    const blocked = isBankBlocked();
+    $("bank-blocked").classList.toggle("show", blocked);
+    $("bank-warning").classList.toggle("show", c.amount > 0 && c.overdue);
+    const limit = getCreditLimit();
+    $("credit-limit").textContent = "до " + formatNumberFull(limit);
+    if (c.amount > 0) {
+        $("credit-card-info").style.display = "none";
+        $("credit-active-card").style.display = "block";
+        $("credit-debt").textContent = formatNumberFull(c.amount) + " 💰";
+        const remaining = c.dueAt - Date.now();
+        if (remaining > 0) $("credit-due-text").textContent = "Повернути через: " + formatDuration(remaining);
+        else $("credit-due-text").textContent = "⚠️ Прострочено на " + formatDuration(Date.now() - c.dueAt) + "! +10% до боргу кожні 5 хв.";
+        const total = c.amount + Math.floor(c.amount * 0.05);
+        $("credit-debt-fill").style.width = Math.min(100, (gameState.coins / total) * 100) + "%";
+        $("credit-debt-text").textContent = formatNumber(gameState.coins) + " / " + formatNumber(total);
+        $("credit-repay-btn").textContent = "Погасити (" + formatNumber(c.amount) + ")";
+        $("credit-repay-btn").disabled = gameState.coins < c.amount;
+    } else {
+        $("credit-card-info").style.display = "block";
+        $("credit-active-card").style.display = "none";
+        $("credit-info-text").textContent =
+            "Ліміт: 50% балансу або за посадою (що більше).\n" +
+            "Відсоток: 5%. Термін: 30 хв.\n" +
+            "Прострочка: +10% до боргу кожні 5 хв, блокування роботи.";
+        $("credit-take-btn").disabled = limit <= 0;
+    }
+}
+
+function switchPage(page) {
+    currentPage = page;
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-strip .tab").forEach(t => t.classList.remove("active"));
+    const pe = $("page-"+page); if (pe) pe.classList.add("active");
+    const tabId = (page === "bank") ? "tabnav-work" : "tabnav-"+page;
+    const te = $(tabId); if (te) te.classList.add("active");
+    if (page === "leaderboard") { loadLeaderboard(); loadOnline(); }
+    if (page === "shop") renderShop();
+    if (page === "map") renderMap();
+    if (page === "bank") renderBank();
+}
+window.switchPage = switchPage;
+
+window.doPromote = function() {
+    const job = getCurrentJob();
+    if (job.xpNeeded <= 0 || gameState.xp < job.xpNeeded) return;
+    gameState.xp -= job.xpNeeded;
+    gameState.jobIndex = Math.min(gameState.jobIndex + 1, JOBS.length - 1);
+    gameState.streak = 0;
+    renderAll();
+    setGameStatus("Підвищення! " + getCurrentJob().name);
+    showDialog("Підвищення!", "Ви стали: " + getCurrentJob().name, "🎉");
+};
+
+window.buyCourse = async function(id) {
+    if (isCourseRunning()) return showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️");
+    const c = COURSES.find(x => x.id === id);
+    if (!c || gameState.completedCourses.includes(id)) return;
+    if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price), "💸");
+    gameState.coins -= c.price;
+    gameState.activeCourseId = c.id;
+    gameState.courseStartTime = Date.now();
+    renderAll(); startCourseTimer();
+    try { isSaving = false; await saveGame(); setGameStatus("Курс розпочато"); showDialog("Курс розпочато!", c.name, "📚"); }
+    catch(e) { showDialog("Помилка", "Не вдалося зберегти", "⚠️"); }
+};
+
+function startCourseTimer() {
+    if (courseTimerInterval) clearInterval(courseTimerInterval);
+    courseTimerInterval = setInterval(() => {
+        checkCourseCompletion();
+        if (isCourseRunning()) { updateWorkButtonState(); if (currentPage === "shop") renderShop(); }
+        else { clearInterval(courseTimerInterval); courseTimerInterval = null; renderAll(); }
+    }, 1000);
+}
+ // ===== МІНІІГРИ: ДИСПЕТЧЕР =====
+function getDifficultyLevel() {
+    const i = gameState.jobIndex;
+    if (i <= 2) return 0;
+    if (i <= 5) return 1;
+    return 2;
+}
+function getDifficultyConfig() {
+    const d = getDifficultyLevel();
+    return {
+        quizPool: d === 0 ? QUIZ_EASY : d === 1 ? QUIZ_MEDIUM : QUIZ_HARD,
+        findBugSize: d === 0 ? 4 : d === 1 ? 5 : 6,
+        codeLen: d === 0 ? 3 : d === 1 ? 4 : 5,
+        fastclickTargets: d === 0 ? 5 : d === 1 ? 8 : 12,
+        fastclickTimeMs: d === 0 ? 8000 : d === 1 ? 6000 : 5000,
+        memoryLen: d === 0 ? 3 : d === 1 ? 4 : 5,
+        memoryFlashMs: d === 0 ? 600 : d === 1 ? 500 : 400,
+        mathMax: d === 0 ? 20 : d === 1 ? 50 : 100,
+        mathOps: d === 0 ? ["+", "-"] : d === 1 ? ["+", "-", "*"] : ["+", "-", "*"]
+    };
+}
+function getStreakBonus() {
+    return Math.min(STREAK_BONUS_MAX, gameState.streak * STREAK_BONUS_PER);
+}
+function isOnCooldown() {
+    return gameState.lastFailAt > 0 && (Date.now() - gameState.lastFailAt) < FAIL_COOLDOWN_MS;
+}
+function getCooldownRemaining() {
+    return Math.max(0, FAIL_COOLDOWN_MS - (Date.now() - gameState.lastFailAt));
+}
+
+// ===== ЗАПУСК =====
+window.doWork = function() {
+    if (!currentUser || isCourseRunning() || isBankBlocked() || isOnCooldown()) return;
+    if (activeMinigame) return;
+    SFX.start();
+    const type = MINIGAME_TYPES[Math.floor(Math.random() * MINIGAME_TYPES.length)];
+    activeMinigame = { type, startedAt: Date.now(), timers: [] };
+    renderTask(); updateWorkButtonState();
+    setGameStatus("Мінігра: " + MINIGAME_META[type].name);
+    openMinigameDialog(type);
+    launchMinigame(type);
+};
+
+function openMinigameDialog(type) {
+    $("dialog-title").textContent = MINIGAME_META[type].icon + " " + MINIGAME_META[type].name;
+    $("dialog-title-icon").textContent = MINIGAME_META[type].icon;
+    $("dialog-icon").textContent = MINIGAME_META[type].icon;
+    $("dialog-text").innerHTML = '<div id="minigame-root" style="width:100%"></div>';
+    const okRow = $("dialog-ok-row");
+    if (okRow) okRow.style.display = "none";
+    $("dialog-overlay").classList.add("active");
+}
+
+function launchMinigame(type) {
+    const root = $("minigame-root");
+    if (!root) return;
+    const cfg = getDifficultyConfig();
+    switch(type) {
+        case "quiz":      return mgQuiz(root, cfg);
+        case "findbug":   return mgFindBug(root, cfg);
+        case "code":      return mgCode(root, cfg);
+        case "fastclick": return mgFastClick(root, cfg);
+        case "memory":    return mgMemory(root, cfg);
+        case "math":      return mgMath(root, cfg);
+    }
+}
+
+// ===== ЗАВЕРШЕННЯ =====
+function finishMinigame(success, reason) {
+    if (!activeMinigame) return;
+    activeMinigame.timers.forEach(t => clearInterval(t));
+    const job = getCurrentJob();
+    activeMinigame = null;
+
+    if (success) {
+        const streakBonus = getStreakBonus();
+        const reward = Math.floor(job.taskReward * (1 + streakBonus));
+        const xpGain = Math.floor(1 * (1 + gameState.xpBoost / 100));
+        gameState.coins += reward;
+        gameState.xp += xpGain;
+        gameState.streak += 1;
+        SFX.win();
+        const bonusText = streakBonus > 0 ? `\n(включно з бонусом серії +${Math.round(streakBonus*100)}%)` : "";
+        $("dialog-text").textContent = `+${formatNumberFull(reward)} монет${bonusText}\nСерія: ${gameState.streak}`;
+        $("dialog-title").textContent = "✅ Успіх!";
+        $("dialog-title-icon").textContent = "🎉";
+        $("dialog-icon").textContent = "🎉";
+        setGameStatus("Мінігру пройдено! +" + formatNumber(reward));
+    } else {
+        gameState.streak = 0;
+        gameState.lastFailAt = Date.now();
+        SFX.lose();
+        $("dialog-text").textContent = (reason || "Спробуйте ще раз.") + `\nКулдаун: ${FAIL_COOLDOWN_MS/1000} с`;
+        $("dialog-title").textContent = "❌ Провал";
+        $("dialog-title-icon").textContent = "😞";
+        $("dialog-icon").textContent = "😞";
+        setGameStatus("Мінігру провалено");
+    }
+    const okRow = $("dialog-ok-row");
+    if (okRow) okRow.style.display = "";
+    renderAll();
+    saveGame();
+}
+
+// ===== ГРА 1: ВІКТОРИНА =====
+function mgQuiz(root, cfg) {
+    const pool = cfg.quizPool;
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    const order = [0,1,2,3].sort(() => Math.random() - 0.5);
+    let html = `<div class="mg-title">${escapeHtml(q.q)}</div><div>`;
+    order.forEach((idx, i) => {
+        html += `<button class="mg-opt" data-idx="${idx}">${String.fromCharCode(65+i)}. ${escapeHtml(q.a[idx])}</button>`;
+    });
+    html += `</div>`;
+    root.innerHTML = html;
+    root.querySelectorAll(".mg-opt").forEach(btn => {
+        btn.onclick = () => {
+            const chosen = parseInt(btn.dataset.idx, 10);
+            if (chosen === q.c) { SFX.correct(); finishMinigame(true); }
+            else { SFX.wrong(); btn.style.borderColor = "#a00000"; finishMinigame(false, "Неправильна відповідь.\nПравильно: " + q.a[q.c]); }
+        };
+    });
+}
+
+// ===== ГРА 2: ЗНАЙДИ БАГ =====
+function mgFindBug(root, cfg) {
+    const size = cfg.findBugSize;
+    const total = size * size;
+    const bugIndex = Math.floor(Math.random() * total);
+    const baseEmoji = "🟩", bugEmoji = "🟥";
+    const cellSize = size <= 4 ? 28 : size <= 5 ? 22 : 18;
+    let html = `<div class="mg-hint">Знайдіть <b>${bugEmoji}</b> серед ${baseEmoji}</div>`;
+    html += `<div class="mg-grid" style="grid-template-columns:repeat(${size},1fr)">`;
+    for (let i = 0; i < total; i++) {
+        html += `<button class="mg-cell" data-i="${i}" style="font-size:${cellSize}px">${i===bugIndex?bugEmoji:baseEmoji}</button>`;
+    }
+    html += `</div>`;
+    root.innerHTML = html;
+    root.querySelectorAll(".mg-cell").forEach(btn => {
+        btn.onclick = () => {
+            if (parseInt(btn.dataset.i, 10) === bugIndex) { SFX.correct(); finishMinigame(true); }
+            else { SFX.wrong(); btn.style.background = "#ffcccc"; finishMinigame(false, "Це не баг! Спробуйте уважніше."); }
+        };
+    });
+}
+
+// ===== ГРА 3: ВВЕДИ КОД =====
+function mgCode(root, cfg) {
+    const q = CODE_QUESTIONS[Math.floor(Math.random() * CODE_QUESTIONS.length)];
+    let html = `<div class="mg-hint">Що виведе цей код?</div>`;
+    html += `<pre class="mg-pre">${escapeHtml(q.code)}</pre>`;
+    html += `<input type="text" id="code-answer" class="input-field mg-input" placeholder="Відповідь..." autocomplete="off">`;
+    html += `<button class="btn default mg-btn-full" id="code-submit">Перевірити</button>`;
+    root.innerHTML = html;
+    const input = $("code-answer"), submit = $("code-submit");
+    const check = () => {
+        if (input.value.trim() === q.answer) { SFX.correct(); finishMinigame(true); }
+        else { SFX.wrong(); finishMinigame(false, "Неправильно.\nПравильно: " + q.answer); }
+    };
+    submit.onclick = check;
+    input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+    setTimeout(() => input.focus(), 50);
+}
+
+// ===== ГРА 4: ШВИДКИЙ КЛІК =====
+function mgFastClick(root, cfg) {
+    const target = cfg.fastclickTargets;
+    const timeMs = cfg.fastclickTimeMs;
+    let hits = 0;
+    const startAt = Date.now();
+    root.innerHTML = `<div class="mg-hint">Влучте по цілі <b>${target}</b> разів</div>
+        <div class="mg-stat"><span id="fc-hits">0</span> / ${target} &nbsp;|&nbsp; ⏱ <span id="fc-time">${(timeMs/1000).toFixed(1)}</span> с</div>
+        <div class="mg-arena" id="fc-arena">
+            <button class="mg-target" id="fc-target">🎯</button>
+        </div>`;
+    const arena = $("fc-arena"), btn = $("fc-target");
+    const placeTarget = () => {
+        const maxX = arena.clientWidth - 60, maxY = arena.clientHeight - 60;
+        btn.style.left = Math.max(0, Math.random() * maxX) + "px";
+        btn.style.top = Math.max(0, Math.random() * maxY) + "px";
+    };
+    placeTarget();
+    btn.onclick = () => {
+        hits++;
+        $("fc-hits").textContent = hits;
+        SFX.click();
+        if (hits >= target) { finishMinigame(true); return; }
+        placeTarget();
+    };
+    const tick = setInterval(() => {
+        if (!activeMinigame) { clearInterval(tick); return; }
+        const left = Math.max(0, timeMs - (Date.now() - startAt));
+        const timeEl = $("fc-time"); if (timeEl) timeEl.textContent = (left/1000).toFixed(1);
+        if (left <= 0) { clearInterval(tick); if (activeMinigame) finishMinigame(false, "Час вийшов! Влучено " + hits + " з " + target); }
+    }, 100);
+    activeMinigame.timers.push(tick);
+}
+
+// ===== ГРА 5: ПАМ'ЯТЬ =====
+function mgMemory(root, cfg) {
+    const len = cfg.memoryLen;
+    const flashMs = cfg.memoryFlashMs;
+    const palette = ["🔴","🟢","🔵","🟡","🟣","🟠"];
+    const seq = Array.from({length: len}, () => Math.floor(Math.random() * palette.length));
+    let phase = "show", input = [];
+    root.innerHTML = `<div class="mg-hint" id="mem-status">Запам'ятайте послідовність...</div>
+        <div class="mg-display" id="mem-display"></div>
+        <div class="mg-pad" id="mem-pad"></div>`;
+    const display = $("mem-display"), pad = $("mem-pad"), status = $("mem-status");
+    palette.forEach((emoji, i) => {
+        const b = document.createElement("button");
+        b.className = "mg-pad-btn"; b.dataset.i = i;
+        b.textContent = emoji;
+        b.disabled = true;
+        b.onclick = () => {
+            if (phase !== "input") return;
+            SFX.click();
+            input.push(i);
+            const pos = input.length - 1;
+            if (seq[pos] !== i) { SFX.wrong(); finishMinigame(false, "Неправильна послідовність."); return; }
+            if (input.length === seq.length) { SFX.correct(); finishMinigame(true); }
+        };
+        pad.appendChild(b);
+    });
+    let showIdx = 0;
+    const showNext = () => {
+        if (!activeMinigame) return;
+        if (showIdx >= seq.length) {
+            display.textContent = "";
+            status.textContent = "Відтворіть послідовність:";
+            phase = "input";
+            pad.querySelectorAll(".mg-pad-btn").forEach(b => b.disabled = false);
+            return;
+        }
+        display.textContent = palette[seq[showIdx]];
+        SFX.tick();
+        showIdx++;
+        setTimeout(() => {
+            if (!activeMinigame) return;
+            display.textContent = "";
+            setTimeout(showNext, 200);
+        }, flashMs);
+    };
+    setTimeout(showNext, 400);
+}
+
+// ===== ГРА 6: МАТЕМАТИКА =====
+function mgMath(root, cfg) {
+    const op = cfg.mathOps[Math.floor(Math.random() * cfg.mathOps.length)];
+    let a, b, ans;
+    if (op === "*") { a = 2 + Math.floor(Math.random() * Math.floor(cfg.mathMax/4)); b = 2 + Math.floor(Math.random() * Math.floor(cfg.mathMax/4)); ans = a*b; }
+    else { a = Math.floor(Math.random() * cfg.mathMax); b = Math.floor(Math.random() * cfg.mathMax); ans = op === "+" ? a+b : a-b; }
+    let html = `<div class="mg-hint">Розв'яжіть приклад:</div>`;
+    html += `<div class="mg-math">${a} ${op} ${b} = ?</div>`;
+    html += `<input type="number" id="math-answer" class="input-field mg-input" placeholder="Відповідь..." autocomplete="off">`;
+    html += `<button class="btn default mg-btn-full" id="math-submit">Перевірити</button>`;
+    root.innerHTML = html;
+    const input = $("math-answer"), submit = $("math-submit");
+    const check = () => {
+        if (parseInt(input.value, 10) === ans) { SFX.correct(); finishMinigame(true); }
+        else { SFX.wrong(); finishMinigame(false, "Неправильно.\nПравильно: " + ans); }
+    };
+    submit.onclick = check;
+    input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+    setTimeout(() => input.focus(), 50);
+}
+ // ===== ЛІДЕРБОРД =====
+window.loadLeaderboard = async function() {
+    const listEl = $("lb-list"), myRankEl = $("lb-my-rank");
+    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>'; myRankEl.textContent = "—";
+    try {
+        const snap = await get(child(ref(db), "users"));
+        if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Ще немає гравців</div>'; return; }
+        const list = Object.entries(snap.val()).map(([name, d]) => ({ name, coins: d?.clicker?.coins || 0 }));
+        list.sort((a,b) => b.coins - a.coins);
+        let html = "";
+        list.slice(0, LEADERBOARD_LIMIT).forEach((u, i) => {
+            const rank = i+1, rc = rank===1?"top1":rank===2?"top2":rank===3?"top3":"";
+            const self = u.name === currentUser;
+            const medal = rank===1?"🥇 ":rank===2?"🥈 ":rank===3?"🥉 ":"";
+            html += `<div class="lb-row${self?" self":""}"><span class="lb-rank ${rc}">${medal}${rank}</span>
+                <span class="lb-name">${escapeHtml(u.name)}</span><span class="lb-coins">${formatNumberFull(u.coins)}</span></div>`;
+        });
+        listEl.innerHTML = html;
+        const idx = list.findIndex(u => u.name === currentUser);
+        myRankEl.textContent = idx >= 0 ? `Ваше місце: #${idx+1} з ${list.length}` : "Вас немає в списку";
+    } catch(e) { listEl.innerHTML = '<div class="lb-empty">Помилка</div>'; }
+};
+
+// ===== ОНЛАЙН =====
+window.loadOnline = async function() {
+    const listEl = $("online-list"), countEl = $("online-count");
+    listEl.innerHTML = '<div class="lb-loading">Завантаження...</div>'; countEl.textContent = "—";
+    try {
+        const snap = await get(child(ref(db), "users"));
+        if (!snap.exists()) { listEl.innerHTML = '<div class="lb-empty">Немає гравців</div>'; countEl.textContent="0 онлайн"; return; }
+        const now = Date.now();
+        const online = Object.entries(snap.val())
+            .map(([name, d]) => ({ name, coins: d?.clicker?.coins||0, lastOnline: Number(d?.lastOnline)||0, online: (now - (Number(d?.lastOnline)||0)) < ONLINE_THRESHOLD_MS }))
+            .filter(u => u.online)
+            .sort((a,b) => a.name===currentUser?-1:b.name===currentUser?1:b.lastOnline-a.lastOnline);
+        if (!online.length) { listEl.innerHTML = '<div class="lb-empty">Нікого немає онлайн</div>'; countEl.textContent="0 онлайн"; return; }
+        let html = "";
+        online.forEach(u => {
+            const self = u.name === currentUser;
+            html += `<div class="online-row${self?" self":""}"><span class="online-dot"></span>
+                <span class="lb-name">${escapeHtml(u.name)}${self?" (ви)":""}</span>
+                <span class="lb-coins">${formatNumberFull(u.coins)}</span>
+                <span class="muted" style="min-width:70px;text-align:right">${formatTimeAgo(u.lastOnline)}</span></div>`;
+        });
+        listEl.innerHTML = html; countEl.textContent = online.length + " онлайн";
+    } catch(e) { listEl.innerHTML = '<div class="lb-empty">Помилка</div>'; }
+};
+
+// ===== LOGOUT =====
+window.logout = async function() {
+    if (!currentUser) return;
+    await saveGame();
+    try { await update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() }); } catch(e){}
+    try { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); } catch(e){}
+    if (saveTimer) clearInterval(saveTimer);
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (courseTimerInterval) clearInterval(courseTimerInterval);
+    if (creditTimerInterval) clearInterval(creditTimerInterval);
+    if (dataListener) { off(dataListener); dataListener = null; }
+    if (mapListener) { off(mapListener); mapListener = null; }
+    if (activeMinigame) {
+        activeMinigame.timers.forEach(t => clearInterval(t));
+        activeMinigame = null;
+    }
+    currentUser = "";
+    gameState = {
+        coins:0, jobIndex:0, xp:0, taskProgress:0, taskActive:false,
+        activeCourseId:null, courseStartTime:0, completedCourses:[], xpBoost:0,
+        credit:{ amount:0, takenAt:0, dueAt:0, overdue:false, lastPenaltyAt:0 },
+        streak:0, lastFailAt:0
+    };
+    sharedPlots = {}; selectedPlotId = null;
+    closeMinigameDialog();
+    $("game-screen").classList.remove("active");
+    $("auth-window").style.display = "flex";
+    $("auth-username").value = $("auth-password").value = $("auth-password2").value = "";
+    switchAuthTab("login"); setStatus("Вихід виконано");
+};
+
+// ===== BEFOREUNLOAD =====
+window.addEventListener("beforeunload", () => {
+    if (currentUser) {
+        try {
+            update(ref(db, `users/${currentUser}/clicker`), {
+                coins: gameState.coins, jobIndex: gameState.jobIndex, xp: gameState.xp,
+                taskProgress: 0, taskActive: false,
+                activeCourseId: gameState.activeCourseId, courseStartTime: gameState.courseStartTime,
+                completedCourses: gameState.completedCourses, xpBoost: gameState.xpBoost,
+                credit: gameState.credit,
+                streak: gameState.streak, lastFailAt: gameState.lastFailAt
+            });
+            update(ref(db, `users/${currentUser}`), { lastOnline: Date.now() });
+        } catch(e){}
+    }
+});
+
+// ===== AUTO LOGIN =====
+(async function autoLogin() {
+    try {
+        const u = localStorage.getItem("w95_user"), h = localStorage.getItem("w95_hash");
+        if (!u || !h) return;
+        const snap = await get(child(ref(db), `users/${u}`));
+        if (snap.exists() && snap.val().password === h) {
+            currentUser = u;
+            try { await update(ref(db, `users/${u}`), { lastOnline: Date.now() }); } catch(e){}
+            startGame();
+        } else { localStorage.removeItem("w95_user"); localStorage.removeItem("w95_hash"); }
+    } catch(e){}
+})();
+
+// ===== INIT =====
+document.addEventListener("DOMContentLoaded", () => {
+    switchAuthTab("login");
+    $("auth-username").focus();
+    console.log("%cWin95 Clicker v"+APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace");
+});
 </script>
 </body>
 </html>
