@@ -2,214 +2,146 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Kovel Delivery</title>
-</head>
-<body>
-
-<div id="auth">
-  <div class="box">
-    <h1>🛴 Kovel Delivery</h1>
-    <div class="sub">Доставляй. Заробляй. Володій містом.</div>
-    <input id="username" placeholder="Логін" autocomplete="username" maxlength="16">
-    <input id="password" type="password" placeholder="Пароль" autocomplete="current-password" maxlength="40">
-    <button id="auth-btn" onclick="handleAuth()">Увійти</button>
-    <div class="err" id="err"></div>
-  </div>
-</div>
-
-<div id="hud" style="display:none">
-  <div class="row">💰 <span class="coins" id="hud-coins">0</span></div>
-  <div class="row">🚚 <span class="lvl" id="hud-vehicle">Скутер</span></div>
-  <div class="row">📦 <span id="hud-delivered">0</span> доставок</div>
-  <div class="row">🏠 <span id="hud-house">—</span></div>
-  <div class="hint">WASD — рух · Drag — мапа</div>
-</div>
-
-<div id="order-panel">
-  <div class="title">Замовлення</div>
-  <div class="target" id="order-target">—</div>
-  <div class="reward" id="order-reward">—</div>
-  <div class="dist" id="order-dist">—</div>
-</div>
-
-<div id="bottom-bar" style="display:none">
-  <button class="bbtn" id="upgrade-btn" onclick="tryUpgrade()">⬆ Апгрейд</button>
-  <button class="bbtn gold" id="center-btn" onclick="centerOnMe()">📍 Я</button>
-</div>
-
-<div id="toast"></div>
-
-<div id="info-modal">
-  <div class="box">
-    <div class="icon" id="modal-icon">🏠</div>
-    <h2 id="modal-title">—</h2>
-    <div class="sub" id="modal-sub">—</div>
-    <div id="modal-rows"></div>
-    <div class="actions" id="modal-actions"></div>
-  </div>
-</div>
-
-<canvas id="game"></canvas>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Машини та Доставка</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: #0d0d0d;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #e0e0e0;
-    user-select: none; -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    -webkit-tap-highlight-color: transparent;
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+  body {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh; color: #fff; padding: 15px;
+    display: flex; flex-direction: column; align-items: center;
   }
-  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
-  canvas.dragging { cursor: grabbing; }
+  .container { width: 100%; max-width: 900px; }
 
-  /* HUD */
-  #hud {
-    position: fixed; top: 12px; left: 12px; z-index: 10;
-    font-size: 14px; line-height: 1.7;
-    background: rgba(0,0,0,0.65);
-    padding: 12px 16px; border-radius: 10px;
-    border: 1px solid #2a2a2a;
-    backdrop-filter: blur(6px);
-    pointer-events: none;
-  }
-  #hud .row { display: flex; align-items: center; gap: 6px; }
-  #hud .coins { color: #f0c040; font-weight: 700; font-size: 20px; }
-  #hud .lvl { color: #4a9eff; font-weight: 700; }
-  #hud .hint { color: #666; font-size: 11px; margin-top: 6px; }
+  h1 { text-align: center; margin-bottom: 15px; font-size: 1.8em;
+       text-shadow: 2px 2px 4px rgba(0,0,0,0.5); letter-spacing: 1px; }
 
-  /* Order panel */
-  #order-panel {
-    position: fixed; top: 12px; right: 12px; z-index: 10;
-    background: rgba(0,0,0,0.7);
-    border: 1px solid #2a2a2a; border-radius: 10px;
-    padding: 14px 16px; min-width: 200px;
-    backdrop-filter: blur(6px);
-    display: none;
+  #loginScreen {
+    background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+    padding: 30px; border-radius: 16px; text-align: center;
+    max-width: 400px; margin: 60px auto;
+    border: 1px solid rgba(255,255,255,0.2);
   }
-  #order-panel.active { display: block; }
-  #order-panel .title { color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-  #order-panel .target { color: #4a9eff; font-size: 15px; font-weight: 700; margin: 4px 0; }
-  #order-panel .reward { color: #f0c040; font-size: 16px; font-weight: 700; }
-  #order-panel .dist { color: #888; font-size: 12px; margin-top: 4px; }
+  #loginScreen p { margin-bottom: 15px; }
+  #loginScreen input {
+    width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px;
+    border: none; font-size: 1em; outline: none; color: #222;
+  }
 
-  /* Bottom bar */
-  #bottom-bar {
-    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-    z-index: 10; display: flex; gap: 8px; align-items: center;
+  .btn {
+    background: #ff6b35; color: #fff; border: none; padding: 12px 22px;
+    border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: 600;
+    transition: transform 0.15s, background 0.15s; margin: 5px;
   }
-  .bbtn {
-    background: rgba(20,20,30,0.9);
-    border: 1px solid #333; border-radius: 10px;
-    color: #e0e0e0; padding: 10px 16px;
-    font-size: 13px; font-weight: 600;
-    cursor: pointer; display: flex; align-items: center; gap: 6px;
-    backdrop-filter: blur(6px);
-    transition: transform 0.1s, background 0.2s;
-  }
-  .bbtn:active { transform: scale(0.96); background: rgba(40,40,60,0.9); }
-  .bbtn:disabled { opacity: 0.4; cursor: default; }
-  .bbtn.gold { background: linear-gradient(135deg, #f0c040, #d4a020); color: #000; border-color: #f0c040; }
+  .btn:hover { transform: translateY(-2px); background: #ff8555; }
+  .btn:disabled { background: #666; cursor: not-allowed; transform: none; }
+  .btn-green { background: #2ecc71; }
+  .btn-green:hover { background: #45d985; }
+  .btn-red { background: #e74c3c; }
+  .btn-red:hover { background: #f2665a; }
 
-  /* Auth */
-  #auth {
-    position: fixed; inset: 0; z-index: 100;
+  #gameScreen { display: none; }
+
+  .hud {
+    display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between;
+    background: rgba(0,0,0,0.3); padding: 12px 16px; border-radius: 12px;
+    margin-bottom: 15px;
+  }
+  .hud-item { font-size: 0.95em; }
+  .hud-item b { color: #ffd700; }
+
+  .map {
+    background: rgba(0,0,0,0.25); border-radius: 16px; padding: 20px;
+    position: relative; min-height: 380px; overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.15);
+  }
+
+  .city {
+    position: absolute; width: 70px; height: 70px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: 2px solid #fff;
     display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 50% 30%, #1a1a2a 0%, #0d0d0d 70%);
+    font-size: 0.72em; text-align: center; cursor: pointer;
+    transition: all 0.25s; padding: 4px; font-weight: 600;
   }
-  #auth .box {
-    background: #16161f;
-    border: 1px solid #2a2a3a;
-    border-radius: 16px;
-    padding: 36px 28px;
-    width: 340px; max-width: 90vw;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  .city:hover { background: rgba(255,255,255,0.3); transform: scale(1.08); }
+  .city.target {
+    background: #ff6b35; box-shadow: 0 0 20px #ff6b35;
+    animation: pulse 1s infinite;
   }
-  #auth h1 {
-    font-size: 26px; margin-bottom: 4px;
-    background: linear-gradient(135deg, #f0c040, #4a9eff);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-weight: 800;
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
   }
-  #auth .sub { color: #666; font-size: 12px; margin-bottom: 24px; }
-  #auth input {
-    width: 100%; padding: 12px 14px; margin-bottom: 10px;
-    background: #0d0d14; border: 1px solid #2a2a3a; border-radius: 8px;
-    color: #e0e0e0; font-size: 14px; outline: none;
-    transition: border-color 0.2s;
-  }
-  #auth input:focus { border-color: #4a9eff; }
-  #auth button {
-    width: 100%; padding: 13px; margin-top: 6px;
-    background: linear-gradient(135deg, #4a9eff, #357abd);
-    border: none; border-radius: 8px;
-    color: #fff; font-size: 14px; font-weight: 700;
-    cursor: pointer; transition: transform 0.1s;
-  }
-  #auth button:active { transform: scale(0.98); }
-  #auth button:disabled { opacity: 0.5; cursor: default; }
-  #auth .err { color: #e05555; font-size: 12px; margin-top: 10px; min-height: 16px; text-align: center; }
 
-  /* Toast */
-  #toast {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.9); border: 1px solid #333;
-    color: #e0e0e0; padding: 14px 24px; border-radius: 12px;
-    font-size: 14px; z-index: 50; opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none; text-align: center; max-width: 80vw;
+  .car {
+    position: absolute; font-size: 1.6em; transition: all 1.5s ease-in-out;
+    z-index: 10; font-weight: 700;
+    background: #ff6b35; color: #fff; padding: 6px 10px; border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   }
-  #toast.show { opacity: 1; }
 
-  /* Modal */
-  #info-modal {
-    position: fixed; inset: 0; z-index: 80;
-    display: none; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.6);
-    padding: 16px;
+  #log {
+    background: rgba(0,0,0,0.3); border-radius: 12px; padding: 12px;
+    margin-top: 15px; max-height: 120px; overflow-y: auto;
+    font-size: 0.85em; line-height: 1.6;
   }
-  #info-modal.active { display: flex; }
-  #info-modal .box {
-    background: #16161f; border: 1px solid #2a2a3a;
-    border-radius: 16px; padding: 24px;
-    width: 340px; max-width: 100%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  #log div { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+
+  #leaderboard {
+    background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px;
+    margin-top: 15px;
   }
-  #info-modal .icon { font-size: 40px; text-align: center; margin-bottom: 8px; }
-  #info-modal h2 { font-size: 20px; text-align: center; margin-bottom: 4px; }
-  #info-modal .sub { color: #666; font-size: 12px; text-align: center; margin-bottom: 16px; }
-  #info-modal .row {
-    display: flex; justify-content: space-between;
-    padding: 6px 0; font-size: 13px; border-bottom: 1px solid #222;
-  }
-  #info-modal .row:last-of-type { border-bottom: none; }
-  #info-modal .row .k { color: #888; }
-  #info-modal .row .v { font-weight: 700; color: #e0e0e0; }
-  #info-modal .actions { display: flex; gap: 8px; margin-top: 16px; }
-  #info-modal .actions button {
-    flex: 1; padding: 11px; border-radius: 8px;
-    border: none; font-size: 13px; font-weight: 700; cursor: pointer;
-  }
-  #info-modal .actions .primary {
-    background: linear-gradient(135deg, #4a9eff, #357abd); color: #fff;
-  }
-  #info-modal .actions .primary:disabled { opacity: 0.4; cursor: default; }
-  #info-modal .actions .secondary {
-    background: #2a2a3a; color: #e0e0e0;
-  }
+  #leaderboard h3 { margin-bottom: 10px; }
+  .lb-row { display: flex; justify-content: space-between;
+            padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9em; }
+  .lb-row.you { color: #ffd700; font-weight: bold; }
+
+  .actions { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+  .hidden { display: none !important; }
 </style>
 </head>
- <body>
+<body>
+<div class="container">
+  <h1>Машини та Доставка</h1>
+
+  <div id="loginScreen">
+    <p>Введи своє ім'я водія:</p>
+    <input id="playerName" maxlength="15" placeholder="Ім'я водія...">
+    <button class="btn" id="loginBtn">Почати</button>
+  </div>
+
+  <div id="gameScreen">
+    <div class="hud">
+      <div class="hud-item">Гравець: <b id="hudName">—</b></div>
+      <div class="hud-item">Гроші: <b id="hudMoney">0</b> грн</div>
+      <div class="hud-item">XP: <b id="hudXP">0</b></div>
+      <div class="hud-item">Доставок: <b id="hudDeliveries">0</b></div>
+      <div class="hud-item">Рівень: <b id="hudLevel">1</b></div>
+    </div>
+
+    <div class="map" id="map"></div>
+
+    <div class="actions">
+      <button class="btn btn-green" id="deliverBtn">Взяти замовлення</button>
+      <button class="btn" id="upgradeBtn">Апгрейд</button>
+      <button class="btn btn-red" id="logoutBtn">Вийти</button>
+    </div>
+
+    <div id="log"></div>
+
+    <div id="leaderboard">
+      <h3>Рейтинг водіїв</h3>
+      <div id="lbList"></div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import {
-  getDatabase, ref, set, get, update, onValue, onDisconnect, runTransaction
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, get, update, onValue }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// ===== FIREBASE =====
 const firebaseConfig = {
   apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
   authDomain: "uniquestone.firebaseapp.com",
@@ -217,829 +149,237 @@ const firebaseConfig = {
   projectId: "uniquestone",
   storageBucket: "uniquestone.firebasestorage.app",
   messagingSenderId: "114557024409",
-  appId: "1:114557024409:web:23f1e0ad213e9cf7d2e008"
+  appId: "1:114557024409:web:23f1e0ad213e9cf7d2e008",
+  measurementId: "G-TZ6SZXTJTF"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ===== ТРАНСПОРТ =====
-const VEHICLES = [
-  { name: "Скутер",       speed: 180, color: "#f0c040", icon: "🛴", cost: 0 },
-  { name: "Скутер+",      speed: 240, color: "#ff8c42", icon: "🛵", cost: 500 },
-  { name: "Кур'єр-ровер", speed: 320, color: "#4a9eff", icon: "🚙", cost: 2000 },
-  { name: "Фургон",       speed: 420, color: "#27ae60", icon: "🚐", cost: 8000 },
-  { name: "Вантажівка",   speed: 520, color: "#e74c3c", icon: "🚚", cost: 25000 }
+const CITIES = [
+  { id: 'kyiv',    name: 'Київ',    x: 55, y: 25 },
+  { id: 'lviv',    name: 'Львів',   x: 15, y: 40 },
+  { id: 'odesa',   name: 'Одеса',   x: 55, y: 75 },
+  { id: 'kharkiv', name: 'Харків',  x: 85, y: 30 },
+  { id: 'dnipro',  name: 'Дніпро',  x: 70, y: 55 },
 ];
 
-// ===== БУДІВЛІ =====
-const BUILDINGS = [
-  { id: "center",    x: 500, y: 300, name: "Центр",     icon: "🏛", color: "#f0c040", type: "landmark" },
-  { id: "station",   x: 620, y: 380, name: "Вокзал",    icon: "🚂", color: "#e05555", type: "landmark" },
-  { id: "mall",      x: 700, y: 200, name: "ТЦ",        icon: "🏬", color: "#9b59b6", type: "landmark" },
-  { id: "park",      x: 250, y: 250, name: "Парк",      icon: "🌳", color: "#27ae60", type: "landmark" },
-  { id: "hospital",  x: 800, y: 450, name: "Лікарня",   icon: "🏥", color: "#e74c3c", type: "landmark" },
-  { id: "school",    x: 180, y: 420, name: "Школа",     icon: "🏫", color: "#f39c12", type: "landmark" },
-  { id: "autobazar", x: 850, y: 120, name: "Авторинок", icon: "🚗", color: "#3498db", type: "delivery" },
-  { id: "warehouse", x: 150, y: 150, name: "Склад",     icon: "📦", color: "#d35400", type: "delivery" },
-  { id: "market",    x: 400, y: 350, name: "Ринок",     icon: "🛒", color: "#4a9eff", type: "delivery" },
-  { id: "factory",   x: 880, y: 500, name: "Завод",     icon: "🏭", color: "#7f8c8d", type: "delivery" }
-];
+let state = {
+  name: null,
+  money: 0,
+  xp: 0,
+  deliveries: 0,
+  truckLevel: 1,
+  currentCity: 'kyiv',
+  targetCity: null,
+  busy: false,
+};
+let lbUnsub = null;
 
-// ===== ЖИТЛОВІ БУДИНКИ =====
-const HOUSES = [
-  { id: "h1",  x: 320, y: 180, w: 60, h: 50, price: 1500 },
-  { id: "h2",  x: 420, y: 180, w: 60, h: 50, price: 1800 },
-  { id: "h3",  x: 560, y: 180, w: 60, h: 50, price: 2200 },
-  { id: "h4",  x: 740, y: 250, w: 60, h: 50, price: 2800 },
-  { id: "h5",  x: 180, y: 320, w: 60, h: 50, price: 2000 },
-  { id: "h6",  x: 300, y: 450, w: 60, h: 50, price: 2500 },
-  { id: "h7",  x: 560, y: 450, w: 60, h: 50, price: 3200 },
-  { id: "h8",  x: 740, y: 450, w: 60, h: 50, price: 3500 },
-  { id: "h9",  x: 200, y: 240, w: 60, h: 50, price: 1800 },
-  { id: "h10", x: 820, y: 320, w: 60, h: 50, price: 4000 }
-];
+const $ = id => document.getElementById(id);
 
-// ===== СТАН =====
-let me = null;
-let myData = { coins: 0, vehicle: 0, delivered: 0, houseId: null };
-let myPos = { x: 500, y: 300 };
-let otherPlayers = {};
-let houseOwners = {};
-let keys = {};
-let currentOrder = null;
-let lastMove = 0;
-let camera = { x: 500, y: 300 };
-let cameraFollowing = true;
-
-// ===== УТИЛІТИ =====
-async function hashPwd(s) {
-  const b = new TextEncoder().encode(s);
-  const h = await crypto.subtle.digest("SHA-256", b);
-  return Array.from(new Uint8Array(h)).map(x => x.toString(16).padStart(2, "0")).join("");
-}
-function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-function fmt(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
-  return Math.floor(n).toString();
-}
-function toast(msg, dur = 2200) {
-  const el = document.getElementById("toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove("show"), dur);
-}
- // ===== КАРТА КОВЕЛЯ =====
-const MAP_W = 1000, MAP_H = 600;
-
-const RIVER = [
-  { x: 320, y: 600 }, { x: 340, y: 540 }, { x: 310, y: 480 },
-  { x: 330, y: 420 }, { x: 360, y: 370 }, { x: 340, y: 310 },
-  { x: 370, y: 250 }, { x: 350, y: 190 }, { x: 380, y: 130 },
-  { x: 360, y: 60 },  { x: 390, y: 0 }
-];
-
-const RAILWAYS = [
-  { x1: 620, y1: 0,   x2: 620, y2: 600 },
-  { x1: 620, y1: 300, x2: 200, y2: 300 },
-  { x1: 620, y1: 380, x2: 1000, y2: 380 }
-];
-
-const ROADS = [
-  { x1: 500, y1: 300, x2: 540, y2: 600, w: 16 },
-  { x1: 500, y1: 300, x2: 470, y2: 0,   w: 16 },
-  { x1: 500, y1: 300, x2: 0,   y2: 320, w: 16 },
-  { x1: 500, y1: 300, x2: 1000, y2: 280, w: 16 },
-  { x1: 100, y1: 100, x2: 900, y2: 100, w: 12 },
-  { x1: 100, y1: 500, x2: 900, y2: 500, w: 12 },
-  { x1: 100, y1: 100, x2: 100, y2: 500, w: 12 },
-  { x1: 900, y1: 100, x2: 900, y2: 500, w: 12 },
-  { x1: 100, y1: 300, x2: 900, y2: 300, w: 10 },
-  { x1: 500, y1: 100, x2: 500, y2: 500, w: 10 },
-  { x1: 250, y1: 100, x2: 250, y2: 500, w: 6 },
-  { x1: 380, y1: 100, x2: 380, y2: 500, w: 6 },
-  { x1: 680, y1: 100, x2: 680, y2: 500, w: 6 },
-  { x1: 800, y1: 100, x2: 800, y2: 500, w: 6 },
-  { x1: 100, y1: 200, x2: 900, y2: 200, w: 6 },
-  { x1: 100, y1: 400, x2: 900, y2: 400, w: 6 }
-];
-
-const BLOCKS = [];
-(function () {
-  const XG = [100, 250, 380, 500, 680, 800, 900];
-  const YG = [100, 200, 300, 400, 500];
-  for (let i = 0; i < XG.length - 1; i++) {
-    for (let j = 0; j < YG.length - 1; j++) {
-      const bx = XG[i] + 8, by = YG[j] + 8;
-      const bw = XG[i + 1] - XG[i] - 16, bh = YG[j + 1] - YG[j] - 16;
-      const cx = bx + bw / 2;
-      if (cx > 280 && cx < 420) continue;
-      BLOCKS.push({ x: bx, y: by, w: bw, h: bh });
-    }
-  }
-})();
-
-const TREES = [];
-(function () {
-  const seed = [
-    [130,140],[160,160],[200,140],[240,280],[280,310],[300,350],
-    [380,260],[420,260],[460,260],[540,120],[580,120],
-    [640,140],[660,220],[700,340],[740,420],[780,280],
-    [820,180],[850,260],[870,340],[260,480],[460,480],
-    [560,520],[680,520],[760,520],[860,440],[160,440],
-    [240,220],[340,120],[420,140],[700,280],[780,400]
-  ];
-  seed.forEach(([x, y]) => TREES.push({ x, y, r: 5 + Math.random() * 3 }));
-})();
-
-// ===== CANVAS =====
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let zoom = 1;
-
-function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  canvas.style.width = window.innerWidth + "px";
-  canvas.style.height = window.innerHeight + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  zoom = Math.max(window.innerWidth / MAP_W, window.innerHeight / MAP_H) * 1.15;
-}
-window.addEventListener("resize", resize);
-resize();
-
-// ===== РЕНДЕР =====
-function draw() {
-  const w = window.innerWidth, h = window.innerHeight;
-  ctx.fillStyle = "#0a0a0a";
-  ctx.fillRect(0, 0, w, h);
-
-  const offX = w / 2 - camera.x * zoom;
-  const offY = h / 2 - camera.y * zoom;
-
-  ctx.save();
-  ctx.translate(offX, offY);
-  ctx.scale(zoom, zoom);
-
-  // Земля
-  ctx.fillStyle = "#141414";
-  ctx.fillRect(0, 0, MAP_W, MAP_H);
-
-  // Річка
-  ctx.beginPath();
-  ctx.moveTo(RIVER[0].x, RIVER[0].y);
-  for (let i = 1; i < RIVER.length; i++) ctx.lineTo(RIVER[i].x, RIVER[i].y);
-  ctx.strokeStyle = "#1a3a5a";
-  ctx.lineWidth = 26;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
-  ctx.strokeStyle = "#1e4a6a";
-  ctx.lineWidth = 30;
-  ctx.globalAlpha = 0.3;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // Квартали
-  ctx.fillStyle = "#1c1c1c";
-  ctx.strokeStyle = "#262626";
-  ctx.lineWidth = 1;
-  BLOCKS.forEach(b => {
-    ctx.fillRect(b.x, b.y, b.w, b.h);
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-  });
-
-  // Дороги
-  ROADS.forEach(r => {
-    ctx.beginPath();
-    ctx.moveTo(r.x1, r.y1);
-    ctx.lineTo(r.x2, r.y2);
-    ctx.strokeStyle = "#2a2a2a";
-    ctx.lineWidth = r.w;
-    ctx.lineCap = "round";
-    ctx.stroke();
-    if (r.w >= 10) {
-      ctx.strokeStyle = "#3a3a3a";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([8, 12]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  });
-
-  // Залізниця
-  RAILWAYS.forEach(r => {
-    ctx.beginPath();
-    ctx.moveTo(r.x1, r.y1);
-    ctx.lineTo(r.x2, r.y2);
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([3, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  });
-
-  // Дерева
-  TREES.forEach(t => {
-    ctx.fillStyle = "#1e3a1e";
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#2a4a2a";
-    ctx.beginPath();
-    ctx.arc(t.x - 1, t.y - 1, t.r * 0.6, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // Будинки гравців
-  HOUSES.forEach(h => {
-    const owner = houseOwners[h.id];
-    const isMine = owner && owner.owner === me;
-    const isOther = owner && owner.owner !== me;
-
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(h.x + 3, h.y + 3, h.w, h.h);
-
-    if (isMine) {
-      ctx.fillStyle = "#2a4a2a";
-      ctx.strokeStyle = "#4ade80";
-    } else if (isOther) {
-      ctx.fillStyle = "#1a1a2e";
-      ctx.strokeStyle = "#4a9eff";
-    } else {
-      ctx.fillStyle = "#2a2a2a";
-      ctx.strokeStyle = "#444";
-    }
-    ctx.fillRect(h.x, h.y, h.w, h.h);
-    ctx.lineWidth = 2;
-    ctx.strokeRect(h.x, h.y, h.w, h.h);
-
-    // Дах
-    ctx.beginPath();
-    ctx.moveTo(h.x - 4, h.y);
-    ctx.lineTo(h.x + h.w / 2, h.y - 14);
-    ctx.lineTo(h.x + h.w + 4, h.y);
-    ctx.closePath();
-    ctx.fillStyle = isMine ? "#3a6a3a" : isOther ? "#2a2a4e" : "#3a3a3a";
-    ctx.fill();
-    ctx.strokeStyle = isMine ? "#4ade80" : isOther ? "#4a9eff" : "#555";
-    ctx.stroke();
-
-    // Вікно
-    ctx.fillStyle = isMine ? "#f0c040" : isOther ? "#666" : "#444";
-    ctx.fillRect(h.x + h.w / 2 - 5, h.y + h.h / 2 - 5, 10, 10);
-
-    // Підпис
-    ctx.font = "bold 9px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    if (owner) {
-      ctx.fillStyle = isMine ? "#4ade80" : "#4a9eff";
-      ctx.fillText("Дім (" + owner.owner + ")", h.x + h.w / 2, h.y + h.h + 4);
-    } else {
-      ctx.fillStyle = "#666";
-      ctx.fillText(fmt(h.price) + " 💰", h.x + h.w / 2, h.y + h.h + 4);
-    }
-  });
-
-  // Орієнтири / доставка
-  BUILDINGS.forEach(b => {
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.beginPath();
-    ctx.arc(b.x + 2, b.y + 2, 14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = b.color;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, 13, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(b.icon, b.x, b.y);
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.font = "bold 9px sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(b.name, b.x, b.y - 18);
-  });
-
-  // Активне замовлення
-  if (currentOrder) {
-    const t = currentOrder.target;
-    const pulse = Math.sin(Date.now() / 300) * 0.3 + 1;
-    ctx.strokeStyle = "#f0c040";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 22 * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(240,192,64,0.3)";
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 30 * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  // Інші гравці
-  Object.entries(otherPlayers).forEach(([name, p]) => {
-    const v = VEHICLES[p.vehicle] || VEHICLES[0];
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.beginPath();
-    ctx.arc(p.x + 1, p.y + 1, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#4a9eff";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 10px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(v.icon, p.x, p.y);
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = "9px sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(name, p.x, p.y - 12);
-  });
-
-  // Я
-  const myV = VEHICLES[myData.vehicle];
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.beginPath();
-  ctx.arc(myPos.x + 2, myPos.y + 2, 13, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = myV.color;
-  ctx.beginPath();
-  ctx.arc(myPos.x, myPos.y, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 13px sans-serif";
-  ctx.text
- // ===== КАРТА КОВЕЛЯ =====
-const MAP_W = 1000, MAP_H = 600;
-
-const RIVER = [
-  { x: 320, y: 600 }, { x: 340, y: 540 }, { x: 310, y: 480 },
-  { x: 330, y: 420 }, { x: 360, y: 370 }, { x: 340, y: 310 },
-  { x: 370, y: 250 }, { x: 350, y: 190 }, { x: 380, y: 130 },
-  { x: 360, y: 60 },  { x: 390, y: 0 }
-];
-
-const RAILWAYS = [
-  { x1: 620, y1: 0,   x2: 620, y2: 600 },
-  { x1: 620, y1: 300, x2: 200, y2: 300 },
-  { x1: 620, y1: 380, x2: 1000, y2: 380 }
-];
-
-const ROADS = [
-  { x1: 500, y1: 300, x2: 540, y2: 600, w: 16 },
-  { x1: 500, y1: 300, x2: 470, y2: 0,   w: 16 },
-  { x1: 500, y1: 300, x2: 0,   y2: 320, w: 16 },
-  { x1: 500, y1: 300, x2: 1000, y2: 280, w: 16 },
-  { x1: 100, y1: 100, x2: 900, y2: 100, w: 12 },
-  { x1: 100, y1: 500, x2: 900, y2: 500, w: 12 },
-  { x1: 100, y1: 100, x2: 100, y2: 500, w: 12 },
-  { x1: 900, y1: 100, x2: 900, y2: 500, w: 12 },
-  { x1: 100, y1: 300, x2: 900, y2: 300, w: 10 },
-  { x1: 500, y1: 100, x2: 500, y2: 500, w: 10 },
-  { x1: 250, y1: 100, x2: 250, y2: 500, w: 6 },
-  { x1: 380, y1: 100, x2: 380, y2: 500, w: 6 },
-  { x1: 680, y1: 100, x2: 680, y2: 500, w: 6 },
-  { x1: 800, y1: 100, x2: 800, y2: 500, w: 6 },
-  { x1: 100, y1: 200, x2: 900, y2: 200, w: 6 },
-  { x1: 100, y1: 400, x2: 900, y2: 400, w: 6 }
-];
-
-const BLOCKS = [];
-(function () {
-  const XG = [100, 250, 380, 500, 680, 800, 900];
-  const YG = [100, 200, 300, 400, 500];
-  for (let i = 0; i < XG.length - 1; i++) {
-    for (let j = 0; j < YG.length - 1; j++) {
-      const bx = XG[i] + 8, by = YG[j] + 8;
-      const bw = XG[i + 1] - XG[i] - 16, bh = YG[j + 1] - YG[j] - 16;
-      const cx = bx + bw / 2;
-      if (cx > 280 && cx < 420) continue;
-      BLOCKS.push({ x: bx, y: by, w: bw, h: bh });
-    }
-  }
-})();
-
-const TREES = [];
-(function () {
-  const seed = [
-    [130,140],[160,160],[200,140],[240,280],[280,310],[300,350],
-    [380,260],[420,260],[460,260],[540,120],[580,120],
-    [640,140],[660,220],[700,340],[740,420],[780,280],
-    [820,180],[850,260],[870,340],[260,480],[460,480],
-    [560,520],[680,520],[760,520],[860,440],[160,440],
-    [240,220],[340,120],[420,140],[700,280],[780,400]
-  ];
-  seed.forEach(([x, y]) => TREES.push({ x, y, r: 5 + Math.random() * 3 }));
-})();
-
-// ===== CANVAS =====
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let zoom = 1;
-
-function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  canvas.style.width = window.innerWidth + "px";
-  canvas.style.height = window.innerHeight + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  zoom = Math.max(window.innerWidth / MAP_W, window.innerHeight / MAP_H) * 1.15;
-}
-window.addEventListener("resize", resize);
-resize();
-
-// ===== РЕНДЕР =====
-function draw() {
-  const w = window.innerWidth, h = window.innerHeight;
-  ctx.fillStyle = "#0a0a0a";
-  ctx.fillRect(0, 0, w, h);
-
-  const offX = w / 2 - camera.x * zoom;
-  const offY = h / 2 - camera.y * zoom;
-
-  ctx.save();
-  ctx.translate(offX, offY);
-  ctx.scale(zoom, zoom);
-
-  // Земля
-  ctx.fillStyle = "#141414";
-  ctx.fillRect(0, 0, MAP_W, MAP_H);
-
-  // Річка
-  ctx.beginPath();
-  ctx.moveTo(RIVER[0].x, RIVER[0].y);
-  for (let i = 1; i < RIVER.length; i++) ctx.lineTo(RIVER[i].x, RIVER[i].y);
-  ctx.strokeStyle = "#1a3a5a";
-  ctx.lineWidth = 26;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
-  ctx.strokeStyle = "#1e4a6a";
-  ctx.lineWidth = 30;
-  ctx.globalAlpha = 0.3;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // Квартали
-  ctx.fillStyle = "#1c1c1c";
-  ctx.strokeStyle = "#262626";
-  ctx.lineWidth = 1;
-  BLOCKS.forEach(b => {
-    ctx.fillRect(b.x, b.y, b.w, b.h);
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-  });
-
-  // Дороги
-  ROADS.forEach(r => {
-    ctx.beginPath();
-    ctx.moveTo(r.x1, r.y1);
-    ctx.lineTo(r.x2, r.y2);
-    ctx.strokeStyle = "#2a2a2a";
-    ctx.lineWidth = r.w;
-    ctx.lineCap = "round";
-    ctx.stroke();
-    if (r.w >= 10) {
-      ctx.strokeStyle = "#3a3a3a";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([8, 12]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  });
-
-  // Залізниця
-  RAILWAYS.forEach(r => {
-    ctx.beginPath();
-    ctx.moveTo(r.x1, r.y1);
-    ctx.lineTo(r.x2, r.y2);
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([3, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  });
-
-  // Дерева
-  TREES.forEach(t => {
-    ctx.fillStyle = "#1e3a1e";
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#2a4a2a";
-    ctx.beginPath();
-    ctx.arc(t.x - 1, t.y - 1, t.r * 0.6, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // Будинки гравців
-  HOUSES.forEach(h => {
-    const owner = houseOwners[h.id];
-    const isMine = owner && owner.owner === me;
-    const isOther = owner && owner.owner !== me;
-
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(h.x + 3, h.y + 3, h.w, h.h);
-
-    if (isMine) {
-      ctx.fillStyle = "#2a4a2a";
-      ctx.strokeStyle = "#4ade80";
-    } else if (isOther) {
-      ctx.fillStyle = "#1a1a2e";
-      ctx.strokeStyle = "#4a9eff";
-    } else {
-      ctx.fillStyle = "#2a2a2a";
-      ctx.strokeStyle = "#444";
-    }
-    ctx.fillRect(h.x, h.y, h.w, h.h);
-    ctx.lineWidth = 2;
-    ctx.strokeRect(h.x, h.y, h.w, h.h);
-
-    // Дах
-    ctx.beginPath();
-    ctx.moveTo(h.x - 4, h.y);
-    ctx.lineTo(h.x + h.w / 2, h.y - 14);
-    ctx.lineTo(h.x + h.w + 4, h.y);
-    ctx.closePath();
-    ctx.fillStyle = isMine ? "#3a6a3a" : isOther ? "#2a2a4e" : "#3a3a3a";
-    ctx.fill();
-    ctx.strokeStyle = isMine ? "#4ade80" : isOther ? "#4a9eff" : "#555";
-    ctx.stroke();
-
-    // Вікно
-    ctx.fillStyle = isMine ? "#f0c040" : isOther ? "#666" : "#444";
-    ctx.fillRect(h.x + h.w / 2 - 5, h.y + h.h / 2 - 5, 10, 10);
-
-    // Підпис
-    ctx.font = "bold 9px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    if (owner) {
-      ctx.fillStyle = isMine ? "#4ade80" : "#4a9eff";
-      ctx.fillText("Дім (" + owner.owner + ")", h.x + h.w / 2, h.y + h.h + 4);
-    } else {
-      ctx.fillStyle = "#666";
-      ctx.fillText(fmt(h.price) + " 💰", h.x + h.w / 2, h.y + h.h + 4);
-    }
-  });
-
-  // Орієнтири / доставка
-  BUILDINGS.forEach(b => {
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.beginPath();
-    ctx.arc(b.x + 2, b.y + 2, 14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = b.color;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, 13, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(b.icon, b.x, b.y);
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.font = "bold 9px sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(b.name, b.x, b.y - 18);
-  });
-
-  // Активне замовлення
-  if (currentOrder) {
-    const t = currentOrder.target;
-    const pulse = Math.sin(Date.now() / 300) * 0.3 + 1;
-    ctx.strokeStyle = "#f0c040";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 22 * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(240,192,64,0.3)";
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 30 * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  // Інші гравці
-  Object.entries(otherPlayers).forEach(([name, p]) => {
-    const v = VEHICLES[p.vehicle] || VEHICLES[0];
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.beginPath();
-    ctx.arc(p.x + 1, p.y + 1, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#4a9eff";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 10px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(v.icon, p.x, p.y);
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = "9px sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(name, p.x, p.y - 12);
-  });
-
-  // Я
-  const myV = VEHICLES[myData.vehicle];
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.beginPath();
-  ctx.arc(myPos.x + 2, myPos.y + 2, 13, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = myV.color;
-  ctx.beginPath();
-  ctx.arc(myPos.x, myPos.y, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 13px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(myV.icon, myPos.x, myPos.y);
-  ctx.fillStyle = "#f0c040";
-  ctx.font = "bold 10px sans-serif";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(me || "", myPos.x, myPos.y - 16);
-
-  ctx.restore();
-}
- // ===== FIREBASE SYNC =====
-let posInterval = null;
-
-function startGame() {
-  const myRef = ref(db, "online/" + me);
-  set(myRef, {
-    x: Math.round(myPos.x), y: Math.round(myPos.y),
-    vehicle: myData.vehicle, lastSeen: Date.now()
-  });
-  onDisconnect(myRef).remove();
-
-  // Інші гравці
-  onValue(ref(db, "online"), snap => {
-    otherPlayers = {};
-    if (snap.exists()) {
-      const now = Date.now();
-      Object.entries(snap.val()).forEach(([name, data]) => {
-        if (name !== me && now - (data.lastSeen || 0) < 30000) {
-          otherPlayers[name] = data;
-        }
-      });
-    }
-  });
-
-  // Власники домів
-  onValue(ref(db, "houses"), snap => {
-    houseOwners = snap.exists() ? snap.val() : {};
-  });
-
-  if (posInterval) clearInterval(posInterval);
-  posInterval = setInterval(() => {
-    if (!me) return;
-    update(ref(db, "online/" + me), {
-      x: Math.round(myPos.x), y: Math.round(myPos.y),
-      vehicle: myData.vehicle, lastSeen: Date.now()
-    });
-  }, 150);
-
-  setInterval(savePlayer, 5000);
+function log(msg) {
+  const d = document.createElement('div');
+  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  $('log').prepend(d);
+  while ($('log').children.length > 20) $('log').lastChild.remove();
 }
 
-// ===== РУХ =====
-window.addEventListener("keydown", e => {
-  const k = e.key.toLowerCase();
-  if (["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) {
-    keys[k] = true;
-    e.preventDefault();
-  }
-});
-window.addEventListener("keyup", e => {
-  keys[e.key.toLowerCase()] = false;
-});
+$('loginBtn').onclick = async () => {
+  const name = $('playerName').value.trim();
+  if (name.length < 2) return alert("Ім'я мінімум 2 символи!");
+  if (!/^[\wА-Яа-яЇїІіЄєҐґ\s]+$/.test(name)) return alert("Лише літери та цифри!");
 
-function updateMove(dt) {
-  let dx = 0, dy = 0;
-  if (keys["w"] || keys["arrowup"]) dy -= 1;
-  if (keys["s"] || keys["arrowdown"]) dy += 1;
-  if (keys["a"] || keys["arrowleft"]) dx -= 1;
-  if (keys["d"] || keys["arrowright"]) dx += 1;
+  $('loginBtn').disabled = true;
+  $('loginBtn').textContent = 'Завантаження...';
 
-  if (dx || dy) {
-    const len = Math.hypot(dx, dy);
-    const spd = VEHICLES[myData.vehicle].speed;
-    myPos.x += (dx / len) * spd * dt;
-    myPos.y += (dy / len) * spd * dt;
-    myPos.x = Math.max(20, Math.min(MAP_W - 20, myPos.x));
-    myPos.y = Math.max(20, Math.min(MAP_H - 20, myPos.y));
-    lastMove = Date.now();
-    if (cameraFollowing) {
-      camera.x = myPos.x;
-      camera.y = myPos.y;
-    }
-  } else if (cameraFollowing) {
-    camera.x += (myPos.x - camera.x) * 0.15;
-    camera.y += (myPos.y - camera.y) * 0.15;
-  }
-}
-
-// ===== ЗАМОВЛЕННЯ =====
-function spawnOrder() {
-  const deliveryPoints = BUILDINGS.filter(b => b.type === "delivery");
-  const available = deliveryPoints.filter(b => dist(myPos, b) > 80);
-  if (!available.length) { currentOrder = null; return; }
-  const target = available[Math.floor(Math.random() * available.length)];
-  const d = dist(myPos, target);
-  const reward = Math.floor(30 + d * 0.4 + Math.random() * 40);
-  currentOrder = { target, reward, spawnedAt: Date.now() };
-
-  document.getElementById("order-panel").classList.add("active");
-  document.getElementById("order-target").textContent = target.icon + " " + target.name;
-  document.getElementById("order-reward").textContent = "+" + reward + " 💰";
-  updateOrderDistance();
-}
-
-function updateOrderDistance() {
-  if (!currentOrder) return;
-  const d = dist(myPos, currentOrder.target);
-  document.getElementById("order-dist").textContent = Math.round(d) + " м";
-}
-
-async function checkDelivery() {
-  if (!currentOrder) return;
-  const d = dist(myPos, currentOrder.target);
-  if (d < 30) {
-    myData.coins += currentOrder.reward;
-    myData.delivered += 1;
-    updateHUD();
-    toast("✅ Доставлено в " + currentOrder.target.name + "! +" + currentOrder.reward + " 💰");
-    currentOrder = null;
-    document.getElementById("order-panel").classList.remove("active");
-    await savePlayer();
-    setTimeout(spawnOrder, 800);
-  }
-}
-
-// ===== ЦИКЛ =====
-let lastT = 0;
-let orderDistTimer = 0;
-
-function loop(t) {
-  const dt = Math.min((t - lastT) / 1000, 0.1);
-  lastT = t;
-  updateMove(dt);
-  checkDelivery();
-  draw();
-  if (t - orderDistTimer > 200) {
-    updateOrderDistance();
-    orderDistTimer = t;
-  }
-  requestAnimationFrame(loop);
-}
- // ===== AUTO LOGIN =====
-(async function autoLogin() {
   try {
-    const u = localStorage.getItem("kd_user");
-    const h = localStorage.getItem("kd_hash");
-    if (!u || !h) return;
-    const snap = await get(ref(db, "users/" + u));
-    if (snap.exists() && snap.val().password === h) {
-      myData = {
-        coins: snap.val().coins || 0,
-        vehicle: snap.val().vehicle || 0,
-        delivered: snap.val().delivered || 0,
-        houseId: snap.val().houseId || null
+    const key = name.toLowerCase();
+    const snap = await get(ref(db, `deliveryGame/players/${key}`));
+    if (snap.exists()) {
+      const data = snap.val();
+      state = {
+        name: data.name || name,
+        money: data.money || 0,
+        xp: data.xp || 0,
+        deliveries: data.deliveries || 0,
+        truckLevel: data.truckLevel || 1,
+        currentCity: data.currentCity || 'kyiv',
+        targetCity: null,
+        busy: false,
       };
-      myPos = { x: snap.val().x || 500, y: snap.val().y || 300 };
-      me = u;
-      startGameUI();
+      log(`З поверненням, ${state.name}!`);
     } else {
-      localStorage.removeItem("kd_user");
-      localStorage.removeItem("kd_hash");
+      state = {
+        name, money: 100, xp: 0, deliveries: 0,
+        truckLevel: 1, currentCity: 'kyiv',
+        targetCity: null, busy: false,
+      };
+      await set(ref(db, `deliveryGame/players/${key}`), {
+        name, money: 100, xp: 0, deliveries: 0, truckLevel: 1,
+        currentCity: 'kyiv', createdAt: Date.now()
+      });
+      log(`Вітаємо, ${name}! Ти отримав 100 грн на старт.`);
     }
-  } catch (e) { console.error(e); }
-})();
 
-// ===== INIT =====
-document.getElementById("username").focus();
-requestAnimationFrame(loop);
+    $('loginScreen').classList.add('hidden');
+    $('gameScreen').style.display = 'block';
+    $('hudName').textContent = state.name;
+    buildMap();
+    renderAll();
+    startLeaderboard();
+  } catch (e) {
+    console.error(e);
+    alert('Помилка Firebase: ' + e.message);
+  } finally {
+    $('loginBtn').disabled = false;
+    $('loginBtn').textContent = 'Почати';
+  }
+};
+
+function buildMap() {
+  const map = $('map');
+  map.querySelectorAll('.city, .car').forEach(el => el.remove());
+  CITIES.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'city';
+    el.id = 'city-' + c.id;
+    el.style.left = c.x + '%';
+    el.style.top  = c.y + '%';
+    el.textContent = c.name;
+    el.onclick = () => { if (!state.busy) log(`${c.name} — тут нічого не потрібно.`); };
+    map.appendChild(el);
+  });
+  const car = document.createElement('div');
+  car.className = 'car';
+  car.id = 'car';
+  car.textContent = 'Вантажівка';
+  map.appendChild(car);
+  positionCar();
+}
+
+function positionCar() {
+  const car = $('car');
+  if (!car) return;
+  const c = CITIES.find(x => x.id === state.currentCity) || CITIES[0];
+  car.style.left = `calc(${c.x}% - 20px)`;
+  car.style.top  = `calc(${c.y}% - 40px)`;
+}
+
+function renderAll() {
+  $('hudMoney').textContent = state.money;
+  $('hudXP').textContent = state.xp;
+  $('hudDeliveries').textContent = state.deliveries;
+  $('hudLevel').textContent = state.truckLevel;
+  positionCar();
+
+  CITIES.forEach(c => {
+    const el = $('city-' + c.id);
+    if (!el) return;
+    el.classList.toggle('target', state.targetCity === c.id);
+  });
+}
+
+$('deliverBtn').onclick = async () => {
+  if (state.busy) return;
+
+  if (state.targetCity) {
+    state.busy = true;
+    $('deliverBtn').disabled = true;
+    const dest = state.targetCity;
+    state.currentCity = dest;
+    positionCar();
+    log(`Вирушив до ${cityName(dest)}...`);
+
+    setTimeout(async () => {
+      const reward = 50 + state.truckLevel * 25;
+      const xpGain = 10 + state.truckLevel * 2;
+      state.money += reward;
+      state.xp += xpGain;
+      state.deliveries += 1;
+      state.targetCity = null;
+      state.busy = false;
+      $('deliverBtn').disabled = false;
+      $('deliverBtn').textContent = 'Взяти замовлення';
+
+      log(`Доставлено в ${cityName(dest)}! +${reward} грн, +${xpGain} XP`);
+      renderAll();
+      await savePlayer();
+    }, 1600);
+    return;
+  }
+
+  const available = CITIES.filter(c => c.id !== state.currentCity);
+  const target = available[Math.floor(Math.random() * available.length)];
+  state.targetCity = target.id;
+  log(`Нове замовлення: доставити в ${target.name}!`);
+  renderAll();
+};
+
+$('upgradeBtn').onclick = async () => {
+  const cost = 200 * state.truckLevel;
+  if (state.money < cost) return log(`Недостатньо грошей (потрібно ${cost} грн)`);
+  if (state.truckLevel >= 10) return log('Максимальний рівень вантажівки!');
+
+  state.money -= cost;
+  state.truckLevel += 1;
+  log(`Вантажівку покращено до рівня ${state.truckLevel}!`);
+  renderAll();
+  await savePlayer();
+};
+
+$('logoutBtn').onclick = () => {
+  if (lbUnsub) lbUnsub();
+  location.reload();
+};
+
+function cityName(id) { return (CITIES.find(c => c.id === id) || {}).name || id; }
+
+async function savePlayer() {
+  try {
+    await update(ref(db, `deliveryGame/players/${state.name.toLowerCase()}`), {
+      name: state.name,
+      money: state.money,
+      xp: state.xp,
+      deliveries: state.deliveries,
+      truckLevel: state.truckLevel,
+      currentCity: state.currentCity,
+      lastSeen: Date.now()
+    });
+  } catch (e) {
+    console.error('savePlayer:', e);
+    log('Не вдалося зберегти прогрес');
+  }
+}
+
+function startLeaderboard() {
+  const lbRef = ref(db, 'deliveryGame/players');
+  lbUnsub = onValue(lbRef, snap => {
+    const list = $('lbList');
+    list.innerHTML = '';
+    if (!snap.exists()) {
+      list.innerHTML = '<div style="opacity:0.6">Поки нікого немає</div>';
+      return;
+    }
+    const players = Object.entries(snap.val())
+      .map(([k, v]) => ({ key: k, ...v }))
+      .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+      .slice(0, 10);
+
+    players.forEach((p, i) => {
+      const row = document.createElement('div');
+      row.className = 'lb-row' + (p.key === state.name.toLowerCase() ? ' you' : '');
+      row.innerHTML = `<span>${i + 1}. ${escapeHtml(p.name || p.key)}</span>
+                       <span>${p.xp || 0} XP · ${p.deliveries || 0} доставок</span>`;
+      list.appendChild(row);
+    });
+  }, err => console.error('LB:', err));
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
 </script>
 </body>
 </html>
