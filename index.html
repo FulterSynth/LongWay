@@ -83,9 +83,7 @@ body{background:#008080;font-family:"MS Sans Serif",Tahoma,"Segoe UI",sans-serif
 .course-blocker{background:#ffffcc;border:1px solid #808080;padding:10px 12px;font-size:13px;color:#800000;text-align:center;margin-bottom:4px;display:none;line-height:1.4}
 .course-blocker.show{display:block}
 </style>
-</head>
-<body>
- <style>
+<style>
 /* MAP */
 .map-container{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:#7a7a7a;border:2px inset #808080;position:relative;padding:6px}
 .map-stage{position:relative;width:100%;aspect-ratio:900/560;background:#8a8a8a;overflow:hidden}
@@ -490,6 +488,61 @@ function calcPlotPrice(plot, owners) {
     return Math.floor(BASE_PLOT_PRICE * totalMultiplier);
 }
 
+// ===== МІНІІГРИ: КОНСТАНТИ =====
+const MINIGAME_TYPES = ["quiz", "findbug", "code", "fastclick", "memory", "math"];
+const MINIGAME_META = {
+    quiz:      { name: "Вікторина",     icon: "❓", desc: "Оберіть правильну відповідь" },
+    findbug:   { name: "Знайди баг",    icon: "🐛", desc: "Знайдіть символ, що відрізняється" },
+    code:      { name: "Введи код",     icon: "⌨️", desc: "Що виведе цей код?" },
+    fastclick: { name: "Швидкий клік",  icon: "⚡", desc: "Влучте по цілі N разів" },
+    memory:    { name: "Пам'ять",       icon: "🧠", desc: "Запам'ятайте послідовність" },
+    math:      { name: "Математика",    icon: "🔢", desc: "Розв'яжіть приклад" }
+};
+const STREAK_BONUS_PER = 0.02;
+const STREAK_BONUS_MAX = 0.10;
+const FAIL_COOLDOWN_MS = 10000;
+
+// Питання для вікторини
+const QUIZ_EASY = [
+    { q: "Що означає HTML?", a: ["HyperText Markup Language", "High Tech Modern Language", "Home Tool Markup Language", "Hyperlink Text Machine Language"], c: 0 },
+    { q: "Який тип даних у JS для true/false?", a: ["String", "Boolean", "Number", "Object"], c: 1 },
+    { q: "Скільки біт у байті?", a: ["4", "8", "16", "32"], c: 1 },
+    { q: "Що таке CSS?", a: ["Мова програмування", "Мова стилів", "База даних", "Сервер"], c: 1 },
+    { q: "Який оператор порівняння в JS строгий?", a: ["==", "===", "=", "!="], c: 1 },
+    { q: "Що таке Git?", a: ["Редактор", "Система контролю версій", "Браузер", "ОС"], c: 1 },
+    { q: "Який тег для заголовка в HTML?", a: ["<p>", "<h1>", "<div>", "<span>"], c: 1 },
+    { q: "Що робить console.log()?", a: ["Виводить в консоль", "Створює змінну", "Видаляє файл", "Зупиняє програму"], c: 0 }
+];
+const QUIZ_MEDIUM = [
+    { q: "Що таке замикання (closure) в JS?", a: ["Функція + її лексичне оточення", "Цикл", "Масив", "Клас"], c: 0 },
+    { q: "Яка складність бінарного пошуку?", a: ["O(n)", "O(log n)", "O(n²)", "O(1)"], c: 1 },
+    { q: "Що таке REST?", a: ["Архітектурний стиль для API", "Мова програмування", "База даних", "Фреймворк"], c: 0 },
+    { q: "Що робить Array.map()?", a: ["Змінює масив на місці", "Створює новий масив", "Видаляє елемент", "Сортує"], c: 1 },
+    { q: "Що таке Promise в JS?", a: ["Об'єкт для асинхронних операцій", "Змінна", "Цикл", "Подія"], c: 0 },
+    { q: "Яка різниця між let і var?", a: ["Область видимості", "Нічого", "Швидкість", "Тип даних"], c: 0 },
+    { q: "Що таке SQL ін'єкція?", a: ["Вразливість БД", "Тип даних", "Фреймворк", "Протокол"], c: 0 }
+];
+const QUIZ_HARD = [
+    { q: "Що таке event loop?", a: ["Механізм обробки асинхронності в JS", "Цикл for", "Подія кліку", "Менеджер пам'яті"], c: 0 },
+    { q: "Що таке CAP theorem?", a: ["Consistency, Availability, Partition tolerance", "Cache, API, Protocol", "Code, Analyze, Publish", "Client, Auth, Proxy"], c: 0 },
+    { q: "Що таке мемоізація?", a: ["Кешування результатів функції", "Тип пам'яті", "Алгоритм сортування", "Паттерн"], c: 0 },
+    { q: "Яка складність швидкого сортування в гіршому випадку?", a: ["O(n log n)", "O(n²)", "O(n)", "O(log n)"], c: 1 },
+    { q: "Що таке dependency injection?", a: ["Паттерн передачі залежностей", "Тип БД", "Мова", "Протокол"], c: 0 },
+    { q: "Що таке race condition?", a: ["Конфлікт при одночасному доступі", "Помилка синтаксису", "Тип змінної", "Подія"], c: 0 }
+];
+
+// Коди для гри "Введи код"
+const CODE_QUESTIONS = [
+    { code: "const x = 5;\nlet y = 10;\nx + y", answer: "15" },
+    { code: "let s = 'Hi';\ns += '!';\ns", answer: "Hi!" },
+    { code: "[1,2,3].length", answer: "3" },
+    { code: "2 ** 3", answer: "8" },
+    { code: "'abc'.toUpperCase()", answer: "ABC" },
+    { code: "parseInt('42px')", answer: "42" },
+    { code: "[1,2,3].reduce((a,b)=>a+b,0)", answer: "6" },
+    { code: "Math.max(3,7,2)", answer: "7" }
+];
+
 // ===== FIREBASE =====
 const firebaseConfig = {
     apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
@@ -577,11 +630,11 @@ function playTone(freq, dur, type, vol, when) {
 }
 const SFX = {
     click:   () => playTone(880, 0.03, "square", 0.04),
-    correct: () => { const t = getAudio()?.currentTime||0; playTone(1047, 0.08, "square", 0.08); playTone(1319, 0.12, "square", 0.08, t + 0.08); },
-    wrong:   () => { const t = getAudio()?.currentTime||0; playTone(220, 0.15, "sawtooth", 0.1); playTone(165, 0.2, "sawtooth", 0.1, t + 0.1); },
-    start:   () => { const t = getAudio()?.currentTime||0; playTone(523, 0.06, "square", 0.06); playTone(659, 0.06, "square", 0.06, t + 0.06); playTone(784, 0.1, "square", 0.06, t + 0.12); },
-    win:     () => { const t = getAudio()?.currentTime||0; [523,659,784,1047].forEach((f,i) => playTone(f, 0.12, "square", 0.09, t + i*0.1)); },
-    lose:    () => { const t = getAudio()?.currentTime||0; [392,330,262].forEach((f,i) => playTone(f, 0.18, "sawtooth", 0.1, t + i*0.15)); },
+    correct: () => { const t = (getAudio()?.currentTime)||0; playTone(1047, 0.08, "square", 0.08); playTone(1319, 0.12, "square", 0.08, t + 0.08); },
+    wrong:   () => { const t = (getAudio()?.currentTime)||0; playTone(220, 0.15, "sawtooth", 0.1); playTone(165, 0.2, "sawtooth", 0.1, t + 0.1); },
+    start:   () => { const t = (getAudio()?.currentTime)||0; playTone(523, 0.06, "square", 0.06); playTone(659, 0.06, "square", 0.06, t + 0.06); playTone(784, 0.1, "square", 0.06, t + 0.12); },
+    win:     () => { const t = (getAudio()?.currentTime)||0; [523,659,784,1047].forEach((f,i) => playTone(f, 0.12, "square", 0.09, t + i*0.1)); },
+    lose:    () => { const t = (getAudio()?.currentTime)||0; [392,330,262].forEach((f,i) => playTone(f, 0.18, "sawtooth", 0.1, t + i*0.15)); },
     tick:    () => playTone(1200, 0.02, "square", 0.03)
 };
 
@@ -951,6 +1004,7 @@ function renderShop() {
 
 function renderMap() {
     const plotsLayer = $("map-plots"), bldLayer = $("map-buildings");
+    if (!plotsLayer || !bldLayer) return;
     let html = "";
     MAP_PLOTS_BASE.forEach(p => {
         const owned = sharedPlots[p.id];
@@ -1289,7 +1343,8 @@ function mgFastClick(root, cfg) {
         </div>`;
     const arena = $("fc-arena"), btn = $("fc-target");
     const placeTarget = () => {
-        const maxX = arena.clientWidth - 60, maxY = arena.clientHeight - 60;
+        const maxX = Math.max(0, arena.clientWidth - 60);
+        const maxY = Math.max(0, arena.clientHeight - 60);
         btn.style.left = Math.max(0, Math.random() * maxX) + "px";
         btn.style.top = Math.max(0, Math.random() * maxY) + "px";
     };
@@ -1362,8 +1417,15 @@ function mgMemory(root, cfg) {
 function mgMath(root, cfg) {
     const op = cfg.mathOps[Math.floor(Math.random() * cfg.mathOps.length)];
     let a, b, ans;
-    if (op === "*") { a = 2 + Math.floor(Math.random() * Math.floor(cfg.mathMax/4)); b = 2 + Math.floor(Math.random() * Math.floor(cfg.mathMax/4)); ans = a*b; }
-    else { a = Math.floor(Math.random() * cfg.mathMax); b = Math.floor(Math.random() * cfg.mathMax); ans = op === "+" ? a+b : a-b; }
+    if (op === "*") {
+        a = 2 + Math.floor(Math.random() * Math.floor(cfg.mathMax/4));
+        b = 2 + Math.floor(Math.random() * Math.floor(cfg.mathMax/4));
+        ans = a*b;
+    } else {
+        a = Math.floor(Math.random() * cfg.mathMax);
+        b = Math.floor(Math.random() * cfg.mathMax);
+        ans = op === "+" ? a+b : a-b;
+    }
     let html = `<div class="mg-hint">Розв'яжіть приклад:</div>`;
     html += `<div class="mg-math">${a} ${op} ${b} = ?</div>`;
     html += `<input type="number" id="math-answer" class="input-field mg-input" placeholder="Відповідь..." autocomplete="off">`;
