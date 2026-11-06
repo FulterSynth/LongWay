@@ -6,42 +6,132 @@
 <title>Kovel Delivery</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0d0d; font-family: 'Segoe UI', system-ui, sans-serif; }
-  canvas { display: block; width: 100%; height: 100%; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0d0d0d;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #e0e0e0;
+    user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* ===== HUD ===== */
   #hud {
     position: fixed; top: 12px; left: 12px; z-index: 10;
-    color: #e0e0e0; font-size: 14px; line-height: 1.6;
-    background: rgba(0,0,0,0.6); padding: 12px 16px; border-radius: 8px;
-    border: 1px solid #2a2a2a; backdrop-filter: blur(4px);
+    font-size: 14px; line-height: 1.7;
+    background: rgba(0,0,0,0.65);
+    padding: 12px 16px; border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
   }
-  #hud .coins { color: #f0c040; font-weight: 700; font-size: 18px; }
-  #hud .hint { color: #666; font-size: 11px; margin-top: 4px; }
+  #hud .row { display: flex; align-items: center; gap: 6px; }
+  #hud .coins { color: #f0c040; font-weight: 700; font-size: 20px; }
+  #hud .lvl { color: #4a9eff; font-weight: 700; }
+  #hud .hint { color: #666; font-size: 11px; margin-top: 6px; }
+
+  /* ===== JOYSTICK (мобільний) ===== */
+  #joystick {
+    position: fixed; bottom: 30px; left: 30px; z-index: 10;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.15);
+    display: none;
+  }
+  #joystick.active { display: block; }
+  #joy-knob {
+    position: absolute; top: 50%; left: 50%;
+    width: 50px; height: 50px; border-radius: 50%;
+    background: rgba(240,192,64,0.4);
+    border: 2px solid #f0c040;
+    transform: translate(-50%, -50%);
+    transition: none;
+  }
+
+  /* ===== AUTH ===== */
   #auth {
     position: fixed; inset: 0; z-index: 100;
     display: flex; align-items: center; justify-content: center;
-    background: #0d0d0d;
+    background: radial-gradient(circle at 50% 30%, #1a1a2a 0%, #0d0d0d 70%);
   }
   #auth .box {
-    background: #1a1a1a; border: 1px solid #333; border-radius: 12px;
-    padding: 32px; width: 320px; max-width: 90vw;
+    background: #16161f;
+    border: 1px solid #2a2a3a;
+    border-radius: 16px;
+    padding: 36px 28px;
+    width: 340px; max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
   }
-  #auth h1 { color: #e0e0e0; font-size: 22px; margin-bottom: 4px; }
-  #auth .sub { color: #666; font-size: 12px; margin-bottom: 20px; }
+  #auth h1 {
+    font-size: 26px; margin-bottom: 4px;
+    background: linear-gradient(135deg, #f0c040, #4a9eff);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+  }
+  #auth .sub { color: #666; font-size: 12px; margin-bottom: 24px; }
   #auth input {
-    width: 100%; padding: 10px 12px; margin-bottom: 10px;
-    background: #0d0d0d; border: 1px solid #333; border-radius: 6px;
+    width: 100%; padding: 12px 14px; margin-bottom: 10px;
+    background: #0d0d14; border: 1px solid #2a2a3a; border-radius: 8px;
     color: #e0e0e0; font-size: 14px; outline: none;
+    transition: border-color 0.2s;
   }
   #auth input:focus { border-color: #4a9eff; }
   #auth button {
-    width: 100%; padding: 12px; margin-top: 4px;
-    background: #4a9eff; border: none; border-radius: 6px;
-    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+    width: 100%; padding: 13px; margin-top: 6px;
+    background: linear-gradient(135deg, #4a9eff, #357abd);
+    border: none; border-radius: 8px;
+    color: #fff; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: transform 0.1s;
   }
-  #auth button:active { background: #357abd; }
-  #auth .toggle { text-align: center; margin-top: 12px; }
-  #auth .toggle a { color: #4a9eff; font-size: 12px; cursor: pointer; text-decoration: none; }
-  #auth .err { color: #e05555; font-size: 12px; margin-top: 8px; min-height: 16px; }
+  #auth button:active { transform: scale(0.98); }
+  #auth button:disabled { opacity: 0.5; cursor: default; }
+  #auth .err { color: #e05555; font-size: 12px; margin-top: 10px; min-height: 16px; text-align: center; }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85); border: 1px solid #333;
+    color: #e0e0e0; padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; z-index: 50; opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(-8px); }
+
+  /* ===== ORDER PANEL ===== */
+  #order-panel {
+    position: fixed; top: 12px; right: 12px; z-index: 10;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid #2a2a2a; border-radius: 10px;
+    padding: 14px 16px; min-width: 200px;
+    backdrop-filter: blur(6px);
+    display: none;
+  }
+  #order-panel.active { display: block; }
+  #order-panel .title { color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  #order-panel .target { color: #4a9eff; font-size: 15px; font-weight: 700; margin: 4px 0; }
+  #order-panel .reward { color: #f0c040; font-size: 16px; font-weight: 700; }
+  #order-panel .dist { color: #888; font-size: 12px; margin-top: 4px; }
+
+  /* ===== UPGRADE PANEL ===== */
+  #upgrade-panel {
+    position: fixed; bottom: 12px; right: 12px; z-index: 10;
+    background: rgba(0,0,0,0.75);
+    border: 1px solid #2a2a2a; border-radius: 10px;
+    padding: 10px; display: none;
+    backdrop-filter: blur(6px);
+  }
+  #upgrade-panel.active { display: block; }
+  #upgrade-panel button {
+    background: #1a1a2a; border: 1px solid #333;
+    color: #e0e0e0; padding: 8px 14px; border-radius: 6px;
+    font-size: 12px; cursor: pointer; display: flex;
+    align-items: center; gap: 6px;
+  }
+  #upgrade-panel button:active { background: #252535; }
+  #upgrade-panel button:disabled { opacity: 0.4; cursor: default; }
 </style>
 </head>
 <body>
@@ -50,28 +140,45 @@
   <div class="box">
     <h1>🛴 Kovel Delivery</h1>
     <div class="sub">Доставляй. Заробляй. Рости.</div>
-    <input id="username" placeholder="Логін" autocomplete="username">
-    <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
-    <button onclick="handleAuth()">Увійти / Зареєструватись</button>
-    <div class="toggle"><a onclick="clearError()">Вперше тут? Просто введи логін і пароль — акаунт створиться автоматично.</a></div>
+    <input id="username" placeholder="Логін" autocomplete="username" maxlength="16">
+    <input id="password" type="password" placeholder="Пароль" autocomplete="current-password" maxlength="40">
+    <button id="auth-btn" onclick="handleAuth()">Увійти</button>
     <div class="err" id="err"></div>
   </div>
 </div>
 
 <div id="hud" style="display:none">
-  <div>💰 <span class="coins" id="hud-coins">0</span></div>
-  <div>🚚 <span id="hud-vehicle">Скутер</span></div>
+  <div class="row">💰 <span class="coins" id="hud-coins">0</span></div>
+  <div class="row">🚚 <span class="lvl" id="hud-vehicle">Скутер</span></div>
+  <div class="row">📦 <span id="hud-delivered">0</span> доставок</div>
   <div class="hint">WASD / стрілки — рух</div>
 </div>
 
+<div id="order-panel">
+  <div class="title">Замовлення</div>
+  <div class="target" id="order-target">—</div>
+  <div class="reward" id="order-reward">—</div>
+  <div class="dist" id="order-dist">—</div>
+</div>
+
+<div id="upgrade-panel">
+  <button id="upgrade-btn" onclick="tryUpgrade()">⬆ Апгрейд</button>
+</div>
+
+<div id="joystick">
+  <div id="joy-knob"></div>
+</div>
+
+<div id="toast"></div>
+
 <canvas id="game"></canvas>
-
 <script type="module">
-// ===== FIREBASE (тільки config з твого файлу) =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue, onDisconnect }
-  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import {
+  getDatabase, ref, set, get, update, onValue, onDisconnect, remove
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+// ===== FIREBASE CONFIG (з твого старого файлу) =====
 const firebaseConfig = {
   apiKey: "AIzaSyDGltUohufVAc-FMIbO1sIvpd6xWSiaKdU",
   authDomain: "uniquestone.firebaseapp.com",
@@ -85,207 +192,267 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// ===== КОНСТАНТИ =====
+const VEHICLES = [
+  { name: "Скутер",      speed: 180, color: "#f0c040", upgradeCost: 500,   icon: "🛴" },
+  { name: "Скутер+",     speed: 240, color: "#ff8c42", upgradeCost: 2000,  icon: "🛵" },
+  { name: "Кур'єр-ровер", speed: 320, color: "#4a9eff", upgradeCost: 8000, icon: "🚙" },
+  { name: "Фургон",      speed: 420, color: "#27ae60", upgradeCost: 0,     icon: "🚐" }
+];
+
+const LANDMARKS = [
+  { id: "center",  x: 500, y: 300, name: "Центр",   icon: "🏛", color: "#f0c040" },
+  { id: "station", x: 620, y: 380, name: "Вокзал",  icon: "🚂", color: "#e05555" },
+  { id: "market",  x: 400, y: 350, name: "Ринок",   icon: "🛒", color: "#4a9eff" },
+  { id: "mall",    x: 700, y: 200, name: "ТЦ",      icon: "🏬", color: "#9b59b6" },
+  { id: "park",    x: 250, y: 250, name: "Парк",    icon: "🌳", color: "#27ae60" },
+  { id: "hospital",x: 800, y: 450, name: "Лікарня", icon: "🏥", color: "#e74c3c" },
+  { id: "school",  x: 180, y: 420, name: "Школа",   icon: "🏫", color: "#f39c12" },
+  { id: "factory", x: 850, y: 150, name: "Завод",   icon: "🏭", color: "#95a5a6" }
+];
+
 // ===== СТАН =====
-let me = null;              // ім'я гравця
-let coins = 0;
-let myPos = { x: 450, y: 280 };
-let otherPlayers = {};      // { name: {x,y,vehicle} }
+let me = null;
+let myData = { coins: 0, vehicle: 0, delivered: 0 };
+let myPos = { x: 500, y: 300 };
+let otherPlayers = {};
 let keys = {};
+let currentOrder = null;
+let joystickActive = false;
+let joystickVec = { x: 0, y: 0 };
+let lastMove = 0;
 
-// ===== КАРТА (стилізований Ковель) =====
-const MAP_W = 900, MAP_H = 560;
-
-// Дороги: масив ліній {x1,y1,x2,y2, w}
-const ROADS = [
-  // Головні горизонтальні
-  { x1: 0, y1: 180, x2: 900, y2: 180, w: 14 },
-  { x1: 0, y1: 360, x2: 900, y2: 360, w: 14 },
-  { x1: 0, y1: 480, x2: 900, y2: 480, w: 10 },
-  // Головні вертикальні
-  { x1: 200, y1: 0, x2: 200, y2: 560, w: 14 },
-  { x1: 450, y1: 0, x2: 450, y2: 560, w: 16 },
-  { x1: 700, y1: 0, x2: 700, y2: 560, w: 14 },
-  // Другорядні
-  { x1: 0, y1: 80, x2: 900, y2: 80, w: 6 },
-  { x1: 0, y1: 280, x2: 900, y2: 280, w: 6 },
-  { x1: 0, y1: 430, x2: 900, y2: 430, w: 6 },
-  { x1: 100, y1: 0, x2: 100, y2: 560, w: 6 },
-  { x1: 320, y1: 0, x2: 320, y2: 560, w: 6 },
-  { x1: 560, y1: 0, x2: 560, y2: 560, w: 6 },
-  { x1: 820, y1: 0, x2: 820, y2: 560, w: 6 },
-];
-
-// Річка Турія (приблизна, стилізована)
-const RIVER = [
-  { x: 50, y: 520 }, { x: 120, y: 470 }, { x: 180, y: 440 },
-  { x: 260, y: 420 }, { x: 340, y: 380 }, { x: 400, y: 340 },
-  { x: 480, y: 310 }, { x: 560, y: 290 }, { x: 640, y: 260 },
-  { x: 720, y: 220 }, { x: 800, y: 190 }, { x: 860, y: 170 }
-];
-
-// Квартали (прямокутники між дорогами)
-const BLOCKS = [
-  { x: 110, y: 90, w: 80, h: 80 }, { x: 210, y: 90, w: 100, h: 80 },
-  { x: 330, y: 90, w: 110, h: 80 }, { x: 460, y: 90, w: 90, h: 80 },
-  { x: 570, y: 90, w: 120, h: 80 }, { x: 710, y: 90, w: 100, h: 80 },
-  { x: 110, y: 190, w: 80, h: 80 }, { x: 210, y: 190, w: 100, h: 80 },
-  { x: 330, y: 190, w: 110, h: 80 }, { x: 460, y: 190, w: 90, h: 80 },
-  { x: 570, y: 190, w: 120, h: 80 }, { x: 710, y: 190, w: 100, h: 80 },
-  { x: 110, y: 290, w: 80, h: 60 }, { x: 210, y: 290, w: 100, h: 60 },
-  { x: 330, y: 290, w: 110, h: 60 }, { x: 460, y: 290, w: 90, h: 60 },
-  { x: 570, y: 290, w: 120, h: 60 }, { x: 710, y: 290, w: 100, h: 60 },
-  { x: 110, y: 370, w: 80, h: 50 }, { x: 210, y: 370, w: 100, h: 50 },
-  { x: 330, y: 370, w: 110, h: 50 }, { x: 460, y: 370, w: 90, h: 50 },
-  { x: 570, y: 370, w: 120, h: 50 }, { x: 710, y: 370, w: 100, h: 50 },
-  { x: 110, y: 440, w: 80, h: 30 }, { x: 210, y: 440, w: 100, h: 30 },
-  { x: 330, y: 440, w: 110, h: 30 }, { x: 460, y: 440, w: 90, h: 30 },
-  { x: 570, y: 440, w: 120, h: 30 }, { x: 710, y: 440, w: 100, h: 30 },
-];
-
-// ===== CANVAS =====
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-let camX = 0, camY = 0;
-
-function resize() {
-  canvas.width = window.innerWidth * devicePixelRatio;
-  canvas.height = window.innerHeight * devicePixelRatio;
-  canvas.style.width = window.innerWidth + 'px';
-  canvas.style.height = window.innerHeight + 'px';
-  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-}
-window.addEventListener('resize', resize);
-resize();
-
-// ===== АВТОРИЗАЦІЯ =====
-window.clearError = () => document.getElementById('err').textContent = '';
-
-async function hash(s) {
+// ===== УТИЛІТИ =====
+async function hashPwd(s) {
   const b = new TextEncoder().encode(s);
-  const h = await crypto.subtle.digest('SHA-256', b);
-  return Array.from(new Uint8Array(h)).map(x => x.toString(16).padStart(2,'0')).join('');
+  const h = await crypto.subtle.digest("SHA-256", b);
+  return Array.from(new Uint8Array(h)).map(x => x.toString(16).padStart(2,"0")).join("");
 }
 
-window.handleAuth = async function() {
-  const u = document.getElementById('username').value.trim();
-  const p = document.getElementById('password').value;
-  const err = document.getElementById('err');
-  if (!u || !p) { err.textContent = 'Заповни всі поля'; return; }
-  if (u.length < 3) { err.textContent = 'Логін мінімум 3 символи'; return; }
-  if (p.length < 4) { err.textContent = 'Пароль мінімум 4 символи'; return; }
+function toast(msg, dur = 2000) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), dur);
+}
 
-  err.textContent = '...';
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function fmt(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n/1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n/1e3).toFixed(1) + "K";
+  return Math.floor(n).toString();
+}
+
+// ===== AUTH =====
+window.handleAuth = async function() {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value;
+  const err = document.getElementById("err");
+  const btn = document.getElementById("auth-btn");
+
+  err.textContent = "";
+  if (!u || !p) { err.textContent = "Заповни всі поля"; return; }
+  if (u.length < 3) { err.textContent = "Логін мінімум 3 символи"; return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(u)) { err.textContent = "Логін: латиниця, цифри, _"; return; }
+  if (p.length < 4) { err.textContent = "Пароль мінімум 4 символи"; return; }
+
+  btn.disabled = true; err.textContent = "Перевірка...";
   try {
-    const h = await hash(p);
-    const snap = await get(ref(db, 'users/' + u));
+    const h = await hashPwd(p);
+    const snap = await get(ref(db, "users/" + u));
+
     if (snap.exists()) {
-      if (snap.val().password !== h) { err.textContent = 'Невірний пароль'; return; }
+      if (snap.val().password !== h) { err.textContent = "Невірний пароль"; btn.disabled = false; return; }
+      myData = {
+        coins: snap.val().coins || 0,
+        vehicle: snap.val().vehicle || 0,
+        delivered: snap.val().delivered || 0
+      };
+      myPos = { x: snap.val().x || 500, y: snap.val().y || 300 };
     } else {
-      await set(ref(db, 'users/' + u), {
-        password: h,
-        createdAt: Date.now(),
-        coins: 0,
-        vehicle: 0,
-        x: 450, y: 280
+      await set(ref(db, "users/" + u), {
+        password: h, createdAt: Date.now(),
+        coins: 0, vehicle: 0, delivered: 0,
+        x: 500, y: 300
       });
+      myData = { coins: 0, vehicle: 0, delivered: 0 };
+      myPos = { x: 500, y: 300 };
     }
+
     me = u;
-    coins = snap.exists() ? (snap.val().coins || 0) : 0;
-    myPos = { x: 450, y: 280 };
-    document.getElementById('auth').style.display = 'none';
-    document.getElementById('hud').style.display = 'block';
-    document.getElementById('hud-coins').textContent = coins;
+    localStorage.setItem("kd_user", u);
+    localStorage.setItem("kd_hash", h);
+
+    document.getElementById("auth").style.display = "none";
+    document.getElementById("hud").style.display = "block";
+    document.getElementById("upgrade-panel").classList.add("active");
+
     startGame();
+    updateHUD();
+    spawnOrder();
   } catch(e) {
-    err.textContent = 'Помилка: ' + e.message;
+    err.textContent = "Помилка: " + e.message;
+    btn.disabled = false;
   }
 };
 
-// ===== ГРА =====
-let lastTime = 0;
-let onlineRef = null;
+// Enter в полях
+["username", "password"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuth(); });
+});
 
-function startGame() {
-  // Позиція в Firebase + presence
-  const myRef = ref(db, 'online/' + me);
-  set(myRef, { x: myPos.x, y: myPos.y, vehicle: 0, lastSeen: Date.now() });
-  onDisconnect(myRef).remove();
+function updateHUD() {
+  document.getElementById("hud-coins").textContent = fmt(myData.coins);
+  document.getElementById("hud-vehicle").textContent = VEHICLES[myData.vehicle].icon + " " + VEHICLES[myData.vehicle].name;
+  document.getElementById("hud-delivered").textContent = myData.delivered;
 
-  // Слухаємо всіх онлайн
-  onlineRef = ref(db, 'online');
-  onValue(onlineRef, snap => {
-    otherPlayers = {};
-    if (snap.exists()) {
-      snap.val();
-      Object.entries(snap.val()).forEach(([name, data]) => {
-        if (name !== me && Date.now() - (data.lastSeen || 0) < 60000) {
-          otherPlayers[name] = data;
-        }
-      });
-    }
-  });
-
-  // Оновлюємо позицію в Firebase кожні 200мс
-  setInterval(() => {
-    if (me) update(ref(db, 'online/' + me), { x: myPos.x, y: myPos.y, lastSeen: Date.now() });
-  }, 200);
-
-  requestAnimationFrame(loop);
-}
-
-function loop(t) {
-  const dt = Math.min((t - lastTime) / 1000, 0.1);
-  lastTime = t;
-
-  update(dt);
-  draw();
-  requestAnimationFrame(loop);
-}
-
-function update(dt) {
-  let dx = 0, dy = 0;
-  if (keys['w'] || keys['arrowup']) dy -= 1;
-  if (keys['s'] || keys['arrowdown']) dy += 1;
-  if (keys['a'] || keys['arrowleft']) dx -= 1;
-  if (keys['d'] || keys['arrowright']) dx += 1;
-  if (dx || dy) {
-    const len = Math.hypot(dx, dy);
-    const speed = 180;
-    myPos.x += (dx / len) * speed * dt;
-    myPos.y += (dy / len) * speed * dt;
-    myPos.x = Math.max(10, Math.min(MAP_W - 10, myPos.x));
-    myPos.y = Math.max(10, Math.min(MAP_H - 10, myPos.y));
+  const btn = document.getElementById("upgrade-btn");
+  const next = VEHICLES[myData.vehicle + 1];
+  if (!next) { btn.textContent = "🏆 Максимум"; btn.disabled = true; }
+  else {
+    const canBuy = myData.coins >= next.upgradeCost;
+    btn.textContent = `⬆ ${next.icon} ${next.name} — ${fmt(next.upgradeCost)}💰`;
+    btn.disabled = !canBuy;
   }
-
-  // Камера слідує
-  camX += (myPos.x - camX - window.innerWidth / 2) * 0.08;
-  camY += (myPos.y - camY - window.innerHeight / 2) * 0.08;
 }
 
+window.tryUpgrade = async function() {
+  const next = VEHICLES[myData.vehicle + 1];
+  if (!next) return;
+  if (myData.coins < next.upgradeCost) { toast("Недостатньо монет"); return; }
+  myData.coins -= next.upgradeCost;
+  myData.vehicle += 1;
+  updateHUD();
+  await savePlayer();
+  toast("Апгрейд! Тепер ти " + next.name);
+};
+
+async function savePlayer() {
+  if (!me) return;
+  try {
+    await update(ref(db, "users/" + me), {
+      coins: myData.coins,
+      vehicle: myData.vehicle,
+      delivered: myData.delivered,
+      x: Math.round(myPos.x),
+      y: Math.round(myPos.y)
+    });
+  } catch(e) { console.error(e); }
+}
+ // ===== КАРТА КОВЕЛЯ (стилізована) =====
+const MAP_W = 1000, MAP_H = 600;
+
+const RIVER = [
+  { x: 320, y: 600 }, { x: 340, y: 540 }, { x: 310, y: 480 },
+  { x: 330, y: 420 }, { x: 360, y: 370 }, { x: 340, y: 310 },
+  { x: 370, y: 250 }, { x: 350, y: 190 }, { x: 380, y: 130 },
+  { x: 360, y: 60 },  { x: 390, y: 0 }
+];
+
+const RAILWAYS = [
+  { x1: 620, y1: 0,   x2: 620, y2: 600 },
+  { x1: 620, y1: 300, x2: 200, y2: 300 },
+  { x1: 620, y1: 380, x2: 1000, y2: 380 }
+];
+
+const ROADS = [
+  // Виїзди
+  { x1: 500, y1: 300, x2: 540, y2: 600, w: 16 },
+  { x1: 500, y1: 300, x2: 470, y2: 0,   w: 16 },
+  { x1: 500, y1: 300, x2: 0,   y2: 320, w: 16 },
+  { x1: 500, y1: 300, x2: 1000, y2: 280, w: 16 },
+  // Кільцева
+  { x1: 100, y1: 100, x2: 900, y2: 100, w: 12 },
+  { x1: 100, y1: 500, x2: 900, y2: 500, w: 12 },
+  { x1: 100, y1: 100, x2: 100, y2: 500, w: 12 },
+  { x1: 900, y1: 100, x2: 900, y2: 500, w: 12 },
+  // Центр
+  { x1: 100, y1: 300, x2: 900, y2: 300, w: 10 },
+  { x1: 500, y1: 100, x2: 500, y2: 500, w: 10 },
+  // Другорядні
+  { x1: 250, y1: 100, x2: 250, y2: 500, w: 6 },
+  { x1: 380, y1: 100, x2: 380, y2: 500, w: 6 },
+  { x1: 680, y1: 100, x2: 680, y2: 500, w: 6 },
+  { x1: 800, y1: 100, x2: 800, y2: 500, w: 6 },
+  { x1: 100, y1: 200, x2: 900, y2: 200, w: 6 },
+  { x1: 100, y1: 400, x2: 900, y2: 400, w: 6 }
+];
+
+const BLOCKS = [];
+(function buildBlocks() {
+  const XG = [100, 250, 380, 500, 680, 800, 900];
+  const YG = [100, 200, 300, 400, 500];
+  for (let i = 0; i < XG.length - 1; i++) {
+    for (let j = 0; j < YG.length - 1; j++) {
+      const bx = XG[i] + 8, by = YG[j] + 8;
+      const bw = XG[i+1] - XG[i] - 16, bh = YG[j+1] - YG[j] - 16;
+      const cx = bx + bw / 2;
+      if (cx > 280 && cx < 420) continue; // річка
+      BLOCKS.push({ x: bx, y: by, w: bw, h: bh });
+    }
+  }
+})();
+
+// ===== CANVAS =====
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let camX = MAP_W / 2, camY = MAP_H / 2;
+let zoom = 1;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Підлаштувати zoom під екран
+  zoom = Math.max(window.innerWidth / MAP_W, window.innerHeight / MAP_H) * 1.05;
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ===== РЕНДЕР =====
 function draw() {
   const w = window.innerWidth, h = window.innerHeight;
-  ctx.fillStyle = '#0d0d0d';
+  ctx.fillStyle = "#0d0d0d";
   ctx.fillRect(0, 0, w, h);
 
+  // Камера
+  const cx = myPos.x, cy = myPos.y;
+  const offX = w / 2 - cx * zoom;
+  const offY = h / 2 - cy * zoom;
+
   ctx.save();
-  ctx.translate(-camX, -camY);
+  ctx.translate(offX, offY);
+  ctx.scale(zoom, zoom);
+
+  // Земля
+  ctx.fillStyle = "#141414";
+  ctx.fillRect(0, 0, MAP_W, MAP_H);
 
   // Річка
   ctx.beginPath();
   ctx.moveTo(RIVER[0].x, RIVER[0].y);
   for (let i = 1; i < RIVER.length; i++) ctx.lineTo(RIVER[i].x, RIVER[i].y);
-  ctx.strokeStyle = '#1a3a5a';
-  ctx.lineWidth = 28;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  ctx.strokeStyle = "#1a3a5a";
+  ctx.lineWidth = 26;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.stroke();
 
   // Квартали
+  ctx.fillStyle = "#1a1a1a";
+  ctx.strokeStyle = "#252525";
+  ctx.lineWidth = 1;
   BLOCKS.forEach(b => {
-    ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(b.x, b.y, b.w, b.h);
-    ctx.strokeStyle = '#252525';
-    ctx.lineWidth = 1;
     ctx.strokeRect(b.x, b.y, b.w, b.h);
   });
 
@@ -294,70 +461,300 @@ function draw() {
     ctx.beginPath();
     ctx.moveTo(r.x1, r.y1);
     ctx.lineTo(r.x2, r.y2);
-    ctx.strokeStyle = '#2a2a2a';
+    ctx.strokeStyle = "#2a2a2a";
     ctx.lineWidth = r.w;
-    ctx.lineCap = 'round';
+    ctx.lineCap = "round";
     ctx.stroke();
-    // розмітка
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([8, 12]);
+    if (r.w >= 10) {
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([8, 12]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // Залізниця
+  RAILWAYS.forEach(r => {
+    ctx.beginPath();
+    ctx.moveTo(r.x1, r.y1);
+    ctx.lineTo(r.x2, r.y2);
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([4, 6]);
     ctx.stroke();
     ctx.setLineDash([]);
   });
 
+  // Орієнтири
+  LANDMARKS.forEach(l => {
+    ctx.fillStyle = l.color;
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(l.icon, l.x, l.y);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = "10px sans-serif";
+    ctx.fillText(l.name, l.x, l.y - 18);
+  });
+
+  // Замовлення (ціль)
+  if (currentOrder) {
+    const t = currentOrder.target;
+    const pulse = Math.sin(Date.now() / 300) * 0.3 + 1;
+    ctx.strokeStyle = "#f0c040";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, 20 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#f0c040";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("📦", t.x, t.y);
+  }
+
   // Інші гравці
   Object.entries(otherPlayers).forEach(([name, p]) => {
-    ctx.fillStyle = '#4a9eff';
+    const v = VEHICLES[p.vehicle] || VEHICLES[0];
+    ctx.fillStyle = "#4a9eff";
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#888';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(name, p.x, p.y - 12);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(name, p.x, p.y - 14);
   });
 
   // Я
-  ctx.fillStyle = '#f0c040';
+  const myV = VEHICLES[myData.vehicle];
+  ctx.fillStyle = myV.color;
   ctx.beginPath();
-  ctx.arc(myPos.x, myPos.y, 8, 0, Math.PI * 2);
+  ctx.arc(myPos.x, myPos.y, 10, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#f0c040';
-  ctx.font = '11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(me || '', myPos.x, myPos.y - 14);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(myV.icon, myPos.x, myPos.y);
 
   ctx.restore();
 }
+ // ===== РУХ =====
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) {
+    keys[k] = true;
+    e.preventDefault();
+  }
+});
+window.addEventListener("keyup", e => {
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+});
 
-// ===== КЕРУВАННЯ =====
-window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+function updateMove(dt) {
+  let dx = 0, dy = 0;
+  if (keys["w"] || keys["arrowup"]) dy -= 1;
+  if (keys["s"] || keys["arrowdown"]) dy += 1;
+  if (keys["a"] || keys["arrowleft"]) dx -= 1;
+  if (keys["d"] || keys["arrowright"]) dx += 1;
+  if (joystickActive) { dx += joystickVec.x; dy += joystickVec.y; }
 
-// Свайп (мобільний)
-let touchStart = null;
-canvas.addEventListener('touchstart', e => {
-  const t = e.touches[0];
-  touchStart = { x: t.clientX, y: t.clientY };
-}, { passive: true });
-canvas.addEventListener('touchmove', e => {
-  if (!touchStart) return;
-  const t = e.touches[0];
-  const dx = t.clientX - touchStart.x;
-  const dy = t.clientY - touchStart.y;
-  const len = Math.hypot(dx, dy) || 1;
-  keys['a'] = dx < -10; keys['d'] = dx > 10;
-  keys['w'] = dy < -10; keys['s'] = dy > 10;
-  touchStart = { x: t.clientX, y: t.clientY };
-}, { passive: true });
-canvas.addEventListener('touchend', () => {
-  keys = {};
-  touchStart = null;
-}, { passive: true });
+  if (dx || dy) {
+    const len = Math.hypot(dx, dy);
+    const spd = VEHICLES[myData.vehicle].speed;
+    myPos.x += (dx / len) * spd * dt;
+    myPos.y += (dy / len) * spd * dt;
+    myPos.x = Math.max(20, Math.min(MAP_W - 20, myPos.x));
+    myPos.y = Math.max(20, Math.min(MAP_H - 20, myPos.y));
+    lastMove = Date.now();
+  }
+}
 
-// Старт
-document.getElementById('username').focus();
+// ===== ЗАМОВЛЕННЯ =====
+function spawnOrder() {
+  const available = LANDMARKS.filter(l => {
+    const d = dist(myPos, l);
+    return d > 100 && d < 600;
+  });
+  if (!available.length) { currentOrder = null; return; }
+  const target = available[Math.floor(Math.random() * available.length)];
+  const d = dist(myPos, target);
+  const reward = Math.floor(20 + d * 0.3 + Math.random() * 30);
+  currentOrder = { target, reward, spawnedAt: Date.now() };
+
+  const panel = document.getElementById("order-panel");
+  panel.classList.add("active");
+  document.getElementById("order-target").textContent = target.icon + " " + target.name;
+  document.getElementById("order-reward").textContent = "+" + reward + " 💰";
+  updateOrderDistance();
+}
+
+function updateOrderDistance() {
+  if (!currentOrder) return;
+  const d = dist(myPos, currentOrder.target);
+  document.getElementById("order-dist").textContent = Math.round(d) + " м";
+}
+
+async function checkDelivery() {
+  if (!currentOrder) return;
+  const d = dist(myPos, currentOrder.target);
+  if (d < 30) {
+    myData.coins += currentOrder.reward;
+    myData.delivered += 1;
+    updateHUD();
+    toast("✅ Доставлено! +" + currentOrder.reward + " 💰");
+    currentOrder = null;
+    document.getElementById("order-panel").classList.remove("active");
+    await savePlayer();
+    setTimeout(spawnOrder, 800);
+  }
+}
+
+// ===== FIREBASE SYNC =====
+let onlineRef = null;
+let posInterval = null;
+
+function startGame() {
+  // Позиція + presence
+  const myRef = ref(db, "online/" + me);
+  set(myRef, {
+    x: Math.round(myPos.x), y: Math.round(myPos.y),
+    vehicle: myData.vehicle, lastSeen: Date.now()
+  });
+  onDisconnect(myRef).remove();
+
+  // Слухаємо всіх
+  onlineRef = ref(db, "online");
+  onValue(onlineRef, snap => {
+    otherPlayers = {};
+    if (snap.exists()) {
+      const now = Date.now();
+      Object.entries(snap.val()).forEach(([name, data]) => {
+        if (name !== me && now - (data.lastSeen || 0) < 30000) {
+          otherPlayers[name] = data;
+        }
+      });
+    }
+  });
+
+  // Оновлення позиції кожні 150мс (тільки якщо рухався)
+  if (posInterval) clearInterval(posInterval);
+  posInterval = setInterval(() => {
+    if (!me) return;
+    if (Date.now() - lastMove > 500 && Date.now() - (window._lastSavePos || 0) > 2000) {
+      // стоїмо — рідше оновлюємо
+    }
+    update(ref(db, "online/" + me), {
+      x: Math.round(myPos.x), y: Math.round(myPos.y),
+      vehicle: myData.vehicle, lastSeen: Date.now()
+    });
+    window._lastSavePos = Date.now();
+  }, 150);
+
+  // Автозбереження гравця кожні 5с
+  setInterval(savePlayer, 5000);
+}
+
+// ===== JOYSTICK =====
+const joyEl = document.getElementById("joystick");
+const knob = document.getElementById("joy-knob");
+let joyCenter = { x: 0, y: 0 };
+
+function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}
+if (isTouchDevice()) joyEl.classList.add("active");
+
+function joyStart(e) {
+  e.preventDefault();
+  const t = e.touches ? e.touches[0] : e;
+  const r = joyEl.getBoundingClientRect();
+  joyCenter = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  joystickActive = true;
+  joyMove(e);
+}
+function joyMove(e) {
+  if (!joystickActive) return;
+  e.preventDefault();
+  const t = e.touches ? e.touches[0] : e;
+  let dx = t.clientX - joyCenter.x;
+  let dy = t.clientY - joyCenter.y;
+  const max = 45;
+  const d = Math.hypot(dx, dy);
+  if (d > max) { dx = dx / d * max; dy = dy / d * max; }
+  knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  joystickVec = { x: dx / max, y: dy / max };
+}
+function joyEnd(e) {
+  e.preventDefault();
+  joystickActive = false;
+  joystickVec = { x: 0, y: 0 };
+  knob.style.transform = "translate(-50%, -50%)";
+}
+joyEl.addEventListener("touchstart", joyStart, { passive: false });
+joyEl.addEventListener("touchmove", joyMove, { passive: false });
+joyEl.addEventListener("touchend", joyEnd, { passive: false });
+joyEl.addEventListener("mousedown", joyStart);
+window.addEventListener("mousemove", e => { if (joystickActive) joyMove(e); });
+window.addEventListener("mouseup", e => { if (joystickActive) joyEnd(e); });
+
+// ===== ЦИКЛ =====
+let lastT = 0;
+let orderDistTimer = 0;
+
+function loop(t) {
+  const dt = Math.min((t - lastT) / 1000, 0.1);
+  lastT = t;
+
+  updateMove(dt);
+  checkDelivery();
+  draw();
+
+  // Оновлення відстані раз на 200мс
+  if (t - orderDistTimer > 200) {
+    updateOrderDistance();
+    orderDistTimer = t;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ===== AUTO LOGIN =====
+(async function autoLogin() {
+  try {
+    const u = localStorage.getItem("kd_user");
+    const h = localStorage.getItem("kd_hash");
+    if (!u || !h) return;
+    const snap = await get(ref(db, "users/" + u));
+    if (snap.exists() && snap.val().password === h) {
+      document.getElementById("username").value = u;
+      document.getElementById("password").value = "________";
+      myData = {
+        coins: snap.val().coins || 0,
+        vehicle: snap.val().vehicle || 0,
+        delivered: snap.val().delivered || 0
+      };
+      myPos = { x: snap.val().x || 500, y: snap.val().y || 300 };
+      me = u;
+      document.getElementById("auth").style.display = "none";
+      document.getElementById("hud").style.display = "block";
+      document.getElementById("upgrade-panel").classList.add("active");
+      startGame();
+      updateHUD();
+      spawnOrder();
+    }
+  } catch(e) { console.error(e); }
+})();
+
+// ===== СТАРТ =====
+document.getElementById("username").focus();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
