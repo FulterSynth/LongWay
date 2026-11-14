@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="2.4.0">
-<title>Win95 Work — v2.4.0</title>
+<meta name="version" content="3.0.0">
+<title>WinXP Work — Ковель Економіка v3.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -13,70 +13,70 @@
 <!-- AUTH -->
 <div class="window" id="auth-window">
     <div class="title-bar">
-        <span class="title-icon">🖥️</span>
-        <span class="title-text">Win95 Work — Вхід</span>
+        <span class="title-icon">🪟</span>
+        <span class="title-text">Windows XP Work — Вхід у систему Ковеля</span>
         <div class="win-controls">
             <button class="win-btn" disabled>_</button>
             <button class="win-btn" disabled>□</button>
-            <button class="win-btn" disabled>✕</button>
+            <button class="win-btn close-btn" disabled>✕</button>
         </div>
     </div>
-    <div style="padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+    <div style="padding:14px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
         <div class="auth-tabs">
-            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
-            <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
+            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">🔑 Вхід</button>
+            <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">📝 Реєстрація</button>
         </div>
-        <div class="group-box" data-label="Обліковий запис">
-            <div class="form-row"><label>Логін:</label><input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20"></div>
-            <div class="form-row"><label>Пароль:</label><input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40"></div>
-            <div class="form-row" id="confirm-row" style="display:none;"><label>Повторіть:</label><input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40"></div>
+        <div class="group-box" data-label="Обліковий запис Windows XP">
+            <div class="form-row"><label>Логін:</label><input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20" placeholder="Ваш нікнейм..."></div>
+            <div class="form-row"><label>Пароль:</label><input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40" placeholder="Пароль..."></div>
+            <div class="form-row" id="confirm-row" style="display:none;"><label>Повторіть:</label><input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40" placeholder="Повторіть пароль..."></div>
         </div>
         <div class="error-msg" id="auth-error"></div>
         <div class="info-msg" id="auth-info"></div>
-        <div class="btn-row"><button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button></div>
+        <div class="btn-row"><button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти в систему</button></div>
         <div class="auth-footer"><button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button></div>
     </div>
     <div class="status-bar">
-        <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v2.4.0</div>
+        <div class="panel" id="auth-status">Система Windows XP готова</div>
+        <div class="panel small">v3.0 XP</div>
     </div>
 </div>
 
 <!-- GAME -->
 <div class="window" id="game-screen">
     <div class="title-bar">
-        <span class="title-icon">🖥️</span>
-        <span class="title-text" id="game-title">Win95 Work</span>
+        <span class="title-icon">🪟</span>
+        <span class="title-text" id="game-title">WinXP Work</span>
         <div class="win-controls">
             <button class="win-btn" id="sound-toggle-btn" onclick="toggleSound()" title="Звук">🔊</button>
             <button class="win-btn" disabled>_</button>
-            <button class="win-btn" onclick="logout()" title="Вийти">✕</button>
+            <button class="win-btn close-btn" onclick="logout()" title="Вийти з акаунта">✕</button>
+        </div>
+    </div>
+
+    <!-- Інтуїтивна верхня панель швидкого огляду (видно на всіх вкладках) -->
+    <div class="xp-quick-hud">
+        <div class="xp-hud-left">
+            <div class="xp-hud-pill coins" title="Баланс гаманця">💰 <b id="hud-coins">0</b></div>
+            <div class="xp-hud-pill" title="Пасивний дохід від нерухомості за хвилину">🏘️ <b id="hud-income">+0/хв</b></div>
+            <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
+        </div>
+        <div class="xp-hud-right">
+            <span>👤 <span id="stat-user">—</span></span>
         </div>
     </div>
 
     <div class="tab-strip">
         <button class="tab active" id="tabnav-work" onclick="switchPage('work')">💼 Робота</button>
-        <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа</button>
+        <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа Ковеля</button>
         <button class="tab" id="tabnav-bank" onclick="switchPage('bank')">🏦 Банк</button>
-        <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🛒 Курси</button>
+        <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🎓 Курси</button>
         <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
     </div>
 
     <div class="tab-content">
         <!-- РОБОТА -->
         <div class="page active" id="page-work">
-            <div class="group-box" data-label="Статистика">
-                <div class="stats-grid">
-                    <div class="stat-item"><span class="label">💰 Монети:</span><span class="value" id="stat-coins">0</span></div>
-                    <div class="stat-item"><span class="label">💼 Посада:</span><span class="value" id="stat-job">—</span></div>
-                    <div class="stat-item"><span class="label">⭐ Досвід:</span><span class="value" id="stat-xp">0</span></div>
-                    <div class="stat-item"><span class="label">📈 Буст XP:</span><span class="value" id="stat-boost">0%</span></div>
-                    <div class="stat-item"><span class="label">🏘️ Дохід/хв:</span><span class="value" id="stat-income">+0</span></div>
-                    <div class="stat-item"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
-                </div>
-            </div>
-
-            <!-- Поточний роботодавець та звільнення / перехід -->
             <div class="employer-bar">
                 <div class="employer-info">
                     <span class="emp-label">Поточне місце роботи:</span>
@@ -84,12 +84,12 @@
                     <span class="emp-sub" id="emp-current-sub">Власник: Міська рада Ковеля</span>
                 </div>
                 <div class="employer-actions">
-                    <button class="btn" id="btn-join-corp" onclick="joinKovelCorp()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px">🏢 В КовельКорп</button>
-                    <button class="btn" id="btn-resign" onclick="resignCurrentJob()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px;color:#800000">🚪 Звільнитись</button>
+                    <button class="btn default" id="btn-join-corp" onclick="joinKovelCorp()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px">🏢 В КовельКорп</button>
+                    <button class="btn danger" id="btn-resign" onclick="resignCurrentJob()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px">🚪 Звільнитись</button>
                 </div>
             </div>
 
-            <div class="course-blocker" id="course-blocker">📚 Зараз ви проходите курс. Працювати неможливо.<br><span id="course-blocker-timer">—</span></div>
+            <div class="course-blocker" id="course-blocker">📚 Зараз ви проходите курс підвищення кваліфікації. Працювати тимчасово неможливо.<br><b id="course-blocker-timer">—</b></div>
 
             <div class="click-area">
                 <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
@@ -100,13 +100,12 @@
                     <div class="task-reward" id="task-reward">Нагорода: —</div>
                 </div>
 
-                <!-- Кнопка роботи (міні-ігри в КовельКорп АБО кліки за зарплату на гравця) -->
                 <button id="big-click" onclick="startTaskOrShowStatus()">
                     <span class="big-emoji" id="big-click-emoji">💼</span>
                     <span class="click-label" id="big-click-label">ПРАЦЮВАТИ</span>
+                    <span class="click-sub" id="big-click-sub">Натисніть, щоб виконати дію</span>
                 </button>
 
-                <!-- Контейнер активної міні-гри в стилі Win95 (тільки для КовельКорп) -->
                 <div class="mg-window" id="mg-window" style="display:none;">
                     <div class="mg-title-bar">
                         <span id="mg-icon">🎮</span>
@@ -116,18 +115,43 @@
                     <div class="mg-body" id="mg-body"></div>
                 </div>
 
-                <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись</button>
+                <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись у КовельКорп</button>
             </div>
 
-            <!-- Біржа праці: робота в магазинах і підприємствах інших гравців -->
-            <div class="group-box" data-label="🏪 Вакансії у бізнесах гравців Ковеля (кліки за зарплату)">
-                <div class="muted" style="margin-bottom:6px">Влаштуйтесь у магазин, піцерію чи завод іншого гравця. Там окремий досвід, свої посади та миттєва зарплата за кожен клік із каси власника!</div>
+            <!-- Інтуїтивні під-вкладки робочої панелі -->
+            <div class="work-mode-tabs">
+                <button class="work-mode-btn active" id="wtab-vacancies" onclick="switchWorkSubtab('vacancies')">🏪 Вакансії гравців <span class="badge-cnt" id="badge-vacancies">0</span></button>
+                <button class="work-mode-btn" id="wtab-mybiz" onclick="switchWorkSubtab('mybiz')">👨‍💼 Мої робітники та ЗП <span class="badge-cnt" id="badge-mybiz">0</span></button>
+                <button class="work-mode-btn" id="wtab-career" onclick="switchWorkSubtab('career')">📊 Статус і Кар'єра</button>
+            </div>
+
+            <!-- Під-вкладка 1: Вакансії у бізнесах гравців -->
+            <div class="group-box" id="work-sub-vacancies" data-label="🏪 Біржа праці у бізнесах гравців Ковеля">
+                <div class="muted" style="margin-bottom:6px">
+                    Влаштуйтесь на підприємство іншого гравця. Робота виконується покроковими замовленнями з кулдауном. <b>Звання тут сам гравець не прокачує</b> — власник бачить вашу статистику замовлень і особисто підвищує вам зарплату та посаду!
+                </div>
                 <div class="private-jobs-list" id="private-jobs-list"></div>
             </div>
 
-            <!-- Кар'єра поточного напрямку -->
-            <div class="group-box" id="career-group-box" data-label="Кар'єра">
-                <div class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
+            <!-- Під-вкладка 2: Керування своїми підприємствами та зарплатами робітників -->
+            <div class="group-box" id="work-sub-mybiz" data-label="👨‍💼 Мої підприємства: статистика робітників та підвищення ЗП" style="display:none;">
+                <div class="muted" style="margin-bottom:6px">
+                    Тут ви бачите всіх гравців, які працюють у ваших бізнесах, скільки замовлень вони виконали, та можете <b>підвищити або змінити зарплату й посаду</b> кожному працівнику індивідуально.
+                </div>
+                <div id="owner-businesses-hub" class="private-jobs-list" style="max-height:290px;"></div>
+            </div>
+
+            <!-- Під-вкладка 3: Кар'єра та детальна статистика -->
+            <div class="group-box" id="work-sub-career" data-label="📊 Особова справа та Кар'єра" style="display:none;">
+                <div class="stats-grid" style="margin-bottom:8px;">
+                    <div class="stat-item"><span class="label">💰 Гаманець:</span><span class="value" id="stat-coins">0</span></div>
+                    <div class="stat-item"><span class="label">💼 Посада:</span><span class="value" id="stat-job">—</span></div>
+                    <div class="stat-item"><span class="label">⭐ IT-Досвід:</span><span class="value" id="stat-xp">0</span></div>
+                    <div class="stat-item"><span class="label">📈 Буст XP:</span><span class="value" id="stat-boost">0%</span></div>
+                    <div class="stat-item"><span class="label">🏘️ Дохід/хв:</span><span class="value" id="stat-income">+0</span></div>
+                    <div class="stat-item"><span class="label">🏦 Депозит:</span><span class="value" id="stat-deposit">0</span></div>
+                </div>
+                <div id="career-xp-wrap" class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
                 <div class="jobs-list" id="jobs-list"></div>
             </div>
         </div>
@@ -136,13 +160,13 @@
         <div class="page" id="page-bank">
             <div class="bank-led-banner">
                 <div class="bank-led-left">
-                    <span class="bank-led-title">🏦 КОВЕЛЬ-БАНК 95</span>
-                    <span class="bank-led-sub">вул. Незалежності, 73 • Ліцензія НБУ #095</span>
+                    <span class="bank-led-title">🏦 КОВЕЛЬ-БАНК XP</span>
+                    <span class="bank-led-sub">вул. Незалежності, 73 • Фінансова система Luna</span>
                 </div>
                 <div class="bank-led-right">
                     <div class="bank-led-row"><span>ГАМАНЕЦЬ:</span><b id="bank-top-wallet">0 💰</b></div>
-                    <div class="bank-led-row"><span>ДЕПОЗИТ:</span><b id="bank-top-deposit" style="color:#00ff66">0 💰</b></div>
-                    <div class="bank-led-row"><span>БОРГ:</span><b id="bank-top-debt" style="color:#ff6666">0 💰</b></div>
+                    <div class="bank-led-row"><span>ДЕПОЗИТ:</span><b id="bank-top-deposit" style="color:#86efac">0 💰</b></div>
+                    <div class="bank-led-row"><span>БОРГ:</span><b id="bank-top-debt" style="color:#fca5a5">0 💰</b></div>
                 </div>
             </div>
 
@@ -154,13 +178,12 @@
                 <button class="bank-tab" id="btab-credit" onclick="switchBankTab('credit')">💳 Кредитний відділ</button>
             </div>
 
-            <!-- ПІДВКЛАДКА ДЕПОЗИТУ -->
             <div id="bank-panel-deposit" class="bank-subpanel">
                 <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал»">
-                    <div class="credit-card" style="background:#e4f2e4;border-color:#2d7a2d">
+                    <div class="credit-card" style="background:#f0fdf4;border-color:#86efac">
                         <div class="credit-card-header">
                             <span class="credit-card-name">🔐 На депозитному рахунку:</span>
-                            <span class="credit-card-limit" id="dep-balance" style="color:#006400;font-size:16px">0 💰</span>
+                            <span class="credit-card-limit" id="dep-balance" style="color:#15803d;font-size:16px">0 💰</span>
                         </div>
                         <div class="credit-card-info">
                             • Ставка: <b>+3% щохвилини</b> (складний відсоток, капіталізація!).<br>
@@ -180,14 +203,13 @@
                         <div class="bank-action-grid">
                             <button class="btn default" id="dep-put-btn" onclick="depositMoney()">📥 Покласти на депозит</button>
                             <button class="btn" id="dep-take-btn" onclick="withdrawDeposit(false)">📤 Зняти суму</button>
-                            <button class="btn" id="dep-take-all-btn" onclick="withdrawDeposit(true)" style="grid-column:span 2">💰 Зняти весь депозит у гаманець</button>
+                            <button class="btn success" id="dep-take-all-btn" onclick="withdrawDeposit(true)" style="grid-column:span 2">💰 Зняти весь депозит у гаманець</button>
                         </div>
                     </div>
                 </div>
                 <div class="muted">Порада: тримайте вільні кошти на депозиті, поки збираєте на дорогу землю та будівлі у Ковелі!</div>
             </div>
 
-            <!-- ПІДВКЛАДКА КРЕДИТУ -->
             <div id="bank-panel-credit" class="bank-subpanel" style="display:none;">
                 <div class="group-box" data-label="Кредитна лінія «Іпотека & Бізнес»">
                     <div class="credit-card" id="credit-card-info">
@@ -245,7 +267,7 @@
             <div class="map-header-row">
                 <div>
                     <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок)</div>
-                    <div class="muted">Купуйте землю, будуйте бізнес, наймайте гравців або влаштовуйтесь на роботу!</div>
+                    <div class="muted">Купуйте землю, будуйте бізнес, переглядайте статистику робітників і підвищуйте їм ЗП!</div>
                 </div>
                 <div style="display:flex;gap:4px">
                     <button class="btn" onclick="focusBohdanHouse()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Миколайчука 100">👨‍🏭 Богдан</button>
@@ -255,9 +277,9 @@
 
             <div class="map-zone-legend">
                 <button class="zone-pill active" id="zfilter-all" onclick="setZoneFilter('all')">Усі (48)</button>
-                <button class="zone-pill res" id="zfilter-residential" onclick="setZoneFilter('residential')">🏡 Жила (зелена)</button>
-                <button class="zone-pill com" id="zfilter-commercial" onclick="setZoneFilter('commercial')">🏪 Комерція (синя)</button>
-                <button class="zone-pill ind" id="zfilter-industrial" onclick="setZoneFilter('industrial')">🏭 Пром (оранжева)</button>
+                <button class="zone-pill res" id="zfilter-residential" onclick="setZoneFilter('residential')">🏡 Жила</button>
+                <button class="zone-pill com" id="zfilter-commercial" onclick="setZoneFilter('commercial')">🏪 Комерція</button>
+                <button class="zone-pill ind" id="zfilter-industrial" onclick="setZoneFilter('industrial')">🏭 Промзона</button>
             </div>
 
             <div class="map-container" id="map-container">
@@ -273,42 +295,37 @@
                 <div class="map-info-row"><span class="label">Власник:</span><span class="value" id="info-owner">—</span></div>
                 <div class="map-info-row"><span class="label">Ціна землі:</span><span class="value" id="info-price">—</span></div>
                 <div class="map-info-row"><span class="label">Забудова:</span><span class="value" id="info-building">—</span></div>
-                <div class="map-info-row"><span class="label">Дохід ділянки:</span><span class="value" id="info-income">—</span></div>
-                <div class="map-info-row"><span class="label">Бонуси ціни:</span><span class="value" id="info-bonus">—</span></div>
+                <div class="map-info-row"><span class="label">Пасивний дохід:</span><span class="value" id="info-income">—</span></div>
+                <div class="map-info-row"><span class="label">Бонуси локації:</span><span class="value" id="info-bonus">—</span></div>
 
                 <div class="map-info-actions" id="info-buy-wrap">
                     <button class="btn default" id="info-buy-btn" onclick="buySelectedPlot()">Купити</button>
                 </div>
 
-                <!-- Блок підприємства: працівники на посадах, зарплата, каса та працевлаштування -->
                 <div class="build-section" id="info-workers-section" style="display:none;">
-                    <div class="build-section-title">👷 Штат підприємства та умови праці:</div>
+                    <div class="build-section-title">👷 Штат підприємства та відомість працівників:</div>
                     <div class="map-info-row"><span class="label">Каса зарплат (фонд):</span><span class="value" id="info-biz-funds">0 💰</span></div>
-                    <div class="map-info-row"><span class="label">Базова ставка за клік:</span><span class="value" id="info-biz-wage">0 💰</span></div>
-                    <div class="map-info-row"><span class="label">Бонус від робітників:</span><span class="value" id="info-biz-boost">+0% доходу</span></div>
+                    <div class="map-info-row"><span class="label">Стартова ЗП (за замовлення):</span><span class="value" id="info-biz-wage">0 💰</span></div>
+                    <div class="map-info-row"><span class="label">Бонус пасивного доходу:</span><span class="value" id="info-biz-boost">+0% доходу</span></div>
 
                     <div id="info-workers-list" class="workers-roster"></div>
-
-                    <!-- Кнопка працевлаштування / звільнення для всіх гравців -->
                     <div class="btn-row" id="info-hire-actions" style="margin-top:4px"></div>
 
-                    <!-- Управління касою та зарплатою для власника -->
                     <div id="info-owner-Controls" class="bank-op-box" style="display:none;margin-top:6px">
-                        <div class="bank-op-label">⚙️ Керування підприємством (для власника):</div>
+                        <div class="bank-op-label">⚙️ Керування касою та базовою ЗП (для нових працівників):</div>
                         <div class="bank-input-wrap">
-                            <span style="font-size:11px;min-width:95px">Ставка/клік (💰):</span>
-                            <input type="number" class="input-field" id="owner-wage-input" min="1" max="50000" style="font-size:12px;padding:4px 6px">
-                            <button class="btn" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">Зберегти ставку</button>
+                            <span style="font-size:11px;min-width:110px">Базова ЗП/замовл.:</span>
+                            <input type="number" class="input-field" id="owner-wage-input" min="5" max="50000" style="font-size:12px;padding:4px 6px">
+                            <button class="btn" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">Зберегти</button>
                         </div>
                         <div class="bank-input-wrap" style="margin-top:4px">
-                            <input type="number" class="input-field" id="owner-fund-input" placeholder="Сума для каси..." min="100" style="font-size:12px;padding:4px 6px">
+                            <input type="number" class="input-field" id="owner-fund-input" placeholder="Сума для каси..." min="50" style="font-size:12px;padding:4px 6px">
                             <button class="btn default" onclick="fundPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">📥 В касу</button>
                             <button class="btn" onclick="withdrawPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">📤 З каси</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Панель будівництва для власника ділянки -->
                 <div class="build-section" id="info-build-section" style="display:none;">
                     <div class="build-section-title">🏗️ Будівництво / модернізація у цій зоні:</div>
                     <div class="build-options-grid" id="info-build-options"></div>
@@ -318,25 +335,25 @@
 
         <!-- МАГАЗИН КУРСІВ -->
         <div class="page" id="page-shop">
-            <div class="sub-title">🛒 Курси та книжки (Перепустка у КовельКорп)</div>
-            <div class="muted" style="margin-bottom:8px">Щоб попасти в КовельКорп — обов'язково пройдіть «Основи програмування». Кожне вище звання в КовельКорп потребує відповідного курсу!</div>
+            <div class="sub-title">🎓 Навчальний центр КовельКорп (IT-Курси)</div>
+            <div class="muted" style="margin-bottom:8px">Щоб працювати в ІТ-корпорації «КовельКорп» — пройдіть «Основи програмування». Кожне вище звання в КовельКорп потребує відповідного диплома! (На роботах у гравців курси не потрібні — там зарплату підвищує власник).</div>
             <div class="shop-list" id="shop-list"></div>
         </div>
 
         <!-- ТОП + ОНЛАЙН -->
         <div class="page" id="page-leaderboard">
             <div class="lb-refresh-row">
-                <div class="sub-title">🏆 Топ гравців</div>
-                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
+                <div class="sub-title">🏆 Рейтинг найбагатших жителів Ковеля</div>
+                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:5px 12px;font-size:13px">↻ Оновити</button>
             </div>
             <div class="lb-list" id="lb-list"><div class="lb-loading">Завантаження...</div></div>
             <div class="muted" id="lb-my-rank">—</div>
 
-            <div class="lb-refresh-row" style="margin-top:12px">
-                <div class="sub-title">👥 Онлайн (5 хв)</div>
-                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
+            <div class="lb-refresh-row" style="margin-top:10px">
+                <div class="sub-title">👥 Зараз у мережі (останні 5 хв)</div>
+                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:5px 12px;font-size:13px">↻</button>
             </div>
-            <div class="online-list" id="online-list" style="max-height:220px"><div class="lb-loading">Завантаження...</div></div>
+            <div class="online-list" id="online-list" style="max-height:200px"><div class="lb-loading">Завантаження...</div></div>
             <div class="muted" id="online-count">—</div>
         </div>
     </div>
@@ -347,14 +364,14 @@
     </div>
 </div>
 
-<!-- ДІАЛОГ З БОГДАНОМ ПОЛІЩУКОМ (ICQ 95 / Win95 Chat) -->
+<!-- ДІАЛОГ З БОГДАНОМ ПОЛІЩУКОМ -->
 <div class="dialog-overlay" id="bohdan-overlay">
     <div class="dialog bohdan-dialog">
         <div class="title-bar">
             <span class="title-icon">👨‍🏭</span>
             <span class="title-text">В гостях: Богдан Поліщук (вул. Миколайчука, 100)</span>
             <div class="win-controls">
-                <button class="win-btn" onclick="closeBohdanModal()" title="Закрити">✕</button>
+                <button class="win-btn close-btn" onclick="closeBohdanModal()" title="Закрити">✕</button>
             </div>
         </div>
         <div class="bohdan-header">
@@ -370,7 +387,7 @@
             <div style="font-size:11px;margin-bottom:4px">Опціонально: вставте ключ <b>OpenRouter</b> (наприклад DeepSeek/Claude), або залиште пустим для вбудованого ШІ-движка Богдана:</div>
             <div style="display:flex;gap:4px">
                 <input type="password" class="input-field" id="bohdan-api-key" placeholder="sk-or-v1-..." style="font-size:12px;padding:4px 6px">
-                <button class="btn" onclick="saveBohdanApiKey()" style="min-width:auto;min-height:28px;padding:4px 8px;font-size:12px">Зберегти</button>
+                <button class="btn default" onclick="saveBohdanApiKey()" style="min-width:auto;min-height:28px;padding:4px 8px;font-size:12px">Зберегти</button>
             </div>
         </div>
 
@@ -399,7 +416,7 @@
             <div class="win-controls">
                 <button class="win-btn" disabled>_</button>
                 <button class="win-btn" disabled>□</button>
-                <button class="win-btn" onclick="closeDialog()">✕</button>
+                <button class="win-btn close-btn" onclick="closeDialog()">✕</button>
             </div>
         </div>
         <div class="dialog-body">
