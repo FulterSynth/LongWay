@@ -1,8 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, get, child, update, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.5.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -35,13 +35,29 @@ const OWNER_ASSIGNED_TITLES = [
     "Права рука власника"
 ];
 
+// Усі курси поділені на 3 категорії: IT (Програмування), Житлова зона (residential) та Промислова зона (industrial)
 const COURSES = [
-    { id: "basics", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, desc: "Обов'язковий курс для вступу в КовельКорп (Стажер / Оператор)" },
-    { id: "algorithms", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15, desc: "Потрібен для звання Junior QA та Junior Developer" },
-    { id: "cleancode", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20, desc: "Потрібен для звання Middle Developer" },
-    { id: "sysdesign", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25, desc: "Потрібен для звання Senior Developer" },
-    { id: "leadership", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, desc: "Потрібен для звання Team Lead" },
-    { id: "architecture", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, desc: "Потрібен для звання Tech Lead та CTO" }
+    // 1. ІТ-курси (КовельКорп)
+    { id: "basics", category: "it", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, zoneBoost: 0, commercialBoost: 5, desc: "Базовий курс для вступу в КовельКорп (або будь-який дорожчий ІТ-курс!)" },
+    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15, zoneBoost: 0, commercialBoost: 10, desc: "Потрібен для звання Junior QA та Junior Developer (зараховує і нижчі курси)" },
+    { id: "cleancode", category: "it", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20, zoneBoost: 0, commercialBoost: 15, desc: "Потрібен для звання Middle Developer (зараховує і нижчі ІТ-курси)" },
+    { id: "sysdesign", category: "it", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25, zoneBoost: 0, commercialBoost: 20, desc: "Потрібен для звання Senior Developer" },
+    { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, commercialBoost: 25, desc: "Потрібен для звання Team Lead" },
+    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, commercialBoost: 35, desc: "Потрібен для звання Tech Lead та CTO (відкриває всі ІТ-звання)" },
+
+    // 2. Курси Житлової та Сервісної зони
+    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 900, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 8, desc: "Дає +15% до виручки, яку ви приносите підприємствам у Житловій зоні (+8% у Комерції)" },
+    { id: "res_electric", category: "residential", name: "Електромонтаж і побутові мережі", price: 3200, durationMs: 7200000, boost: 0, zoneBoost: 25, commercialBoost: 12, desc: "Допуск до обслуговування котеджів і ЖК: +25% виручки в Житловій зоні (+12% у Комерції)" },
+    { id: "res_landscape", category: "residential", name: "Благоустрій території та дизайн", price: 8500, durationMs: 14400000, boost: 0, zoneBoost: 35, commercialBoost: 18, desc: "Професійний догляд за житловими кварталами: +35% виручки в Житловій зоні (+18% у Комерції)" },
+    { id: "res_trade", category: "residential", name: "Товарознавство та касовий сервіс", price: 20000, durationMs: 21600000, boost: 0, zoneBoost: 45, commercialBoost: 35, desc: "Організація магазинів біля дому та піцерій: +45% у Житловій зоні та +35% у Комерції" },
+    { id: "res_osbb", category: "residential", name: "Управління ЖКГ та нерухомістю", price: 48000, durationMs: 36000000, boost: 0, zoneBoost: 65, commercialBoost: 45, desc: "Диплом головного управителя ЖК та ТРЦ: +65% виручки у Житловій зоні (+45% у Комерції)" },
+
+    // 3. Курси Промислової зони
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 1200, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 5, desc: "Базовий промисловий допуск: +15% до виручки на підприємствах Промислової зони" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 4800, durationMs: 10800000, boost: 0, zoneBoost: 25, commercialBoost: 8, desc: "Курс зварювальника (школа Богдана Поліщука): +25% до виручки у Промисловій зоні" },
+    { id: "ind_forklift", category: "industrial", name: "Водій навантажувача і складська логістика", price: 12000, durationMs: 18000000, boost: 0, zoneBoost: 35, commercialBoost: 15, desc: "Робота на терміналах, елеваторах та складах: +35% виручки у Промисловій зоні" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та механіка", price: 28000, durationMs: 28800000, boost: 0, zoneBoost: 50, commercialBoost: 15, desc: "Налаштування заводських ліній та депо: +50% до виручки у Промисловій зоні" },
+    { id: "ind_chief", category: "industrial", name: "Головний інженер виробництва", price: 65000, durationMs: 43200000, boost: 0, zoneBoost: 75, commercialBoost: 25, desc: "Вища інженерна кваліфікація для заводів Ковеля: +75% виручки у Промисловій зоні" }
 ];
 
 const JOBS = [
@@ -56,7 +72,6 @@ const JOBS = [
     { name: "CTO", pay: 1500, xpNeeded: 0, taskClicks: 140, taskReward: 35000, creditLimit: 10000000, reqCourse: "architecture" }
 ];
 
-// Збалансовані показники підприємств: defaultWage та clickProfit нараховуються ЗА ПОВНЕ ЗАМОВЛЕННЯ (5 кроків + кулдаун)
 const ZONE_INFO = {
     residential: {
         name: "🏡 Житлова зона",
@@ -156,6 +171,44 @@ const MAP_PLOTS_BASE = [
     { id: 47, zone: "residential", name: "Друге Ковельське (Пн)",    lat: 51.2285, lng: 24.7215, dLat: 0.0012, dLng: 0.0021 }
 ];
 
+// Обчислення бонусу виручки для конкретної зони від пройдених курсів гравця
+function getWorkerZoneSkillBonusPct(completedList, plotZone) {
+    if (!Array.isArray(completedList) || !completedList.length) return 0;
+    let totalPct = 0;
+    completedList.forEach(cid => {
+        const c = COURSES.find(x => x.id === cid);
+        if (!c) return;
+        if (plotZone === "residential" && c.category === "residential") {
+            totalPct += (c.zoneBoost || 0);
+        } else if (plotZone === "industrial" && c.category === "industrial") {
+            totalPct += (c.zoneBoost || 0);
+        } else if (plotZone === "commercial") {
+            totalPct += (c.commercialBoost || 0);
+        }
+    });
+    return totalPct;
+}
+
+function renderCourseChipsHtml(completedList, targetZone = null) {
+    if (!Array.isArray(completedList) || !completedList.length) {
+        return `<span class="muted">Немає пройдених курсів</span>`;
+    }
+    return completedList.map(cid => {
+        const c = COURSES.find(x => x.id === cid);
+        if (!c) return "";
+        const isMatched = (targetZone === "residential" && c.category === "residential")
+            || (targetZone === "industrial" && c.category === "industrial")
+            || (targetZone === "commercial" && (c.commercialBoost || 0) >= 15);
+        const cls = isMatched ? "matched" : (c.category === "it" ? "it" : (c.category === "industrial" ? "ind" : ""));
+        const bonusLabel = targetZone === "residential" && c.category === "residential"
+            ? ` (+${c.zoneBoost}%)`
+            : (targetZone === "industrial" && c.category === "industrial"
+                ? ` (+${c.zoneBoost}%)`
+                : (targetZone === "commercial" && c.commercialBoost ? ` (+${c.commercialBoost}%)` : ""));
+        return `<span class="course-chip ${cls}">🎓 ${escapeHtml(c.name)}${bonusLabel}</span>`;
+    }).join(" ");
+}
+
 function geoDistMeters(lat1, lng1, lat2, lng2) {
     const dLat = (lat2 - lat1) * 111320;
     const dLng = (lng2 - lng1) * 111320 * Math.cos(lat1 * Math.PI / 180);
@@ -210,14 +263,25 @@ function getBuildingDef(zone, buildingId) {
     return zInfo.buildings.find(b => b.id === buildingId) || null;
 }
 
+function getPlotPassiveBonusPct(plot, ownedData) {
+    if (!ownedData || !ownedData.workers) return 0;
+    const workersArr = Object.values(ownedData.workers);
+    let totalBoostPct = 0;
+    workersArr.forEach(w => {
+        totalBoostPct += 15; // базові +15% за працівника
+        const skillBonus = getWorkerZoneSkillBonusPct(w?.completedCourses || [], plot.zone);
+        totalBoostPct += Math.round(skillBonus * 0.25); // додатковий пасивний бонус від профільних курсів робітника
+    });
+    return Math.min(180, totalBoostPct);
+}
+
 function getPlotPassiveIncome(plot, ownedData) {
     if (!ownedData) return 0;
     const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
     const bld = getBuildingDef(plot.zone, ownedData.building);
     const base = bld ? bld.income : Math.max(25, Math.floor(zInfo.basePrice * 0.005));
-    const workersCount = ownedData.workers ? Object.keys(ownedData.workers).length : 0;
-    const workerMultiplier = 1 + Math.min(0.9, workersCount * 0.15);
-    return Math.floor(base * workerMultiplier);
+    const bonusPct = getPlotPassiveBonusPct(plot, ownedData);
+    return Math.floor(base * (1 + bonusPct / 100));
 }
 
 function getTotalPassiveIncomePerMin() {
@@ -250,6 +314,15 @@ let currentUser = "";
 let authMode = "login";
 let activeBankTab = "deposit";
 let activeWorkSubtab = "vacancies";
+let activeCourseCategory = "it";
+let activeMailSubtab = "inbox";
+let resumeTargetPlotId = null;
+
+let userInboxMail = {};
+let userSentMail = {};
+let mailInboxListener = null;
+let mailSentListener = null;
+let lastUnreadMailCount = 0;
 
 let workCooldownUntil = 0;
 let workCooldownTotalMs = 0;
@@ -348,9 +421,30 @@ function colorFromName(name) {
     return `hsl(${h},65%,45%)`;
 }
 
+// ВИМОГА 4: Перевірка наявності курсу враховує ІЄРАРХІЮ (якщо потрібен "basics", то будь-який дорожчий ІТ-курс теж рахується!)
+function hasCourse(courseId, completedList = gameState.completedCourses) {
+    if (!courseId) return true;
+    if (!Array.isArray(completedList) || !completedList.length) return false;
+    if (completedList.includes(courseId)) return true;
+
+    const reqCourse = COURSES.find(x => x.id === courseId);
+    if (!reqCourse) return false;
+
+    // Якщо у гравця пройдений будь-який дорожчий (або рівний за ціною) курс тієї ж категорії — він зараховується!
+    return completedList.some(doneId => {
+        const doneCourse = COURSES.find(x => x.id === doneId);
+        return doneCourse && doneCourse.category === reqCourse.category && doneCourse.price >= reqCourse.price;
+    });
+}
+
+function getCourseName(courseId) {
+    const c = COURSES.find(x => x.id === courseId);
+    return c ? c.name : courseId;
+}
+
 function getWorkerRecordOnPlot(plotId, username = currentUser) {
     const owned = sharedPlots[plotId];
-    if (!owned) return { role: "Робітник зміни", personalWage: 10, orders: 0, clicks: 0, totalEarned: 0, profitBrought: 0 };
+    if (!owned) return { role: "Робітник зміни", personalWage: 10, orders: 0, clicks: 0, totalEarned: 0, profitBrought: 0, completedCourses: [] };
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const bld = p ? getBuildingDef(p.zone, owned.building) : null;
     const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
@@ -362,7 +456,10 @@ function getWorkerRecordOnPlot(plotId, username = currentUser) {
     const totalEarned = Number(w?.totalEarned) || 0;
     const profitBrought = Number(w?.profitBrought) || 0;
     const lastWorkAt = Number(w?.lastWorkAt) || 0;
-    return { role, personalWage, baseWage, orders, clicks, totalEarned, profitBrought, lastWorkAt };
+    const completedCourses = Array.isArray(w?.completedCourses)
+        ? w.completedCourses
+        : (username === currentUser ? gameState.completedCourses : []);
+    return { role, personalWage, baseWage, orders, clicks, totalEarned, profitBrought, lastWorkAt, completedCourses };
 }
 
 function triggerWorkCooldown(durationMs, reason) {
@@ -395,6 +492,15 @@ window.switchWorkSubtab = function (sub) {
         if (btn) btn.classList.toggle("active", k === sub);
         if (box) box.style.display = k === sub ? "block" : "none";
     });
+};
+
+window.switchCourseCategory = function (cat) {
+    activeCourseCategory = cat;
+    ["it", "residential", "industrial"].forEach(c => {
+        const btn = $("ctab-" + c);
+        if (btn) btn.classList.toggle("active", c === cat);
+    });
+    renderShop();
 };
 
 window.showDialog = (title, text, icon) => {
@@ -475,6 +581,7 @@ async function startGame() {
     await loadGame();
     startLiveSync();
     startMapSync();
+    startMailSync();
     checkCourseCompletion();
     renderAll();
     switchPage("work");
@@ -487,13 +594,12 @@ async function startGame() {
     setGameStatus("Ласкаво просимо у Windows 98 SE Work, " + currentUser + "!");
 }
 
+// ВИМОГА 4: Ніхто не працює в КовельКорп з початку гри! Якщо employer не заданий — строго "none".
+// Якщо employer === "corp", перевіряємо наявність хоча б одного ІТ-курсу (basics або дорожчого).
 function normalizeEmployerState(d) {
     const completed = Array.isArray(d.completedCourses) ? d.completedCourses : [];
-    let emp = d.employer;
-    if (!emp) {
-        emp = completed.includes("basics") ? "corp" : "none";
-    }
-    if (emp === "corp" && !completed.includes("basics")) {
+    let emp = d.employer || "none";
+    if (emp === "corp" && !hasCourse("basics", completed)) {
         emp = "none";
     }
     return emp;
@@ -559,7 +665,8 @@ function startMapSync() {
         if (gameState.employer && gameState.employer.startsWith("plot:")) {
             const pid = Number(gameState.employer.split(":")[1]);
             const pData = sharedPlots[pid];
-            if (!pData || !pData.building) {
+            // Якщо будівлю знесли або працівника звільнили зі списку workers — переводимо на "none"
+            if (!pData || !pData.building || !pData.workers || !pData.workers[currentUser]) {
                 gameState.employer = "none";
             }
         }
@@ -591,7 +698,10 @@ function startRentTimer() {
 
 function recalculateBoost() {
     let b = 0;
-    gameState.completedCourses.forEach(id => { const c = COURSES.find(x => x.id === id); if (c) b += c.boost; });
+    gameState.completedCourses.forEach(id => {
+        const c = COURSES.find(x => x.id === id);
+        if (c && c.boost) b += c.boost;
+    });
     gameState.xpBoost = b;
 }
 
@@ -616,6 +726,13 @@ async function saveGame() {
             credit: gameState.credit,
             deposit: gameState.deposit
         });
+        // Синхронізуємо пройдені курси гравця у його картці працівника на поточному підприємстві, щоб власник бачив нові дипломи
+        const pid = getActiveEmployerPlotId();
+        if (pid !== null && sharedPlots[pid]?.workers?.[currentUser]) {
+            await update(ref(db, `plots/${pid}/workers/${currentUser}`), {
+                completedCourses: gameState.completedCourses
+            });
+        }
         const now = new Date();
         $("save-status").textContent = "💾 " + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + ":" + String(now.getSeconds()).padStart(2, "0");
     } catch (e) { $("save-status").textContent = "⚠ Помилка"; }
@@ -623,11 +740,6 @@ async function saveGame() {
 }
 
 function getCurrentCorpJob() { return JOBS[gameState.jobIndex] || JOBS[0]; }
-function hasCourse(courseId) { return !courseId || gameState.completedCourses.includes(courseId); }
-function getCourseName(courseId) {
-    const c = COURSES.find(x => x.id === courseId);
-    return c ? c.name : courseId;
-}
 
 function getActiveEmployerPlotId() {
     if (!gameState.employer || !gameState.employer.startsWith("plot:")) return null;
@@ -652,16 +764,22 @@ function checkCourseCompletion() {
         gameState.activeCourseId = null;
         gameState.courseStartTime = 0;
         setGameStatus("Курс завершено!");
-        showDialog("Курс завершено!", (c ? c.name : "Курс") + "\n+" + (c ? c.boost : 0) + "% XP\nТепер вам відкриті нові посади в КовельКорп!", "🎓");
+        const bonusDesc = c?.category === "it"
+            ? `+${c.boost}% IT-XP та доступ до посад у КовельКорп!`
+            : (c?.category === "residential"
+                ? `+${c.zoneBoost}% до виручки на роботах у Житловій зоні!`
+                : `+${c?.zoneBoost || 0}% до виручки на роботах у Промисловій зоні!`);
+        showDialog("Диплом отримано!", `🎓 ${c ? c.name : "Курс"}\n${bonusDesc}`, "🎓");
         saveGame();
     }
 }
 
 window.joinKovelCorp = async function () {
+    // Перевірка: чи є "basics" АБО будь-який дорожчий ІТ-курс
     if (!hasCourse("basics")) {
         return showDialog(
-            "Потрібен курс!",
-            "Щоб влаштуватися в IT-корпорацію «КовельКорп», необхідно спочатку пройти курс «Основи програмування» у вкладці «🎓 Курси».\n\nПоки ви можете працювати на муніципальному підробітку або влаштуватися в бізнес іншого гравця!",
+            "Потрібен ІТ-диплом!",
+            "Ніхто не працює в КовельКорп зі старту гри!\nЩоб влаштуватися в IT-корпорацію «КовельКорп», пройдіть курс «Основи програмування» (або будь-який дорожчий курс програмування) у вкладці «🎓 Курси».",
             "🎓"
         );
     }
@@ -680,51 +798,441 @@ window.joinKovelCorp = async function () {
     setGameStatus("Ви влаштувались у КовельКорп!");
 };
 
-window.hireIntoPlot = async function (plotId) {
+// ===== ВИМОГИ 7 ТА 8: ПОДАЧА РЕЗЮМЕ ТА ПОШТА OUTLOOK EXPRESS 98 =====
+
+window.openResumeModal = function (plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const owned = sharedPlots[plotId];
     if (!p || !owned || !owned.building) {
         return showDialog("Недоступно", "На цій ділянці ще немає збудованого підприємства.", "⚠️");
     }
-    const prevPlotId = getActiveEmployerPlotId();
-    if (prevPlotId !== null && prevPlotId !== plotId) {
-        try { await set(ref(db, `plots/${prevPlotId}/workers/${currentUser}`), null); } catch (e) {}
+    resumeTargetPlotId = plotId;
+    const bld = getBuildingDef(p.zone, owned.building);
+    const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
+    const zoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
+    const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
+
+    $("resume-target-info").innerHTML = `
+        <div><b>Підприємство:</b> ${bld ? bld.icon + " " + escapeHtml(bld.name) : escapeHtml(p.name)} (${escapeHtml(p.name)})</div>
+        <div><b>Зона:</b> ${escapeHtml(zInfo.name)} • <b>Власник:</b> <span style="color:#000080;font-weight:bold">${escapeHtml(owned.owner)}</span></div>
+        <div><b>Базова ЗП на об'єкті:</b> ${formatNumberFull(baseWage)} 💰 за замовлення</div>
+        <div style="margin-top:4px"><b>Ваші дипломи у резюме:</b><br>${renderCourseChipsHtml(gameState.completedCourses, p.zone)}</div>
+        <div style="margin-top:4px;color:#006400;font-weight:bold">📈 Ваш бонус виручки для цієї зони від курсів: +${zoneBonus}%</div>
+    `;
+    $("resume-desired-wage").value = baseWage;
+    $("resume-note-input").value = `Вітаю! Прошу прийняти мене на роботу у «${bld ? bld.name : p.name}». Мій бонус виручки для вашої зони: +${zoneBonus}%.`;
+    $("resume-overlay").classList.add("active");
+};
+
+window.closeResumeModal = function () {
+    resumeTargetPlotId = null;
+    $("resume-overlay").classList.remove("active");
+};
+
+window.submitResumeApplication = async function () {
+    if (resumeTargetPlotId === null || !currentUser) return;
+    const plotId = resumeTargetPlotId;
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    const owned = sharedPlots[plotId];
+    if (!p || !owned || !owned.building) {
+        closeResumeModal();
+        return;
     }
-    miniGames.stop();
-    workCooldownUntil = 0;
-    gameState.employer = "plot:" + plotId;
-    gameState.taskActive = false;
-    gameState.taskProgress = 0;
 
     const bld = getBuildingDef(p.zone, owned.building);
     const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
-    const existingWorker = owned.workers && owned.workers[currentUser] ? owned.workers[currentUser] : null;
-    const assignedRole = existingWorker?.role || "Новачок";
-    const assignedWage = Number(existingWorker?.personalWage) > 0 ? Number(existingWorker.personalWage) : baseWage;
+    const desiredWage = Math.max(5, Math.min(50000, Math.floor(Number($("resume-desired-wage").value) || baseWage)));
+    const note = ($("resume-note-input").value || "").trim() || "Хочу працювати на вашому підприємстві!";
+    const zoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
+
+    const mailPayload = {
+        type: "resume",
+        from: currentUser,
+        to: owned.owner,
+        plotId: plotId,
+        plotName: p.name,
+        plotZone: p.zone,
+        buildingName: bld ? `${bld.icon} ${bld.name}` : p.name,
+        desiredWage: desiredWage,
+        completedCourses: gameState.completedCourses || [],
+        zoneBonusPct: zoneBonus,
+        subject: `📋 Резюме на роботу: ${bld ? bld.name : p.name} (${p.name})`,
+        body: note,
+        status: "pending",
+        unread: true,
+        createdAt: Date.now()
+    };
 
     try {
-        await update(ref(db, `plots/${plotId}/workers/${currentUser}`), {
-            role: assignedRole,
-            personalWage: assignedWage,
-            orders: Number(existingWorker?.orders) || 0,
-            clicks: Number(existingWorker?.clicks) || 0,
-            totalEarned: Number(existingWorker?.totalEarned) || 0,
-            profitBrought: Number(existingWorker?.profitBrought) || 0,
-            joinedAt: existingWorker?.joinedAt || Date.now(),
+        const newMailRef = push(ref(db, `mail/${owned.owner}`));
+        mailPayload.id = newMailRef.key;
+        await set(newMailRef, mailPayload);
+        await set(ref(db, `sentMail/${currentUser}/${newMailRef.key}`), mailPayload);
+        await set(ref(db, `plots/${plotId}/applicants/${currentUser}`), {
+            desiredWage,
+            zoneBonusPct: zoneBonus,
+            appliedAt: Date.now(),
+            mailId: newMailRef.key
+        });
+
+        closeResumeModal();
+        sfx.good();
+        setGameStatus(`📨 Резюме надіслано власнику ${owned.owner} на Пошту!`);
+        showDialog(
+            "Резюме надіслано!",
+            `Ваше резюме доставлено на пошту власнику «${owned.owner}».\n\nКоли власник перегляне ваші курси та натисне «✅ Прийняти на роботу» у своїй Пошті — ви автоматично станете працівником підприємства й отримаєте повідомлення!`,
+            "📨"
+        );
+    } catch (e) {
+        showDialog("Помилка", "Не вдалося надіслати резюме: " + e.message, "⚠️");
+    }
+};
+
+function startMailSync() {
+    if (mailInboxListener) { mailInboxListener(); mailInboxListener = null; }
+    if (mailSentListener) { mailSentListener(); mailSentListener = null; }
+    if (!currentUser) return;
+
+    mailInboxListener = onValue(ref(db, `mail/${currentUser}`), snap => {
+        userInboxMail = snap.exists() ? snap.val() : {};
+        updateMailBadges();
+        if (currentPage === "mail") renderMailPage();
+    });
+
+    mailSentListener = onValue(ref(db, `sentMail/${currentUser}`), snap => {
+        userSentMail = snap.exists() ? snap.val() : {};
+        if (currentPage === "mail" && activeMailSubtab === "sent") renderMailPage();
+    });
+}
+
+function updateMailBadges() {
+    const items = Object.values(userInboxMail || {});
+    const unreadAll = items.filter(m => m && m.unread).length;
+    const pendingResumes = items.filter(m => m && m.type === "resume" && m.status === "pending").length;
+
+    const tabBadge = $("tab-mail-badge");
+    if (tabBadge) {
+        if (unreadAll > 0) {
+            tabBadge.style.display = "inline-block";
+            tabBadge.textContent = unreadAll;
+        } else {
+            tabBadge.style.display = "none";
+        }
+    }
+
+    const hudBtn = $("hud-mail-btn");
+    const hudCnt = $("hud-mail-cnt");
+    if (hudCnt) hudCnt.textContent = unreadAll;
+    if (hudBtn) hudBtn.classList.toggle("has-unread", unreadAll > 0);
+
+    if ($("badge-mail-all")) $("badge-mail-all").textContent = items.length;
+    if ($("badge-mail-resumes")) $("badge-mail-resumes").textContent = pendingResumes;
+
+    if (unreadAll > lastUnreadMailCount) {
+        sfx.good();
+    }
+    lastUnreadMailCount = unreadAll;
+}
+
+window.switchMailSubtab = async function (sub) {
+    activeMailSubtab = sub;
+    ["inbox", "resumes", "sent", "compose"].forEach(k => {
+        const btn = $("mtab-" + k);
+        if (btn) btn.classList.toggle("active", k === sub);
+    });
+
+    const listBox = $("mail-list-container");
+    const composeBox = $("mail-compose-container");
+
+    if (sub === "compose") {
+        if (listBox) listBox.style.display = "none";
+        if (composeBox) composeBox.style.display = "block";
+        populatePlayersSelectForMail();
+    } else {
+        if (listBox) listBox.style.display = "flex";
+        if (composeBox) composeBox.style.display = "none";
+        renderMailPage();
+    }
+};
+
+window.openComposeMail = function (toUser = "", subject = "") {
+    switchPage("mail");
+    switchMailSubtab("compose");
+    if (toUser) $("mail-to-input").value = toUser;
+    if (subject) $("mail-subj-input").value = subject;
+    $("mail-body-input").focus();
+};
+
+async function populatePlayersSelectForMail() {
+    const sel = $("mail-to-select");
+    if (!sel) return;
+    try {
+        const snap = await get(child(ref(db), "users"));
+        if (!snap.exists()) return;
+        const names = Object.keys(snap.val()).filter(n => n !== currentUser).sort();
+        sel.innerHTML = `<option value="">▼ Оберіть гравця (${names.length})</option>` +
+            names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+    } catch (e) {}
+}
+
+window.sendPersonalMail = async function () {
+    const to = ($("mail-to-input").value || "").trim();
+    const subj = ($("mail-subj-input").value || "").trim() || "Лист без теми";
+    const body = ($("mail-body-input").value || "").trim();
+
+    if (!to) return showDialog("Вкажіть отримувача", "Введіть логін гравця, якому хочете написати листа.", "⚠️");
+    if (!body) return showDialog("Порожній лист", "Напишіть текст повідомлення.", "⚠️");
+
+    try {
+        const userSnap = await get(child(ref(db), `users/${to}`));
+        if (!userSnap.exists()) {
+            return showDialog("Гравця не знайдено", `Користувача з логіном «${to}» не існує в базі Ковеля.`, "⚠️");
+        }
+
+        const msgData = {
+            type: "personal",
+            from: currentUser,
+            to: to,
+            subject: subj,
+            body: body,
+            unread: true,
+            createdAt: Date.now()
+        };
+
+        const newRef = push(ref(db, `mail/${to}`));
+        msgData.id = newRef.key;
+        await set(newRef, msgData);
+        await set(ref(db, `sentMail/${currentUser}/${newRef.key}`), msgData);
+
+        $("mail-subj-input").value = "";
+        $("mail-body-input").value = "";
+        sfx.good();
+        switchMailSubtab("sent");
+        setGameStatus(`📨 Листа для ${to} успішно надіслано!`);
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+window.acceptResume = async function (mailId) {
+    const mail = userInboxMail[mailId];
+    if (!mail || mail.type !== "resume") return;
+
+    const plotId = Number(mail.plotId);
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    const owned = sharedPlots[plotId];
+    if (!p || !owned || owned.owner !== currentUser || !owned.building) {
+        return showDialog("Помилка", "Ви більше не є власником цього підприємства.", "⚠️");
+    }
+
+    const applicant = mail.from;
+    const wageInput = $("approve_wage_" + mailId);
+    const approvedWage = Math.max(5, Math.min(50000, Math.floor(Number(wageInput?.value) || mail.desiredWage || 15)));
+    const applicantCourses = Array.isArray(mail.completedCourses) ? mail.completedCourses : [];
+
+    try {
+        // Якщо кандидат працював на іншій ділянці — прибираємо його зі старого місця
+        const empSnap = await get(child(ref(db), `users/${applicant}/clicker/employer`));
+        const oldEmp = empSnap.exists() ? empSnap.val() : "none";
+        if (oldEmp && String(oldEmp).startsWith("plot:")) {
+            const oldPid = Number(String(oldEmp).split(":")[1]);
+            if (oldPid !== plotId) {
+                try { await set(ref(db, `plots/${oldPid}/workers/${applicant}`), null); } catch (e) {}
+            }
+        }
+
+        // Додаємо працівника у штат підприємства разом із його пройденими курсами
+        await update(ref(db, `plots/${plotId}/workers/${applicant}`), {
+            role: "Робітник зміни",
+            personalWage: approvedWage,
+            completedCourses: applicantCourses,
+            orders: Number(owned.workers?.[applicant]?.orders) || 0,
+            clicks: Number(owned.workers?.[applicant]?.clicks) || 0,
+            totalEarned: Number(owned.workers?.[applicant]?.totalEarned) || 0,
+            profitBrought: Number(owned.workers?.[applicant]?.profitBrought) || 0,
+            joinedAt: Date.now(),
             lastWorkAt: Date.now()
         });
-    } catch (e) {}
 
-    sfx.good();
-    renderAll();
-    saveGame();
-    setGameStatus(`Ви влаштувались у «${bld ? bld.name : p.name}» (${owned.owner})`);
-    showDialog(
-        "Роботу оформлено!",
-        `Підприємство: ${bld ? bld.icon + " " + bld.name : p.name}\nВласник: ${owned.owner}\nПоточна посада: ${assignedRole}\nВаша зарплата: +${formatNumberFull(assignedWage)} 💰 за виконане замовлення (5 кроків).\n\nℹ️ На роботах гравців звання не прокачуються вручну — власник бачить, скільки замовлень ви виконали, і сам підвищує вам зарплату та посаду!`,
-        "🏪"
-    );
+        // Прибираємо зі списку заявок
+        await set(ref(db, `plots/${plotId}/applicants/${applicant}`), null);
+
+        // Оновлюємо місце роботи кандидата
+        await update(ref(db, `users/${applicant}/clicker`), {
+            employer: "plot:" + plotId,
+            taskActive: false,
+            taskProgress: 0
+        });
+
+        // Позначаємо резюме як прийняте
+        await update(ref(db, `mail/${currentUser}/${mailId}`), {
+            status: "accepted",
+            unread: false,
+            approvedWage: approvedWage
+        });
+
+        // Надсилаємо кандидату офіційний лист про прийняття на роботу
+        const replyRef = push(ref(db, `mail/${applicant}`));
+        await set(replyRef, {
+            id: replyRef.key,
+            type: "system",
+            from: currentUser,
+            to: applicant,
+            subject: `🎉 Ваше резюме прийнято! (${mail.buildingName})`,
+            body: `Вітаємо! Власник ${currentUser} розглянув ваше резюме та прийняв вас на роботу у «${mail.buildingName}» (${mail.plotName}).\nВаша затверджена зарплата: +${formatNumberFull(approvedWage)} 💰 за виконане замовлення! Перейдіть у вкладку «💼 Робота», щоб розпочати зміну.`,
+            unread: true,
+            createdAt: Date.now()
+        });
+
+        sfx.win();
+        setGameStatus(`✅ Гравець ${applicant} прийнятий на роботу у «${mail.buildingName}» (ЗП: ${approvedWage} 💰)!`);
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
 };
+
+window.rejectResume = async function (mailId) {
+    const mail = userInboxMail[mailId];
+    if (!mail || mail.type !== "resume") return;
+    const plotId = Number(mail.plotId);
+    const applicant = mail.from;
+
+    try {
+        await update(ref(db, `mail/${currentUser}/${mailId}`), {
+            status: "rejected",
+            unread: false
+        });
+        await set(ref(db, `plots/${plotId}/applicants/${applicant}`), null);
+
+        const replyRef = push(ref(db, `mail/${applicant}`));
+        await set(replyRef, {
+            id: replyRef.key,
+            type: "system",
+            from: currentUser,
+            to: applicant,
+            subject: `ℹ️ Відповідь на резюме (${mail.buildingName})`,
+            body: `Власник ${currentUser} переглянув ваше резюме у «${mail.buildingName}» (${mail.plotName}) та наразі відхилив заявку. Ви можете пройти додаткові профільні курси або подати резюме повторно!`,
+            unread: true,
+            createdAt: Date.now()
+        });
+
+        sfx.click();
+        setGameStatus(`Резюме від ${applicant} відхилено.`);
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+window.deleteMailItem = async function (mailId, isSent = false) {
+    try {
+        if (isSent) {
+            await set(ref(db, `sentMail/${currentUser}/${mailId}`), null);
+        } else {
+            await set(ref(db, `mail/${currentUser}/${mailId}`), null);
+        }
+        sfx.click();
+    } catch (e) {}
+};
+
+window.markMailRead = async function (mailId) {
+    if (!userInboxMail[mailId] || !userInboxMail[mailId].unread) return;
+    try {
+        await update(ref(db, `mail/${currentUser}/${mailId}`), { unread: false });
+    } catch (e) {}
+};
+
+function renderMailPage() {
+    const box = $("mail-list-container");
+    if (!box) return;
+
+    if (activeMailSubtab === "sent") {
+        const sentArr = Object.entries(userSentMail || {})
+            .map(([id, m]) => ({ ...m, id }))
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        if (!sentArr.length) {
+            box.innerHTML = `<div class="muted" style="text-align:center;padding:24px">Ви ще не надсилали жодних листів чи резюме.</div>`;
+            return;
+        }
+
+        box.innerHTML = sentArr.map(m => `
+            <div class="mail-card">
+                <div class="mail-header-row">
+                    <span class="mail-from">📤 Кому: <b>${escapeHtml(m.to || "—")}</b></span>
+                    <span class="mail-date">${formatTimeAgo(m.createdAt)}</span>
+                </div>
+                <div class="mail-subj">${escapeHtml(m.subject || "Без теми")}</div>
+                <div class="mail-body-text">${escapeHtml(m.body || "")}</div>
+                <div class="btn-row" style="margin-top:2px">
+                    <button class="btn danger" onclick="deleteMailItem('${m.id}', true)" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">🗑️ Видалити</button>
+                </div>
+            </div>
+        `).join("");
+        return;
+    }
+
+    let list = Object.entries(userInboxMail || {})
+        .map(([id, m]) => ({ ...m, id }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    if (activeMailSubtab === "resumes") {
+        list = list.filter(m => m.type === "resume");
+    }
+
+    if (!list.length) {
+        box.innerHTML = `<div class="muted" style="text-align:center;padding:24px">${activeMailSubtab === "resumes" ? "Наразі нових резюме від кандидатів немає." : "Ваша поштова скринька порожня."}</div>`;
+        return;
+    }
+
+    box.innerHTML = list.map(m => {
+        const isResume = m.type === "resume";
+        const isUnread = Boolean(m.unread);
+        const coursesHtml = isResume ? renderCourseChipsHtml(m.completedCourses || [], m.plotZone) : "";
+        const bonusPct = Number(m.zoneBonusPct) || getWorkerZoneSkillBonusPct(m.completedCourses || [], m.plotZone);
+
+        let resumeActionsHtml = "";
+        if (isResume) {
+            if (m.status === "accepted") {
+                resumeActionsHtml = `<div style="color:#006400;font-weight:bold;font-size:12px">✅ Резюме прийнято (встановлена ЗП: ${formatNumberFull(m.approvedWage || m.desiredWage)} 💰)</div>`;
+            } else if (m.status === "rejected") {
+                resumeActionsHtml = `<div style="color:#800000;font-weight:bold;font-size:12px">❌ Резюме відхилено</div>`;
+            } else {
+                resumeActionsHtml = `
+                    <div class="worker-owner-actions" style="border-top:1px solid #808080;padding-top:6px;margin-top:4px">
+                        <span style="font-size:11px;font-weight:bold">Призначити ЗП (💰):</span>
+                        <input type="number" id="approve_wage_${m.id}" class="input-field" value="${m.desiredWage || 15}" min="5" max="50000" style="max-width:85px">
+                        <button class="btn success" onclick="acceptResume('${m.id}')">✅ Прийняти на роботу</button>
+                        <button class="btn danger" onclick="rejectResume('${m.id}')">❌ Відхилити</button>
+                    </div>
+                `;
+            }
+        }
+
+        return `
+            <div class="mail-card${isUnread ? " unread" : ""}${isResume ? " resume-card" : ""}" onclick="markMailRead('${m.id}')">
+                <div class="mail-header-row">
+                    <span class="mail-from">${isResume ? "📋 Кандидат:" : "📩 Від:"} <b>${escapeHtml(m.from || "Система")}</b> ${isUnread ? '<span class="tab-badge">НОВЕ</span>' : ""}</span>
+                    <span class="mail-date">${formatTimeAgo(m.createdAt)}</span>
+                </div>
+                <div class="mail-subj">${escapeHtml(m.subject || "Повідомлення")}</div>
+                ${isResume ? `
+                <div class="mail-resume-details">
+                    <div><b>Підприємство:</b> ${escapeHtml(m.buildingName || "")} (${escapeHtml(m.plotName || "")})</div>
+                    <div><b>Бажана зарплата кандидата:</b> <span style="color:#006400;font-weight:bold">${formatNumberFull(m.desiredWage || 15)} 💰 / замовлення</span></div>
+                    <div><b>Пройдені курси кандидата:</b> ${coursesHtml}</div>
+                    <div style="color:#006400;font-weight:bold">📈 Бонус виручки для вашого підприємства від курсів кандидата: +${bonusPct}%</div>
+                </div>
+                ` : ""}
+                <div class="mail-body-text">${escapeHtml(m.body || "")}</div>
+                ${resumeActionsHtml}
+                <div class="btn-row" style="margin-top:2px">
+                    <button class="btn" onclick="openComposeMail('${escapeHtml(m.from)}', 'Re: ${escapeHtml(m.subject || "")}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">↩️ Відповісти листом</button>
+                    <button class="btn danger" onclick="deleteMailItem('${m.id}', false)" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">🗑️ Видалити</button>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
 
 window.resignCurrentJob = async function () {
     if (gameState.employer === "none") return;
@@ -741,9 +1249,10 @@ window.resignCurrentJob = async function () {
     renderAll();
     saveGame();
     setGameStatus("Ви звільнились за власним бажанням.");
-    showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете влаштуватися в бізнес іншого гравця або повернутися в КовельКорп.", "🚪");
+    showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете подати резюме в бізнес іншого гравця або піти в КовельКорп.", "🚪");
 };
 
+// ВИМОГА 6: Якщо у працівника пройдені курси для цієї зони — він приносить власнику БІЛЬШЕ виручки!
 async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
@@ -769,7 +1278,11 @@ async function doPrivateOrderStepWork(plotId) {
     const bld = getBuildingDef(p.zone, owned.building);
     const wRec = getWorkerRecordOnPlot(plotId, currentUser);
     const desiredPay = Math.max(1, Math.floor(wRec.personalWage));
-    const orderRevenue = bld ? bld.clickProfit : 20;
+
+    // Бонус виручки від пройдених курсів цієї зони!
+    const zoneSkillBonusPct = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
+    const baseOrderRevenue = bld ? bld.clickProfit : 20;
+    const orderRevenue = Math.max(2, Math.round(baseOrderRevenue * (1 + zoneSkillBonusPct / 100)));
     const isSelfOwner = owned.owner === currentUser;
 
     let paidToWorker = 0;
@@ -807,8 +1320,9 @@ async function doPrivateOrderStepWork(plotId) {
             const prevProfit = Number(curWorker.profitBrought) || 0;
 
             cur.workers[currentUser] = {
-                role: curWorker.role || "Новачок",
+                role: curWorker.role || "Робітник зміни",
                 personalWage: activeWage,
+                completedCourses: gameState.completedCourses || [],
                 orders: prevOrders + 1,
                 clicks: prevClicks + ORDER_STEPS_REQUIRED,
                 totalEarned: prevEarned + paidToWorker,
@@ -831,7 +1345,8 @@ async function doPrivateOrderStepWork(plotId) {
     renderStats();
     renderEmployerBar();
     saveGame();
-    setGameStatus(`✅ Замовлення у «${bld ? bld.name : p.name}» виконано! Отримано ЗП: +${formatNumberFull(paidToWorker)} 💰. Перерва 7с.`);
+    const bonusNote = zoneSkillBonusPct > 0 ? ` (виручка бізнесу +${zoneSkillBonusPct}% від ваших курсів!)` : "";
+    setGameStatus(`✅ Замовлення виконано! Ваша ЗП: +${formatNumberFull(paidToWorker)} 💰${bonusNote}. Перерва 7с.`);
 }
 
 function doMunicipalStepWork() {
@@ -1136,6 +1651,7 @@ function renderAll() {
     renderShop();
     renderMap();
     renderBank();
+    if (currentPage === "mail") renderMailPage();
     updateWorkButtonState();
 }
 
@@ -1158,15 +1674,16 @@ function renderEmployerBar() {
         const owned = sharedPlots[pid];
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
+        const zoneBonus = p ? getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone) : 0;
         nameEl.textContent = `${bld ? bld.icon + " " + bld.name : (p ? p.name : "Підприємство")} — ${wRec.role}`;
-        subEl.textContent = `Власник: ${owned?.owner || "—"} • Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰/замовлення (виконано: ${wRec.orders}) • Каса: ${formatNumber(owned?.treasury || 0)} 💰`;
+        subEl.textContent = `Власник: ${owned?.owner || "—"} • ЗП: +${formatNumberFull(wRec.personalWage)} 💰/замовл. • Ваш бонус курсів для зони: +${zoneBonus}%`;
         joinCorpBtn.style.display = "inline-block";
         resignBtn.style.display = "inline-block";
     } else {
         nameEl.textContent = `🧹 Муніципальний підробіток (Вільний працівник)`;
         subEl.textContent = hasCourse("basics")
-            ? "Ви можете працювати в КовельКорп або влаштуватися на підприємство іншого гравця!"
-            : "Влаштуйтесь у бізнес гравця нижче або пройдіть курс «Основи програмування» для КовельКорп!";
+            ? "У вас є ІТ-диплом для КовельКорп або подайте резюме на підприємство гравця!"
+            : "Подайте резюме у бізнес гравця нижче або пройдіть будь-який ІТ-курс для роботи в КовельКорп!";
         joinCorpBtn.style.display = "inline-block";
         resignBtn.style.display = "none";
     }
@@ -1194,7 +1711,7 @@ function renderPrivateJobsBoard() {
     if (badgeEl) badgeEl.textContent = businesses.length;
 
     if (!businesses.length) {
-        listEl.innerHTML = `<div class="muted" style="padding:10px;text-align:center">Поки жоден гравець не побудував магазин чи підприємство на мапі Ковеля. Станьте першим або купіть курс «Основи програмування» для роботи в КовельКорп!</div>`;
+        listEl.innerHTML = `<div class="muted" style="padding:10px;text-align:center">Поки жоден гравець не побудував магазин чи підприємство на мапі Ковеля. Станьте першим або пройдіть курс програмування для роботи в КовельКорп!</div>`;
         return;
     }
 
@@ -1203,48 +1720,57 @@ function renderPrivateJobsBoard() {
     let html = "";
     businesses.forEach(({ plot, owned, bld, wage, workersCount }) => {
         const isCurrent = activePid === plot.id;
-        const myRec = getWorkerRecordOnPlot(plot.id, currentUser);
-        const shownWage = isCurrent ? myRec.personalWage : (owned.workers?.[currentUser]?.personalWage || wage);
-        const shownRole = owned.workers?.[currentUser]?.role || "Новачок";
+        const hasPendingResume = Boolean(owned.applicants && owned.applicants[currentUser]);
+        const myZoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, plot.zone);
+        const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
         const treasury = Number(owned.treasury) || 0;
-        const workerNames = owned.workers ? Object.keys(owned.workers).slice(0, 3).join(", ") : "немає";
+
+        let actionBtnHtml = "";
+        if (isCurrent) {
+            actionBtnHtml = `<button class="btn danger" onclick="resignCurrentJob()" style="min-height:30px;min-width:80px;padding:4px 8px;font-size:11px">Звільнитись</button>`;
+        } else if (hasPendingResume) {
+            actionBtnHtml = `<button class="btn" onclick="openResumeModal(${plot.id})" style="min-height:30px;min-width:90px;padding:4px 8px;font-size:11px;color:#000080">⏳ Резюме подано</button>`;
+        } else {
+            actionBtnHtml = `<button class="btn default" onclick="openResumeModal(${plot.id})" style="min-height:30px;min-width:94px;padding:4px 8px;font-size:11px">📨 Подати резюме</button>`;
+        }
+
         html += `<div class="pjob-card${isCurrent ? " active-emp" : ""}">
             <div class="pjob-info">
-                <div class="pjob-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)}</div>
-                <div class="pjob-meta">Власник: <b>${escapeHtml(owned.owner)}</b> • Працівників: ${workersCount} (${escapeHtml(workerNames)}) • Каса: ${formatNumber(treasury)} 💰</div>
-                <div class="pjob-wage">ЗП за замовлення (5 дій): <b>+${formatNumberFull(shownWage)} 💰</b> • Ваша посада: <b>${escapeHtml(shownRole)}</b></div>
+                <div class="pjob-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px">(${escapeHtml(zInfo.name)})</span></div>
+                <div class="pjob-meta">Власник: <b>${escapeHtml(owned.owner)}</b> • Штат: ${workersCount} роб. • Каса: ${formatNumber(treasury)} 💰</div>
+                <div class="pjob-wage">Базова ЗП: <b>+${formatNumberFull(wage)} 💰</b>/замовл. • Ваш бонус курсів для цієї зони: <b>+${myZoneBonus}% виручки</b></div>
             </div>
-            <div>
-                ${isCurrent
-                    ? `<button class="btn danger" onclick="resignCurrentJob()" style="min-height:30px;min-width:74px;padding:4px 8px;font-size:11px">Звільнитись</button>`
-                    : `<button class="btn default" onclick="hireIntoPlot(${plot.id})" style="min-height:30px;min-width:84px;padding:4px 8px;font-size:11px">Влаштуватись</button>`
-                }
-            </div>
+            <div>${actionBtnHtml}</div>
         </div>`;
     });
     listEl.innerHTML = html;
 }
 
+// Формування списку працівників із відображенням ПРОЙДЕНИХ КУРСІВ кожного працівника та кнопками підвищення ЗП
 function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    const plotZone = p ? p.zone : "residential";
     const workersMap = owned.workers || {};
     const workersArr = Object.entries(workersMap);
     const isOwner = owned.owner === currentUser;
     const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
 
     if (!workersArr.length) {
-        return `<div class="muted" style="text-align:center;padding:6px">Наразі найманих робітників немає. Гравці можуть влаштуватися сюди через вкладку «Робота» або «Мапа»!</div>`;
+        return `<div class="muted" style="text-align:center;padding:6px">Наразі найманих робітників немає. Гравці подають сюди резюме — перевіряйте вкладку «📧 Пошта»!</div>`;
     }
 
     workersArr.sort((a, b) => (Number(b[1]?.orders) || 0) - (Number(a[1]?.orders) || 0));
 
     return workersArr.map(([wName, wData]) => {
         const pWage = Number(wData?.personalWage) > 0 ? Number(wData.personalWage) : baseWage;
-        const role = wData?.role || "Новачок";
+        const role = wData?.role || "Робітник зміни";
         const orders = Number(wData?.orders) || 0;
         const clicks = Number(wData?.clicks) || 0;
         const totalEarned = Number(wData?.totalEarned) || 0;
         const profitBrought = Number(wData?.profitBrought) || 0;
         const lastAgo = formatTimeAgo(wData?.lastWorkAt);
+        const wCourses = Array.isArray(wData?.completedCourses) ? wData.completedCourses : [];
+        const zoneSkillBonus = getWorkerZoneSkillBonusPct(wCourses, plotZone);
 
         const safeId = `${prefix}_${plotId}_${wName.replace(/[^a-zA-Z0-9_]/g, "")}`;
         const roleOptions = OWNER_ASSIGNED_TITLES.map(t =>
@@ -1262,9 +1788,11 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
                 </div>
                 <div class="w-stats">
                     <span>📦 Замовлень: <b>${formatNumberFull(orders)}</b> (${formatNumberFull(clicks)} дій)</span>
-                    <span>📈 Приніс виручки: <b>+${formatNumberFull(profitBrought)} 💰</b></span>
-                    <span>💵 Виплачено: <b>${formatNumberFull(totalEarned)} 💰</b></span>
-                    <span>🕒 Був: ${lastAgo}</span>
+                    <span>📈 Виручка власнику: <b>+${formatNumberFull(profitBrought)} 💰</b> (бонус курсів: <b style="color:#006400">+${zoneSkillBonus}%</b>)</span>
+                    <span>💵 Виплачено: <b>${formatNumberFull(totalEarned)} 💰</b> • 🕒 ${lastAgo}</span>
+                </div>
+                <div style="font-size:11px;margin-top:2px">
+                    <b>Пройдені курси робітника:</b> ${renderCourseChipsHtml(wCourses, plotZone)}
                 </div>
                 ${isOwner ? `
                 <div class="worker-owner-actions">
@@ -1272,6 +1800,7 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
                     <select id="role_${safeId}" class="input-field" style="max-width:135px;padding:2px 4px;font-size:11px;height:28px">${roleOptions}</select>
                     <input type="number" id="wage_${safeId}" class="input-field" value="${pWage}" min="5" max="50000" title="Індивідуальна ЗП">
                     <button class="btn default" onclick="setWorkerCustomWage(${plotId}, '${escapeHtml(wName)}', 'wage_${safeId}', 'role_${safeId}')">💾 Зберегти</button>
+                    <button class="btn" onclick="openComposeMail('${escapeHtml(wName)}', 'Щодо роботи на підприємстві')" title="Написати листа працівнику">📧</button>
                     <button class="btn danger" onclick="fireWorkerFromPlot(${plotId}, '${escapeHtml(wName)}')" title="Звільнити працівника">✕</button>
                 </div>` : ""}
             </div>
@@ -1300,7 +1829,7 @@ function renderOwnerBusinessesHub() {
     if (badgeEl) badgeEl.textContent = totalWorkersAcrossBiz > 0 ? `${myBuiltPlots.length} (${totalWorkersAcrossBiz}👷)` : myBuiltPlots.length;
 
     if (!myBuiltPlots.length) {
-        hubEl.innerHTML = `<div class="muted" style="padding:12px;text-align:center">У вас поки немає власних побудованих підприємств.<br>Купіть ділянку та збудуйте магазин, піцерію чи завод у вкладці «🗺️ Мапа Ковеля», щоб наймати гравців та керувати їхніми зарплатами!</div>`;
+        hubEl.innerHTML = `<div class="muted" style="padding:12px;text-align:center">У вас поки немає власних побудованих підприємств.<br>Купіть ділянку та збудуйте магазин, піцерію чи завод у вкладці «🗺️ Мапа», щоб приймати резюме гравців на Пошту та керувати їхніми зарплатами!</div>`;
         return;
     }
 
@@ -1315,7 +1844,7 @@ function renderOwnerBusinessesHub() {
                     <span>💵 Базова ЗП нових: <b>${formatNumberFull(baseWage)} 💰</b></span>
                     <span>🏘️ Пасивний дохід: <b style="color:#006400">+${formatNumberFull(passiveInc)}/хв</b></span>
                 </div>
-                <div class="workers-roster" style="max-height:210px">
+                <div class="workers-roster" style="max-height:220px">
                     ${buildWorkersRosterHtml(plot.id, owned, bld, "hub")}
                 </div>
                 <div class="bank-input-wrap" style="margin-top:6px">
@@ -1334,11 +1863,12 @@ function renderOwnerBusinessesHub() {
 function renderStats() {
     $("stat-coins").textContent = formatNumber(gameState.coins);
     $("stat-boost").textContent = gameState.xpBoost + "%";
+    const resBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
+    const indBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
+    if ($("stat-res-boost")) $("stat-res-boost").textContent = "+" + resBoost + "%";
+    if ($("stat-ind-boost")) $("stat-ind-boost").textContent = "+" + indBoost + "%";
+
     const inc = getTotalPassiveIncomePerMin();
-    const incEl = $("stat-income");
-    if (incEl) incEl.textContent = "+" + formatNumber(inc);
-    const depEl = $("stat-deposit");
-    if (depEl) depEl.textContent = formatNumber(gameState.deposit?.amount || 0);
     $("big-coins").textContent = formatNumberFull(gameState.coins);
 
     if ($("hud-coins")) $("hud-coins").textContent = formatNumberFull(gameState.coins);
@@ -1366,7 +1896,7 @@ function renderStats() {
             promoteBtn.classList.add("show");
             promoteBtn.textContent = reqOk
                 ? `⬆ Підвищитись до «${nextJob.name}»`
-                : `🔒 Потрібен курс «${getCourseName(nextJob.reqCourse)}»`;
+                : `🔒 Потрібен курс «${getCourseName(nextJob.reqCourse)}» (або дорожчий)`;
         } else {
             promoteBtn.classList.remove("show");
         }
@@ -1434,7 +1964,7 @@ function renderTask() {
             $("task-bar").style.width = ((step / ORDER_STEPS_REQUIRED) * 100) + "%";
             $("task-text").textContent = `Прибирання: ${step} / ${ORDER_STEPS_REQUIRED} дій`;
         }
-        $("task-reward").textContent = `Оплата за 5 дій: +${MUNICIPAL_TASK_REWARD} 💰 (або влаштуйтесь у бізнес гравця / КовельКорп!)`;
+        $("task-reward").textContent = `Оплата за 5 дій: +${MUNICIPAL_TASK_REWARD} 💰 (подайте резюме у бізнес гравця або вивчіть ІТ-курс!)`;
         $("task-title").textContent = "Муніципальний підробіток м. Ковель";
     }
 }
@@ -1539,7 +2069,7 @@ function renderJobsList() {
             const courseTitle = getCourseName(job.reqCourse);
             html += `<div class="job-row${isCurrent ? " current" : ""}${isLocked ? " locked" : ""}">
                 <span class="job-name">${i + 1}. ${job.name}</span>
-                <span class="job-req${courseOk ? " ok" : ""}">${courseOk ? "🎓 " : "🔒 "}${escapeHtml(courseTitle)}</span>
+                <span class="job-req${courseOk ? " ok" : ""}" title="Також підходить будь-який дорожчий ІТ-курс">${courseOk ? "🎓 " : "🔒 "}${escapeHtml(courseTitle)}</span>
                 <span class="job-pay">+${formatNumber(job.taskReward)}</span>
                 <span class="job-status">${status}</span></div>`;
         });
@@ -1549,43 +2079,79 @@ function renderJobsList() {
         const owned = sharedPlots[pid];
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
+        const zoneBonus = p ? getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone) : 0;
         html = `
             <div style="padding:10px;line-height:1.5;font-size:12px;color:#000">
                 <div style="font-weight:bold;color:#000080;font-size:13px;margin-bottom:6px">📋 Ваша особова картка на підприємстві «${escapeHtml(bld ? bld.name : "Бізнес")}»</div>
                 <div>• <b>Власник підприємства:</b> ${escapeHtml(owned?.owner || "—")}</div>
                 <div>• <b>Призначена вам посада:</b> <span style="color:#000080;font-weight:bold">${escapeHtml(wRec.role)}</span></div>
                 <div>• <b>Ваша індивідуальна зарплата:</b> <span style="color:#006400;font-weight:bold">+${formatNumberFull(wRec.personalWage)} 💰</span> за кожне виконане замовлення (5 дій)</div>
+                <div>• <b>Ваші дипломи:</b> ${renderCourseChipsHtml(gameState.completedCourses, p ? p.zone : null)}</div>
+                <div>• <b>Бонус виручки для цієї зони від ваших курсів:</b> <b style="color:#006400">+${zoneBonus}%</b></div>
                 <div>• <b>Виконано замовлень вами:</b> <b>${formatNumberFull(wRec.orders)}</b> (${formatNumberFull(wRec.clicks)} робочих дій)</div>
-                <div>• <b>Всього зароблено тут:</b> <b>${formatNumberFull(wRec.totalEarned)} 💰</b></div>
                 <div style="margin-top:8px;padding:8px;background:#ffffcc;border:1px solid #808080;color:#000">
-                    💡 <b>Як отримати підвищення?</b> На роботах гравців звання не прокачуються за XP. Власник (<b>${escapeHtml(owned?.owner || "—")}</b>) у реальному часі бачить кількість виконаних вами замовлень та особисто підвищує вам зарплату і посаду!
+                    💡 <b>Як отримати підвищення?</b> Власник (<b>${escapeHtml(owned?.owner || "—")}</b>) бачить ваші пройдені курси та кількість виконаних замовлень і сам підвищує вам зарплату та посаду!
                 </div>
             </div>
         `;
     } else {
         html = `
             <div style="padding:10px;line-height:1.5;font-size:12px;color:#000">
-                <b>Ви зараз на муніципальному підробітку.</b><br>
-                • Обирайте будь-яке підприємство у вкладці <b>«🏪 Вакансії гравців»</b>, щоб працювати на живих гравців та отримувати підвищення зарплати від власника.<br>
-                • Або пройдіть курс <b>«Основи програмування»</b> у вкладці «🎓 Курси», щоб відкрити ІТ-кар'єру в <b>КовельКорп</b> (9 рангів від Стажера до CTO).
+                <div style="margin-bottom:6px"><b>🎓 Ваші отримані дипломи та сертифікати:</b><br>${renderCourseChipsHtml(gameState.completedCourses)}</div>
+                <b>Як влаштуватися на престижну роботу:</b><br>
+                • <b>У бізнес гравця:</b> оберіть підприємство у вкладці «🏪 Вакансії (Резюме)» та натисніть <b>«📨 Подати резюме»</b> — воно прийде власнику на Пошту.<br>
+                • <b>У КовельКорп:</b> пройдіть будь-який курс програмування у вкладці «🎓 Курси» (навіть якщо ви одразу купите дорожчий ІТ-курс — він автоматично відкриє вступ і молодші звання!).
             </div>
         `;
     }
     $("jobs-list").innerHTML = html;
 }
 
+// ВИМОГА 5: Магазин курсів поділений на 3 категорії: IT, Житлова зона, Промислова зона
 function renderShop() {
+    const bannerEl = $("course-cat-banner");
+    if (bannerEl) {
+        if (activeCourseCategory === "it") {
+            bannerEl.innerHTML = `💻 <b>Курси програмування (КовельКорп):</b> Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп. Дорожчий курс автоматично зараховує вимоги всіх дешевших ІТ-курсів!`;
+        } else if (activeCourseCategory === "residential") {
+            const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
+            bannerEl.innerHTML = `🏡 <b>Курси Житлової та Сервісної зони:</b> Збільшують виручку, яку ви приносите власнику при роботі в Житловій та Комерційній зонах! Ваш поточний бонус: <span style="color:#006400">+${myRes}%</span>.`;
+        } else {
+            const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони:</b> Збільшують виручку, яку ви приносите власнику на заводах, СТО та терміналах Промзони! Ваш поточний бонус: <span style="color:#006400">+${myInd}%</span>.`;
+        }
+    }
+
+    const filtered = COURSES.filter(c => c.category === activeCourseCategory);
     let html = "";
-    COURSES.forEach(c => {
+    filtered.forEach(c => {
         const done = gameState.completedCourses.includes(c.id);
+        const coveredByHigher = !done && c.category === "it" && hasCourse(c.id);
         const active = gameState.activeCourseId === c.id;
         const can = !done && !active && !gameState.activeCourseId && gameState.coins >= c.price;
-        let status = done ? `<span style="color:#006400;font-weight:bold">✓ Диплом отримано (+${c.boost}% XP)</span>` :
-            active ? `<span class="course-timer">⏳ Залишилось: ${formatDuration(getRemainingCourseMs())}</span>` :
-                `<button class="btn default" ${can ? "" : "disabled"} onclick="buyCourse('${c.id}')">Почати курс (${formatNumber(c.price)} 💰)</button>`;
+
+        let badgeLabel = "";
+        if (c.category === "it") {
+            badgeLabel = `+${c.boost}% IT-XP`;
+        } else if (c.category === "residential") {
+            badgeLabel = `+${c.zoneBoost}% Житл. / +${c.commercialBoost}% Ком.`;
+        } else {
+            badgeLabel = `+${c.zoneBoost}% Промзона`;
+        }
+
+        let status = "";
+        if (done) {
+            status = `<span style="color:#006400;font-weight:bold">✓ Диплом отримано (${badgeLabel})</span>`;
+        } else if (active) {
+            status = `<span class="course-timer">⏳ Навчання: ${formatDuration(getRemainingCourseMs())}</span>`;
+        } else {
+            const extraNote = coveredByHigher ? `<span style="font-size:11px;color:#006400;margin-right:6px">✓ Вимогу вже перекрито вищим дипломом</span>` : "";
+            status = `${extraNote}<button class="btn default" ${can ? "" : "disabled"} onclick="buyCourse('${c.id}')">Вивчити (${formatNumberFull(c.price)} 💰)</button>`;
+        }
+
         html += `<div class="shop-item${done ? " completed" : ""}${active ? " active-course" : ""}">
-            <div class="shop-item-header"><span class="shop-item-name">🎓 ${c.name}</span><span class="shop-item-boost">+${c.boost}% XP</span></div>
-            <div class="shop-item-info">Тривалість: ${Math.round(c.durationMs / 3600000)} год • <b>${escapeHtml(c.desc || "")}</b></div>
+            <div class="shop-item-header"><span class="shop-item-name">🎓 ${escapeHtml(c.name)}</span><span class="shop-item-boost">${badgeLabel}</span></div>
+            <div class="shop-item-info">Тривалість: ${Math.round(c.durationMs / 3600000)} год • Ціна: <b>${formatNumberFull(c.price)} 💰</b><br>${escapeHtml(c.desc || "")}</div>
             <div class="shop-item-actions">${status}</div></div>`;
     });
     $("shop-list").innerHTML = html;
@@ -1776,11 +2342,11 @@ function showMapInfo(plotId) {
         const treasury = Number(owned.treasury) || 0;
         const workersMap = owned.workers || {};
         const workersArr = Object.entries(workersMap);
-        const boostPct = Math.min(90, workersArr.length * 15);
+        const boostPct = getPlotPassiveBonusPct(p, owned);
 
         $("info-biz-funds").textContent = formatNumberFull(treasury) + " 💰";
         $("info-biz-wage").textContent = formatNumberFull(wage) + " 💰 / замовлення";
-        $("info-biz-boost").textContent = `+${boostPct}% (${workersArr.length} роб.)`;
+        $("info-biz-boost").textContent = `+${boostPct}% (${workersArr.length} роб. + їхні курси)`;
 
         const wListEl = $("info-workers-list");
         wListEl.innerHTML = buildWorkersRosterHtml(plotId, owned, bld, "map");
@@ -1788,6 +2354,7 @@ function showMapInfo(plotId) {
         const hireActions = $("info-hire-actions");
         const isEmployedHere = getActiveEmployerPlotId() === plotId;
         const myRec = getWorkerRecordOnPlot(plotId, currentUser);
+        const myZoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
         if (isEmployedHere) {
             hireActions.innerHTML = `
                 <button class="btn default" onclick="switchPage('work')" style="min-height:32px;padding:4px 10px;font-size:12px">🛒 Перейти до роботи (ЗП: +${formatNumberFull(myRec.personalWage)} 💰/замовл.)</button>
@@ -1795,7 +2362,8 @@ function showMapInfo(plotId) {
             `;
         } else {
             hireActions.innerHTML = `
-                <button class="btn default" onclick="hireIntoPlot(${plotId})" style="min-height:32px;padding:4px 12px;font-size:12px">✍️ Влаштуватись сюди (ЗП: +${formatNumberFull(myRec.personalWage)} 💰/замовл.)</button>
+                <button class="btn default" onclick="openResumeModal(${plotId})" style="min-height:32px;padding:4px 12px;font-size:12px">📨 Подати резюме власнику (ваш бонус курсів: +${myZoneBonus}%)</button>
+                ${owned.owner !== currentUser ? `<button class="btn" onclick="openComposeMail('${escapeHtml(owned.owner)}', 'Питання щодо роботи у ${escapeHtml(p.name)}')" style="min-height:32px;padding:4px 10px;font-size:12px">📧 Написати власнику</button>` : ""}
             `;
         }
 
@@ -1870,7 +2438,7 @@ window.buySelectedPlot = async function () {
         renderAll(); saveGame();
         showMapInfo(selectedPlotId);
         setGameStatus("Ділянку куплено: " + p.name);
-        showDialog("Ділянку куплено!", `${p.name}\nЗона: ${ZONE_INFO[p.zone].name}\nТепер ви можете звести тут прибуткову будівлю та наймати гравців!`, "🗺️");
+        showDialog("Ділянку куплено!", `${p.name}\nЗона: ${ZONE_INFO[p.zone].name}\nТепер ви можете звести тут прибуткову будівлю та приймати резюме гравців на Пошту!`, "🗺️");
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
 };
 
@@ -1897,7 +2465,7 @@ window.buildOnSelectedPlot = async function (buildingId) {
         renderAll(); saveGame();
         showMapInfo(selectedPlotId);
         setGameStatus(`Збудовано: ${bld.name} (+${bld.income}/хв)`);
-        showDialog("Будівництво завершено!", `${bld.icon} ${bld.name}\nДілянка: ${p.name}\nБазовий дохід: +${formatNumberFull(bld.income)} монет/хв\nСтартова каса зарплат: ${formatNumberFull(starterTreasury)} 💰\nВи можете керувати працівниками та підвищувати їм ЗП прямо у вкладці «💼 Робота -> Мої робітники та ЗП»!`, "🏗️");
+        showDialog("Будівництво завершено!", `${bld.icon} ${bld.name}\nДілянка: ${p.name}\nБазовий дохід: +${formatNumberFull(bld.income)} монет/хв\nСтартова каса зарплат: ${formatNumberFull(starterTreasury)} 💰\nТепер інші гравці можуть надсилати вам резюме у вкладку «📧 Пошта»!`, "🏗️");
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -1908,7 +2476,7 @@ window.clickBuilding = function (id) {
     else if (id === "bohdan") openBohdanModal();
     else if (id === "corp") {
         if (!hasCourse("basics")) {
-            showDialog("КовельКорп", "Для вступу в ІТ-корпорацію «КовельКорп» потрібен сертифікат курсу «Основи програмування» (800 💰 у вкладці «🎓 Курси»).", "🏢");
+            showDialog("КовельКорп", "Для вступу в ІТ-корпорацію «КовельКорп» потрібен сертифікат курсу «Основи програмування» або будь-якого дорожчого ІТ-курсу (у вкладці «🎓 Курси»).", "🏢");
         } else {
             joinKovelCorp();
             switchPage("work");
@@ -1924,7 +2492,7 @@ function initBohdanChatIfEmpty() {
     appendBohdanMsg(
         "bohdan",
         "Богдан Поліщук",
-        "Здоров, козаче! Оце я розумію — класична Windows 98 Second Edition, працює як швейцарський годинник! Заходь у хату на Миколайчука 100. Як справи? Працюєш у КовельКорп чи відкрив свій бізнес і сам призначаєш людям зарплату?"
+        "Здоров, козаче! Оце порядок у Ковелі: тепер просто так з вулиці на завод чи в магазин не забіжиш — треба подавати резюме на Пошту Outlook Express 98! А якщо пройдеш мій курс зварювання MIG/MAG чи житлові курси — приноситимеш власнику солідний бонус і матимеш високу ЗП!"
     );
 }
 
@@ -1979,29 +2547,19 @@ function generateSmartBohdanReply(userText) {
     const dep = formatNumberFull(gameState.deposit?.amount || 0);
     const myPlots = MAP_PLOTS_BASE.filter(p => sharedPlots[p.id]?.owner === currentUser);
 
+    if (q.includes("курс") || q.includes("житл") || q.includes("пром") || q.includes("диплом") || q.includes("навч")) {
+        return "Тепер у вкладці «🎓 Курси» є три відділення! ІТ-курси відкривають КовельКорп (причому дорожчий курс автоматично зараховує всі дешевші!). Житлові курси (сантехніка, електрика, ОСББ) дають до +185% виручки в Житловій зоні, а Промислові (зварка, ЧПК, інженерія) — до +200% на заводах!";
+    }
+    if (q.includes("пошт") || q.includes("резюме") || q.includes("лист") || q.includes("outlook")) {
+        return "Заглядай у вкладку «📧 Пошта»! Коли подаєш резюме на підприємство гравця — власник бачить усі твої дипломи та відсоток бонусу для його зони, і одним кліком приймає тебе на роботу. Плюс там можна вільно переписуватися з будь-яким гравцем Ковеля!";
+    }
     if (q.includes("чехі") || q.includes("звар") || q.includes("робот") || q.includes("кемп") || q.includes("метал")) {
-        const replies = [
-            "Ох, у Чехії на заводі зміни по 12 годин з напівавтоматом! Там теж майстер дивився, хто скільки замовлень зварив, і тільки тоді піднімав ставку. Зате тепер у Ковелі все чесно: власник бачить статистику кожного робітника і сам підвищує ЗП!",
-            "У Чехії головне — маску хамелеон нормальну мати й подачу дроту виставити. Там добре підзаробив, але вирішив: треба на своїй вулиці Миколайчука 100 хазяйнувати!",
-            "Якщо візьмеш оранжеву промзону на Сільмаші й поставиш Зварювальний цех за 250К та наймеш туди робітників — будеш бачити, хто скільки замовлень закрив, і преміювати найкращих!"
-        ];
-        return replies[Math.floor(Math.random() * replies.length)];
+        return "У Чехії на заводі без диплома зварювальника MIG/MAG та охорони праці до цеху навіть не пускали! Зате як маєш сертифікат — власник заводу одразу бачить у резюме твої курси й ставить високу зарплату!";
     }
-    if (q.includes("інвест") || q.includes("земл") || q.includes("ділянк") || q.includes("куди") || q.includes("мап") || q.includes("пром") || q.includes("комерц")) {
-        return `У тебе в гаманці ${coins} 💰 і на депозиті ${dep} 💰 (ділянок: ${myPlots.length}). Зелені житлові ділянки — від 15К, синя Комерція в Центрі — від 55К, а оранжева Промзона — від 180К. Коли збудуєш магазин чи цех, зможеш керувати штатом прямо у вкладці «Робота -> Мої робітники та ЗП»!`;
+    if (q.includes("інвест") || q.includes("земл") || q.includes("ділянк") || q.includes("куди") || q.includes("мап")) {
+        return `У тебе в гаманці ${coins} 💰 і на депозиті ${dep} 💰 (ділянок: ${myPlots.length}). Купуй ділянку, став бізнес і чекай резюме на Пошту — бери в штат тих гравців, хто вивчив профільні курси під твою зону!`;
     }
-    if (q.includes("миколайчук") || q.includes("дім") || q.includes("хат") || q.includes("справ") || q.includes("життя")) {
-        return "Та як на Миколайчука 100 — тихо, спокійно, свіже повітря! Свою садибу нізащо не продам, зате двері для друзів завжди відкриті. Сусідні ділянки (Миколайчука 33 та 75) якраз у кадастрі під житлову забудову — бери, будемо сусідами!";
-    }
-    if (q.includes("кав") || q.includes("чай") || q.includes("пив") || q.includes("гост") || q.includes("піц") || q.includes("класік")) {
-        return "Оце по-нашому! ☕ Тримай гарячу каву по-ковельськи і канапки. До речі, як купиш синю комерційну землю в Центрі на Незалежності — відкривай там свою піцерію за 85 000 💰 і став хорошу зарплату активним працівникам!";
-    }
-    const fallback = [
-        `Слухай, ${currentUser || "брате"}, класичний дизайн Windows 98 SE — це справжня легенда! І панель зверху зручна, і кожне замовлення йде по етапах.`,
-        "Я як у Чехії варив металоконструкції, завжди думав: от повернусь у Ковель на Миколайчука 100 — зроблю все по красі. Так що ти теж не зупиняйся!",
-        "До речі, якщо ти власник бізнесу — заглядай у вкладку «👨‍💼 Мої робітники та ЗП», дивись, хто найбільше замовлень закрив, і піднімай їм зарплату кнопкою +25%!"
-    ];
-    return fallback[Math.floor(Math.random() * fallback.length)];
+    return `Слухай, ${currentUser || "брате"}, тепер з поштою Outlook Express 98, резюме та профільними курсами для кожної зони економіка Ковеля працює як справжня!`;
 }
 
 window.sendBohdanMessage = async function () {
@@ -2126,7 +2684,7 @@ window.startTaskOrShowStatus = function () {
         if (!hasCourse("basics")) {
             gameState.employer = "none";
             renderAll();
-            return showDialog("Потрібен курс!", "Для роботи в КовельКорп пройдіть курс «Основи програмування».", "🎓");
+            return showDialog("Потрібен ІТ-курс!", "Для роботи в КовельКорп пройдіть «Основи програмування» або будь-який дорожчий ІТ-курс.", "🎓");
         }
         sfx.click();
         gameState.taskActive = true;
@@ -2147,7 +2705,7 @@ window.doPromote = async function () {
     if (gameState.employer !== "corp") {
         return showDialog(
             "Підвищення робить власник!",
-            "На роботах у бізнесах гравців не можна прокачувати звання самостійно.\nВласник підприємства бачить, скільки замовлень ви виконали, та сам підвищує вам зарплату і посаду!",
+            "На роботах у бізнесах гравців не можна прокачувати звання самостійно.\nВласник підприємства бачить ваші курси та кількість виконаних замовлень і сам підвищує вам зарплату й посаду!",
             "ℹ️"
         );
     }
@@ -2159,7 +2717,7 @@ window.doPromote = async function () {
     if (!hasCourse(nextJob.reqCourse)) {
         return showDialog(
             "Потрібен курс для підвищення!",
-            `Щоб отримати звання «${nextJob.name}» у КовельКорп, вам необхідно пройти курс:\n\n🎓 «${getCourseName(nextJob.reqCourse)}»\n\nПерейдіть у вкладку «🎓 Курси», щоб розпочати навчання!`,
+            `Щоб отримати звання «${nextJob.name}» у КовельКорп, вам необхідно пройти курс:\n\n🎓 «${getCourseName(nextJob.reqCourse)}» (або будь-який дорожчий ІТ-курс!)\n\nПерейдіть у вкладку «🎓 Курси», щоб розпочати навчання!`,
             "📚"
         );
     }
@@ -2179,14 +2737,14 @@ window.buyCourse = async function (id) {
     if (isCourseRunning()) return showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️");
     const c = COURSES.find(x => x.id === id);
     if (!c || gameState.completedCourses.includes(id)) return;
-    if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price), "💸");
+    if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price) + " 💰", "💸");
     miniGames.stop();
     gameState.coins -= c.price;
     gameState.activeCourseId = c.id;
     gameState.courseStartTime = Date.now();
     gameState.taskActive = false; gameState.taskProgress = 0;
     renderAll(); startCourseTimer();
-    try { isSaving = false; await saveGame(); setGameStatus("Курс розпочато"); showDialog("Курс розпочато!", c.name, "📚"); }
+    try { isSaving = false; await saveGame(); setGameStatus("Курс розпочато: " + c.name); showDialog("Курс розпочато!", c.name, "📚"); }
     catch (e) { showDialog("Помилка", "Не вдалося зберегти", "⚠️"); }
 };
 
@@ -2214,6 +2772,7 @@ window.switchPage = function (page) {
     const te = $("tabnav-" + page); if (te) te.classList.add("active");
     if (page === "leaderboard") { loadLeaderboard(); loadOnline(); }
     if (page === "shop") renderShop();
+    if (page === "mail") renderMailPage();
     if (page === "map") {
         renderMap();
         setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 60);
@@ -2248,7 +2807,9 @@ window.loadLeaderboard = async function () {
             const self = u.name === currentUser;
             const medal = rank === 1 ? "🥇 " : rank === 2 ? "🥈 " : rank === 3 ? "🥉 " : "";
             html += `<div class="lb-row${self ? " self" : ""}"><span class="lb-rank ${rc}">${medal}${rank}</span>
-                <span class="lb-name">${escapeHtml(u.name)}</span><span class="lb-coins">${formatNumberFull(u.coins)}</span></div>`;
+                <span class="lb-name">${escapeHtml(u.name)}</span>
+                ${!self ? `<button class="btn" onclick="openComposeMail('${escapeHtml(u.name)}', 'Привіт!')" style="min-height:22px;min-width:auto;padding:1px 6px;font-size:10px">📧</button>` : ""}
+                <span class="lb-coins">${formatNumberFull(u.coins)}</span></div>`;
         });
         listEl.innerHTML = html;
         const idx = list.findIndex(u => u.name === currentUser);
@@ -2299,7 +2860,10 @@ window.logout = async function () {
     if (cooldownIntervalId) clearInterval(cooldownIntervalId);
     if (dataListener) { dataListener(); dataListener = null; }
     if (mapListener) { mapListener(); mapListener = null; }
+    if (mailInboxListener) { mailInboxListener(); mailInboxListener = null; }
+    if (mailSentListener) { mailSentListener(); mailSentListener = null; }
     currentUser = "";
+    userInboxMail = {}; userSentMail = {}; lastUnreadMailCount = 0;
     gameState = {
         coins: 0, jobIndex: 0, xp: 0,
         privateJobIndex: 0, privateXp: 0, employer: "none",
