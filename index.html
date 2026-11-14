@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="3.5.0">
-<title>Win98 Work — Ковель Економіка SE v3.5</title>
+<meta name="version" content="3.6.0">
+<title>Win98 Work — Ковель Економіка SE v3.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v3.5 SE</div>
+        <div class="panel small">v3.6 SE</div>
     </div>
 </div>
 
@@ -62,6 +62,7 @@
             <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
         </div>
         <div class="xp-hud-right">
+            <button class="hud-wipe-btn" id="admin-wipe-btn" onclick="openAdminWipeModal()" style="display:none" title="Скинути прогрес усіх гравців та очистити мапу (тільки для admin)">☢️ ВАЙП</button>
             <button class="hud-mail-shortcut" id="hud-mail-btn" onclick="switchPage('mail')" title="Відкрити пошту Outlook Express 98">📧 <span id="hud-mail-cnt">0</span></button>
             <span>👤 <span id="stat-user">—</span></span>
         </div>
@@ -443,6 +444,29 @@
             <div class="btn-row">
                 <button class="btn" onclick="closeResumeModal()">Скасувати</button>
                 <button class="btn default" onclick="submitResumeApplication()">📨 Надіслати резюме на Пошту</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНЕ ВІКНО ГЛОБАЛЬНОГО ВАЙПУ ДЛЯ ADMIN -->
+<div class="dialog-overlay" id="wipe-overlay">
+    <div class="dialog" style="max-width:400px">
+        <div class="title-bar" style="background:linear-gradient(90deg,#800000,#d01010)">
+            <span class="title-icon">☢️</span>
+            <span class="title-text">Панель адміністратора (admin) — ВАЙП СЕРВЕРА</span>
+            <div class="win-controls">
+                <button class="win-btn close-btn" onclick="closeAdminWipeModal()">✕</button>
+            </div>
+        </div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:10px;font-size:12px;line-height:1.45">
+            <div style="background:#ffffcc;border:2px inset #808080;padding:8px;color:#800000;font-weight:bold">
+                ⚠️ УВАГА! Ви увійшли як <b>admin</b>. Глобальний вайп скине абсолютно весь прогрес у всіх гравців Ковеля (монети, депозити, кредити, курси, звання, пошту, а також усі куплені ділянки та будівлі на мапі)!
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+                <button class="btn danger" id="btn-confirm-wipe-progress" onclick="executeAdminGlobalWipe(false)" style="width:100%;font-weight:bold">☢️ ВАЙП ПРОГРЕСУ І МАПИ (акаунти залишаються)</button>
+                <button class="btn danger" id="btn-confirm-wipe-all" onclick="executeAdminGlobalWipe(true)" style="width:100%">💥 ПОВНИЙ ВАЙП + ВИДАЛЕННЯ ВСІХ ІНШИХ АКАУНТІВ</button>
+                <button class="btn" onclick="closeAdminWipeModal()" style="width:100%">Скасувати</button>
             </div>
         </div>
     </div>
