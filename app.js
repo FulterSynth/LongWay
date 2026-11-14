@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "3.5.0";
+const APP_VERSION = "3.6.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -171,7 +171,10 @@ const MAP_PLOTS_BASE = [
     { id: 47, zone: "residential", name: "Друге Ковельське (Пн)",    lat: 51.2285, lng: 24.7215, dLat: 0.0012, dLng: 0.0021 }
 ];
 
-// Обчислення бонусу виручки для конкретної зони від пройдених курсів гравця
+function isAdminUser() {
+    return currentUser && currentUser.toLowerCase() === "admin";
+}
+
 function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     if (!Array.isArray(completedList) || !completedList.length) return 0;
     let totalPct = 0;
@@ -268,9 +271,9 @@ function getPlotPassiveBonusPct(plot, ownedData) {
     const workersArr = Object.values(ownedData.workers);
     let totalBoostPct = 0;
     workersArr.forEach(w => {
-        totalBoostPct += 15; // базові +15% за працівника
+        totalBoostPct += 15;
         const skillBonus = getWorkerZoneSkillBonusPct(w?.completedCourses || [], plot.zone);
-        totalBoostPct += Math.round(skillBonus * 0.25); // додатковий пасивний бонус від профільних курсів робітника
+        totalBoostPct += Math.round(skillBonus * 0.25);
     });
     return Math.min(180, totalBoostPct);
 }
@@ -421,7 +424,7 @@ function colorFromName(name) {
     return `hsl(${h},65%,45%)`;
 }
 
-// ВИМОГА 4: Перевірка наявності курсу враховує ІЄРАРХІЮ (якщо потрібен "basics", то будь-який дорожчий ІТ-курс теж рахується!)
+// Перевірка наявності курсу враховує ІЄРАРХІЮ (якщо потрібен "basics", то будь-який дорожчий ІТ-курс теж рахується!)
 function hasCourse(courseId, completedList = gameState.completedCourses) {
     if (!courseId) return true;
     if (!Array.isArray(completedList) || !completedList.length) return false;
@@ -430,7 +433,6 @@ function hasCourse(courseId, completedList = gameState.completedCourses) {
     const reqCourse = COURSES.find(x => x.id === courseId);
     if (!reqCourse) return false;
 
-    // Якщо у гравця пройдений будь-який дорожчий (або рівний за ціною) курс тієї ж категорії — він зараховується!
     return completedList.some(doneId => {
         const doneCourse = COURSES.find(x => x.id === doneId);
         return doneCourse && doneCourse.category === reqCourse.category && doneCourse.price >= reqCourse.price;
@@ -578,6 +580,13 @@ async function startGame() {
     $("game-screen").classList.add("active");
     $("stat-user").textContent = currentUser;
     $("game-title").textContent = "Win98 SE Work — " + currentUser;
+
+    // Показуємо кнопку «☢️ ВАЙП» тільки якщо гравець увійшов як admin
+    const wipeBtn = $("admin-wipe-btn");
+    if (wipeBtn) {
+        wipeBtn.style.display = isAdminUser() ? "inline-block" : "none";
+    }
+
     await loadGame();
     startLiveSync();
     startMapSync();
@@ -594,8 +603,116 @@ async function startGame() {
     setGameStatus("Ласкаво просимо у Windows 98 SE Work, " + currentUser + "!");
 }
 
-// ВИМОГА 4: Ніхто не працює в КовельКорп з початку гри! Якщо employer не заданий — строго "none".
-// Якщо employer === "corp", перевіряємо наявність хоча б одного ІТ-курсу (basics або дорожчого).
+// ===== ГЛОБАЛЬНИЙ ВАЙП СЕРВЕРА (ТІЛЬКИ ДЛЯ ГРАВЦЯ admin) =====
+window.openAdminWipeModal = function () {
+    if (!isAdminUser()) return;
+    sfx.click();
+    $("wipe-overlay").classList.add("active");
+};
+
+window.closeAdminWipeModal = function () {
+    $("wipe-overlay").classList.remove("active");
+};
+
+window.executeAdminGlobalWipe = async function (deleteOtherAccounts = false) {
+    if (!isAdminUser()) {
+        return showDialog("Доступ заборонено", "Ця функція доступна лише гравцю admin!", "🚫");
+    }
+
+    const btnProg = $("btn-confirm-wipe-progress");
+    const btnAll = $("btn-confirm-wipe-all");
+    if (btnProg) btnProg.disabled = true;
+    if (btnAll) btnAll.disabled = true;
+    setGameStatus("☢️ Виконується глобальний вайп бази даних Ковеля...");
+
+    try {
+        // 1. Повністю очищуємо всі куплені ділянки та будівлі на мапі Ковеля
+        await set(ref(db, "plots"), null);
+
+        // 2. Отримуємо всіх користувачів і скидаємо прогрес (та пошту) у кожного
+        const usersSnap = await get(child(ref(db), "users"));
+        if (usersSnap.exists()) {
+            const allUsers = usersSnap.val() || {};
+            const now = Date.now();
+            const freshClickerState = {
+                coins: 0,
+                jobIndex: 0,
+                xp: 0,
+                privateJobIndex: 0,
+                privateXp: 0,
+                employer: "none",
+                taskProgress: 0,
+                taskActive: false,
+                activeCourseId: null,
+                courseStartTime: 0,
+                completedCourses: [],
+                xpBoost: 0,
+                credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 },
+                deposit: { amount: 0, lastInterestAt: now, totalEarned: 0 }
+            };
+
+            const promises = Object.keys(allUsers).map(uname => {
+                if (deleteOtherAccounts && uname.toLowerCase() !== "admin") {
+                    return set(ref(db, `users/${uname}`), null);
+                } else {
+                    return update(ref(db, `users/${uname}`), {
+                        clicker: freshClickerState,
+                        mail: null,
+                        sentMail: null
+                    });
+                }
+            });
+            await Promise.all(promises);
+        }
+
+        // 3. Очищуємо локальний стан
+        miniGames.stop();
+        workCooldownUntil = 0;
+        selectedPlotId = null;
+        sharedPlots = {};
+        userInboxMail = {};
+        userSentMail = {};
+        gameState = {
+            coins: 0,
+            jobIndex: 0,
+            xp: 0,
+            privateJobIndex: 0,
+            privateXp: 0,
+            employer: "none",
+            taskProgress: 0,
+            taskActive: false,
+            activeCourseId: null,
+            courseStartTime: 0,
+            completedCourses: [],
+            xpBoost: 0,
+            credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 },
+            deposit: { amount: 0, lastInterestAt: Date.now(), totalEarned: 0 }
+        };
+
+        closeAdminWipeModal();
+        closeMapInfo();
+        sfx.win();
+        renderAll();
+        if (currentPage === "leaderboard") {
+            loadLeaderboard();
+            loadOnline();
+        }
+        setGameStatus("☢️ Глобальний вайп успішно завершено! Увесь прогрес скинуто до нуля.");
+        showDialog(
+            "Вайп виконано!",
+            deleteOtherAccounts
+                ? "Усі ділянки мапи очищено, сторонні акаунти видалено, а прогрес скинуто до нуля!"
+                : "Увесь прогрес усіх гравців (монети, депозити, кредити, курси, звання, пошта) та вся мапа Ковеля повністю скинуті до початкового стану!",
+            "☢️"
+        );
+    } catch (e) {
+        showDialog("Помилка вайпу", e.message, "⚠️");
+    } finally {
+        if (btnProg) btnProg.disabled = false;
+        if (btnAll) btnAll.disabled = false;
+    }
+};
+
 function normalizeEmployerState(d) {
     const completed = Array.isArray(d.completedCourses) ? d.completedCourses : [];
     let emp = d.employer || "none";
@@ -665,7 +782,6 @@ function startMapSync() {
         if (gameState.employer && gameState.employer.startsWith("plot:")) {
             const pid = Number(gameState.employer.split(":")[1]);
             const pData = sharedPlots[pid];
-            // Якщо будівлю знесли або працівника звільнили зі списку workers — переводимо на "none"
             if (!pData || !pData.building || !pData.workers || !pData.workers[currentUser]) {
                 gameState.employer = "none";
             }
@@ -726,7 +842,6 @@ async function saveGame() {
             credit: gameState.credit,
             deposit: gameState.deposit
         });
-        // Синхронізуємо пройдені курси гравця у його картці працівника на поточному підприємстві, щоб власник бачив нові дипломи
         const pid = getActiveEmployerPlotId();
         if (pid !== null && sharedPlots[pid]?.workers?.[currentUser]) {
             await update(ref(db, `plots/${pid}/workers/${currentUser}`), {
@@ -775,7 +890,6 @@ function checkCourseCompletion() {
 }
 
 window.joinKovelCorp = async function () {
-    // Перевірка: чи є "basics" АБО будь-який дорожчий ІТ-курс
     if (!hasCourse("basics")) {
         return showDialog(
             "Потрібен ІТ-диплом!",
@@ -798,7 +912,7 @@ window.joinKovelCorp = async function () {
     setGameStatus("Ви влаштувались у КовельКорп!");
 };
 
-// ===== ВИМОГИ 7 ТА 8: ПОДАЧА РЕЗЮМЕ ТА ПОШТА OUTLOOK EXPRESS 98 =====
+// ===== ПОДАЧА РЕЗЮМЕ ТА ПОШТА OUTLOOK EXPRESS 98 (ЗБЕРІГАЄТЬСЯ У ВУЗЛІ users/{username}/mail ДЛЯ ПОВНОЇ СУМІСНОСТІ З ПРАВИЛАМИ FIREBASE) =====
 
 window.openResumeModal = function (plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
@@ -864,10 +978,11 @@ window.submitResumeApplication = async function () {
     };
 
     try {
-        const newMailRef = push(ref(db, `mail/${owned.owner}`));
+        // Записуємо всередину дозволеного вузла users/{owner}/mail та users/{currentUser}/sentMail
+        const newMailRef = push(ref(db, `users/${owned.owner}/mail`));
         mailPayload.id = newMailRef.key;
         await set(newMailRef, mailPayload);
-        await set(ref(db, `sentMail/${currentUser}/${newMailRef.key}`), mailPayload);
+        await set(ref(db, `users/${currentUser}/sentMail/${newMailRef.key}`), mailPayload);
         await set(ref(db, `plots/${plotId}/applicants/${currentUser}`), {
             desiredWage,
             zoneBonusPct: zoneBonus,
@@ -893,13 +1008,13 @@ function startMailSync() {
     if (mailSentListener) { mailSentListener(); mailSentListener = null; }
     if (!currentUser) return;
 
-    mailInboxListener = onValue(ref(db, `mail/${currentUser}`), snap => {
+    mailInboxListener = onValue(ref(db, `users/${currentUser}/mail`), snap => {
         userInboxMail = snap.exists() ? snap.val() : {};
         updateMailBadges();
         if (currentPage === "mail") renderMailPage();
     });
 
-    mailSentListener = onValue(ref(db, `sentMail/${currentUser}`), snap => {
+    mailSentListener = onValue(ref(db, `users/${currentUser}/sentMail`), snap => {
         userSentMail = snap.exists() ? snap.val() : {};
         if (currentPage === "mail" && activeMailSubtab === "sent") renderMailPage();
     });
@@ -999,10 +1114,11 @@ window.sendPersonalMail = async function () {
             createdAt: Date.now()
         };
 
-        const newRef = push(ref(db, `mail/${to}`));
+        // Записуємо у дозволений вузол users/{to}/mail та users/{currentUser}/sentMail
+        const newRef = push(ref(db, `users/${to}/mail`));
         msgData.id = newRef.key;
         await set(newRef, msgData);
-        await set(ref(db, `sentMail/${currentUser}/${newRef.key}`), msgData);
+        await set(ref(db, `users/${currentUser}/sentMail/${newRef.key}`), msgData);
 
         $("mail-subj-input").value = "";
         $("mail-body-input").value = "";
@@ -1031,7 +1147,6 @@ window.acceptResume = async function (mailId) {
     const applicantCourses = Array.isArray(mail.completedCourses) ? mail.completedCourses : [];
 
     try {
-        // Якщо кандидат працював на іншій ділянці — прибираємо його зі старого місця
         const empSnap = await get(child(ref(db), `users/${applicant}/clicker/employer`));
         const oldEmp = empSnap.exists() ? empSnap.val() : "none";
         if (oldEmp && String(oldEmp).startsWith("plot:")) {
@@ -1041,7 +1156,6 @@ window.acceptResume = async function (mailId) {
             }
         }
 
-        // Додаємо працівника у штат підприємства разом із його пройденими курсами
         await update(ref(db, `plots/${plotId}/workers/${applicant}`), {
             role: "Робітник зміни",
             personalWage: approvedWage,
@@ -1054,25 +1168,21 @@ window.acceptResume = async function (mailId) {
             lastWorkAt: Date.now()
         });
 
-        // Прибираємо зі списку заявок
         await set(ref(db, `plots/${plotId}/applicants/${applicant}`), null);
 
-        // Оновлюємо місце роботи кандидата
         await update(ref(db, `users/${applicant}/clicker`), {
             employer: "plot:" + plotId,
             taskActive: false,
             taskProgress: 0
         });
 
-        // Позначаємо резюме як прийняте
-        await update(ref(db, `mail/${currentUser}/${mailId}`), {
+        await update(ref(db, `users/${currentUser}/mail/${mailId}`), {
             status: "accepted",
             unread: false,
             approvedWage: approvedWage
         });
 
-        // Надсилаємо кандидату офіційний лист про прийняття на роботу
-        const replyRef = push(ref(db, `mail/${applicant}`));
+        const replyRef = push(ref(db, `users/${applicant}/mail`));
         await set(replyRef, {
             id: replyRef.key,
             type: "system",
@@ -1098,13 +1208,13 @@ window.rejectResume = async function (mailId) {
     const applicant = mail.from;
 
     try {
-        await update(ref(db, `mail/${currentUser}/${mailId}`), {
+        await update(ref(db, `users/${currentUser}/mail/${mailId}`), {
             status: "rejected",
             unread: false
         });
         await set(ref(db, `plots/${plotId}/applicants/${applicant}`), null);
 
-        const replyRef = push(ref(db, `mail/${applicant}`));
+        const replyRef = push(ref(db, `users/${applicant}/mail`));
         await set(replyRef, {
             id: replyRef.key,
             type: "system",
@@ -1126,9 +1236,9 @@ window.rejectResume = async function (mailId) {
 window.deleteMailItem = async function (mailId, isSent = false) {
     try {
         if (isSent) {
-            await set(ref(db, `sentMail/${currentUser}/${mailId}`), null);
+            await set(ref(db, `users/${currentUser}/sentMail/${mailId}`), null);
         } else {
-            await set(ref(db, `mail/${currentUser}/${mailId}`), null);
+            await set(ref(db, `users/${currentUser}/mail/${mailId}`), null);
         }
         sfx.click();
     } catch (e) {}
@@ -1137,7 +1247,7 @@ window.deleteMailItem = async function (mailId, isSent = false) {
 window.markMailRead = async function (mailId) {
     if (!userInboxMail[mailId] || !userInboxMail[mailId].unread) return;
     try {
-        await update(ref(db, `mail/${currentUser}/${mailId}`), { unread: false });
+        await update(ref(db, `users/${currentUser}/mail/${mailId}`), { unread: false });
     } catch (e) {}
 };
 
@@ -1252,7 +1362,6 @@ window.resignCurrentJob = async function () {
     showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете подати резюме в бізнес іншого гравця або піти в КовельКорп.", "🚪");
 };
 
-// ВИМОГА 6: Якщо у працівника пройдені курси для цієї зони — він приносить власнику БІЛЬШЕ виручки!
 async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
@@ -1279,7 +1388,6 @@ async function doPrivateOrderStepWork(plotId) {
     const wRec = getWorkerRecordOnPlot(plotId, currentUser);
     const desiredPay = Math.max(1, Math.floor(wRec.personalWage));
 
-    // Бонус виручки від пройдених курсів цієї зони!
     const zoneSkillBonusPct = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
     const baseOrderRevenue = bld ? bld.clickProfit : 20;
     const orderRevenue = Math.max(2, Math.round(baseOrderRevenue * (1 + zoneSkillBonusPct / 100)));
@@ -1746,7 +1854,6 @@ function renderPrivateJobsBoard() {
     listEl.innerHTML = html;
 }
 
-// Формування списку працівників із відображенням ПРОЙДЕНИХ КУРСІВ кожного працівника та кнопками підвищення ЗП
 function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const plotZone = p ? p.zone : "residential";
@@ -2107,7 +2214,6 @@ function renderJobsList() {
     $("jobs-list").innerHTML = html;
 }
 
-// ВИМОГА 5: Магазин курсів поділений на 3 категорії: IT, Житлова зона, Промислова зона
 function renderShop() {
     const bannerEl = $("course-cat-banner");
     if (bannerEl) {
@@ -2864,6 +2970,7 @@ window.logout = async function () {
     if (mailSentListener) { mailSentListener(); mailSentListener = null; }
     currentUser = "";
     userInboxMail = {}; userSentMail = {}; lastUnreadMailCount = 0;
+    if ($("admin-wipe-btn")) $("admin-wipe-btn").style.display = "none";
     gameState = {
         coins: 0, jobIndex: 0, xp: 0,
         privateJobIndex: 0, privateXp: 0, employer: "none",
