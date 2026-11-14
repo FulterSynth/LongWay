@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="3.6.0">
-<title>Win98 Work — Ковель Економіка SE v3.6</title>
+<meta name="version" content="3.7.0">
+<title>Win98 Work — Ковель Економіка SE v3.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v3.6 SE</div>
+        <div class="panel small">v3.7 SE</div>
     </div>
 </div>
 
@@ -464,8 +464,7 @@
                 ⚠️ УВАГА! Ви увійшли як <b>admin</b>. Глобальний вайп скине абсолютно весь прогрес у всіх гравців Ковеля (монети, депозити, кредити, курси, звання, пошту, а також усі куплені ділянки та будівлі на мапі)!
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
-                <button class="btn danger" id="btn-confirm-wipe-progress" onclick="executeAdminGlobalWipe(false)" style="width:100%;font-weight:bold">☢️ ВАЙП ПРОГРЕСУ І МАПИ (акаунти залишаються)</button>
-                <button class="btn danger" id="btn-confirm-wipe-all" onclick="executeAdminGlobalWipe(true)" style="width:100%">💥 ПОВНИЙ ВАЙП + ВИДАЛЕННЯ ВСІХ ІНШИХ АКАУНТІВ</button>
+                <button class="btn danger" id="btn-confirm-wipe-progress" onclick="executeAdminGlobalWipe()" style="width:100%;font-weight:bold">☢️ ПІДТВЕРДИТИ ПОВНИЙ ВАЙП УСІХ ГРАВЦІВ І МАПИ</button>
                 <button class="btn" onclick="closeAdminWipeModal()" style="width:100%">Скасувати</button>
             </div>
         </div>
