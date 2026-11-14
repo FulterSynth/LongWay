@@ -83,7 +83,7 @@ export class MiniGameManager {
         this.elTitle = document.getElementById(containerIds.title);
         this.elBadge = document.getElementById(containerIds.badge);
         this.elBody = document.getElementById(containerIds.body);
-        this.cb = callbacks; // { onStep(xpWeight), onComplete(), onStatus(msg) }
+        this.cb = callbacks;
         this.activeType = null;
         this.lastType = null;
         this.cleanups = [];
@@ -128,11 +128,10 @@ export class MiniGameManager {
         this.elWin.classList.add("mg-shake");
     }
 
-    // ===== 1. БАГ-ХАНТЕР =====
     _startBugs(jobIndex) {
         const target = Math.min(12, 6 + Math.floor(jobIndex * 0.7));
         let score = 0;
-        const cells = Array(12).fill(null); // 4x3 grid
+        const cells = Array(12).fill(null);
         this.elIcon.textContent = "🐛";
         this.elTitle.textContent = "Баг-Хантер 95";
         this.elBadge.textContent = `0/${target}`;
@@ -222,7 +221,6 @@ export class MiniGameManager {
         this.cleanups.push(() => clearInterval(iv));
     }
 
-    // ===== 2. ДЕФРАГМЕНТАТОР (ТАЙМІНГ) =====
     _startDefrag(jobIndex) {
         const target = Math.min(6, 4 + Math.floor(jobIndex / 3));
         let hits = 0;
@@ -261,7 +259,7 @@ export class MiniGameManager {
 
         const attempt = () => {
             if (this.activeType !== "defrag") return;
-            const center = pos + 2; // cursor center %
+            const center = pos + 2;
             if (center >= zoneLeft && center <= zoneLeft + zoneWidth) {
                 hits++;
                 sfx.good();
@@ -306,7 +304,6 @@ export class MiniGameManager {
         this.cleanups.push(() => cancelAnimationFrame(rafId));
     }
 
-    // ===== 3. СОРТУВАННЯ ПОШТИ (OUTLOOK 95) =====
     _startInbox(jobIndex) {
         const target = Math.min(9, 6 + Math.floor(jobIndex / 2));
         let done = 0;
@@ -375,7 +372,6 @@ export class MiniGameManager {
         window.addEventListener("keydown", this.keyHandler);
     }
 
-    // ===== 4. ДЕШИФРАТОР (ПАМ'ЯТЬ) =====
     _startMemory(jobIndex) {
         const rounds = 2;
         let round = 0;
@@ -472,7 +468,6 @@ export class MiniGameManager {
         playRound();
     }
 
-    // ===== 5. ТЕРМІНАЛ MS-DOS (ЗБІР КОМАНДИ) =====
     _startTerminal(jobIndex) {
         const totalCmds = jobIndex >= 4 ? 3 : 2;
         let cmdDone = 0;
