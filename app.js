@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "3.0.0";
+const APP_VERSION = "3.1.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -100,7 +100,7 @@ const KOVEL_BOUNDS = [
 ];
 
 const MAP_BUILDINGS = [
-    { id: "bank", name: "КовельБанк XP", icon: "🏦", cls: "bank", lat: 51.2121, lng: 24.7102, sub: "Кредити та Депозити" },
+    { id: "bank", name: "КовельБанк 98", icon: "🏦", cls: "bank", lat: 51.2121, lng: 24.7102, sub: "Кредити та Депозити" },
     { id: "corp", name: "КовельКорп", icon: "🏢", cls: "corp", lat: 51.2208, lng: 24.7120, sub: "IT-Корпорація" },
     { id: "bohdan", name: "Дім Богдана Поліщука", icon: "👨‍🏭", cls: "bohdan", lat: 51.2226, lng: 24.7392, sub: "Миколайчука, 100" }
 ];
@@ -216,7 +216,6 @@ function getPlotPassiveIncome(plot, ownedData) {
     const bld = getBuildingDef(plot.zone, ownedData.building);
     const base = bld ? bld.income : Math.max(25, Math.floor(zInfo.basePrice * 0.005));
     const workersCount = ownedData.workers ? Object.keys(ownedData.workers).length : 0;
-    // Збалансований бонус від штату: +15% за кожного активного працівника (макс +90%)
     const workerMultiplier = 1 + Math.min(0.9, workersCount * 0.15);
     return Math.floor(base * workerMultiplier);
 }
@@ -252,10 +251,9 @@ let authMode = "login";
 let activeBankTab = "deposit";
 let activeWorkSubtab = "vacancies";
 
-// Стан кулдаунів для плавної індикації
 let workCooldownUntil = 0;
 let workCooldownTotalMs = 0;
-let workCooldownReason = ""; // "step" або "order"
+let workCooldownReason = "";
 let cooldownIntervalId = null;
 let isProcessingWorkClick = false;
 
@@ -350,7 +348,6 @@ function colorFromName(name) {
     return `hsl(${h},65%,45%)`;
 }
 
-// Допоміжна функція: отримання запису працівника та його персональної ЗП на ділянці
 function getWorkerRecordOnPlot(plotId, username = currentUser) {
     const owned = sharedPlots[plotId];
     if (!owned) return { role: "Робітник зміни", personalWage: 10, orders: 0, clicks: 0, totalEarned: 0, profitBrought: 0 };
@@ -474,7 +471,7 @@ async function startGame() {
     $("auth-window").style.display = "none";
     $("game-screen").classList.add("active");
     $("stat-user").textContent = currentUser;
-    $("game-title").textContent = "WinXP Work — " + currentUser;
+    $("game-title").textContent = "Win98 SE Work — " + currentUser;
     await loadGame();
     startLiveSync();
     startMapSync();
@@ -487,7 +484,7 @@ async function startGame() {
     startCourseTimer();
     startCreditTimer();
     startRentTimer();
-    setGameStatus("Ласкаво просимо у Windows XP Work, " + currentUser + "!");
+    setGameStatus("Ласкаво просимо у Windows 98 SE Work, " + currentUser + "!");
 }
 
 function normalizeEmployerState(d) {
@@ -747,7 +744,6 @@ window.resignCurrentJob = async function () {
     showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете влаштуватися в бізнес іншого гравця або повернутися в КовельКорп.", "🚪");
 };
 
-// Нова збалансована система праці на підприємстві гравця: 5 кроків із кулдауном + перерва між замовленнями
 async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
@@ -762,7 +758,6 @@ async function doPrivateOrderStepWork(plotId) {
     const currentStep = (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) + 1;
     sfx.click();
 
-    // Крок 1..4: прогрес виконання замовлення + короткий кулдаун між діями (без миттєвого нарахування грошей)
     if (currentStep < ORDER_STEPS_REQUIRED) {
         gameState.taskProgress = currentStep;
         triggerWorkCooldown(PRIVATE_STEP_COOLDOWN_MS, "step");
@@ -770,7 +765,6 @@ async function doPrivateOrderStepWork(plotId) {
         return;
     }
 
-    // Крок 5/5: Завершення замовлення та виплата зарплати і прибутку власнику
     isProcessingWorkClick = true;
     const bld = getBuildingDef(p.zone, owned.building);
     const wRec = getWorkerRecordOnPlot(plotId, currentUser);
@@ -790,19 +784,16 @@ async function doPrivateOrderStepWork(plotId) {
             const activeWage = Number(curWorker.personalWage) > 0 ? Number(curWorker.personalWage) : baseWage;
 
             if (isSelfOwner) {
-                // Якщо власник сам працює на своєму об'єкті — генерує стандартну виручку замовлення без подвійного фарму
                 paidToWorker = Math.max(1, Math.floor(orderRevenue * 0.45));
                 netOwnerTreasuryDelta = Math.max(1, orderRevenue - paidToWorker);
                 cur.treasury = treasury + netOwnerTreasuryDelta;
             } else {
-                // Якщо працює найманий гравець: клієнт приносить orderRevenue, а зарплата береться з виручки + каси
                 const availableFunds = treasury + orderRevenue;
                 if (availableFunds >= activeWage) {
                     paidToWorker = activeWage;
                     cur.treasury = availableFunds - activeWage;
                     netOwnerTreasuryDelta = orderRevenue - activeWage;
                 } else {
-                    // У касі недостатньо коштів для високої ЗП — виплачується доступний залишок
                     paidToWorker = Math.max(1, availableFunds);
                     cur.treasury = 0;
                     netOwnerTreasuryDelta = -treasury;
@@ -843,7 +834,6 @@ async function doPrivateOrderStepWork(plotId) {
     setGameStatus(`✅ Замовлення у «${bld ? bld.name : p.name}» виконано! Отримано ЗП: +${formatNumberFull(paidToWorker)} 💰. Перерва 7с.`);
 }
 
-// Збалансований муніципальний підробіток із 5 кроків та кулдауном
 function doMunicipalStepWork() {
     if (Date.now() < workCooldownUntil) return;
     const currentStep = (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) + 1;
@@ -864,14 +854,12 @@ function doMunicipalStepWork() {
     }
 }
 
-// Керування зарплатою працівника власником підприємства (підвищення / індивідуальна ставка / звільнення)
 window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
     const owned = sharedPlots[plotId];
     if (!owned || owned.owner !== currentUser) return;
     const wRec = getWorkerRecordOnPlot(plotId, workerName);
     const newWage = Math.min(50000, Math.max(wRec.personalWage + 5, Math.round(wRec.personalWage * mult)));
 
-    // Автоматичне підвищення почесної посади від власника при піднятті ЗП
     const curTitleIdx = OWNER_ASSIGNED_TITLES.indexOf(wRec.role);
     const nextTitle = curTitleIdx >= 0 && curTitleIdx < OWNER_ASSIGNED_TITLES.length - 1
         ? OWNER_ASSIGNED_TITLES[curTitleIdx + 1]
@@ -1237,7 +1225,6 @@ function renderPrivateJobsBoard() {
     listEl.innerHTML = html;
 }
 
-// Формування списку працівників із кнопками підвищення зарплати для власника
 function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     const workersMap = owned.workers || {};
     const workersArr = Object.entries(workersMap);
@@ -1248,7 +1235,6 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
         return `<div class="muted" style="text-align:center;padding:6px">Наразі найманих робітників немає. Гравці можуть влаштуватися сюди через вкладку «Робота» або «Мапа»!</div>`;
     }
 
-    // Сортуємо працівників за кількістю виконаних замовлень (найпрацьовитіші зверху)
     workersArr.sort((a, b) => (Number(b[1]?.orders) || 0) - (Number(a[1]?.orders) || 0));
 
     return workersArr.map(([wName, wData]) => {
@@ -1293,7 +1279,6 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     }).join("");
 }
 
-// Панель власника на сторінці «Робота» («👨‍💼 Мої робітники та ЗП»)
 function renderOwnerBusinessesHub() {
     const hubEl = $("owner-businesses-hub");
     const badgeEl = $("badge-mybiz");
@@ -1324,11 +1309,11 @@ function renderOwnerBusinessesHub() {
         const treasury = Number(owned.treasury) || 0;
         const passiveInc = getPlotPassiveIncome(plot, owned);
         return `
-            <div class="group-box" data-label="${bld ? bld.icon + " " + escapeHtml(bld.name) : "Бізнес"} — ${escapeHtml(plot.name)}" style="margin-top:8px;background:#ffffff">
+            <div class="group-box" data-label="${bld ? bld.icon + " " + escapeHtml(bld.name) : "Бізнес"} — ${escapeHtml(plot.name)}" style="margin-top:8px">
                 <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;margin-bottom:6px">
                     <span>💰 Каса ЗП: <b>${formatNumberFull(treasury)} 💰</b></span>
                     <span>💵 Базова ЗП нових: <b>${formatNumberFull(baseWage)} 💰</b></span>
-                    <span>🏘️ Пасивний дохід: <b style="color:#15803d">+${formatNumberFull(passiveInc)}/хв</b></span>
+                    <span>🏘️ Пасивний дохід: <b style="color:#006400">+${formatNumberFull(passiveInc)}/хв</b></span>
                 </div>
                 <div class="workers-roster" style="max-height:210px">
                     ${buildWorkersRosterHtml(plot.id, owned, bld, "hub")}
@@ -1356,7 +1341,6 @@ function renderStats() {
     if (depEl) depEl.textContent = formatNumber(gameState.deposit?.amount || 0);
     $("big-coins").textContent = formatNumberFull(gameState.coins);
 
-    // Верхня XP-панель швидкого огляду
     if ($("hud-coins")) $("hud-coins").textContent = formatNumberFull(gameState.coins);
     if ($("hud-income")) $("hud-income").textContent = "+" + formatNumber(inc) + "/хв";
 
@@ -1387,7 +1371,6 @@ function renderStats() {
             promoteBtn.classList.remove("show");
         }
     } else if (gameState.employer && gameState.employer.startsWith("plot:")) {
-        // На роботах гравців звання НЕ прокачуються вручну!
         const pid = getActiveEmployerPlotId();
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
         $("stat-job").textContent = wRec.role;
@@ -1567,21 +1550,21 @@ function renderJobsList() {
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
         html = `
-            <div style="padding:10px;line-height:1.5;font-size:12px;color:#1f2937">
-                <div style="font-weight:bold;color:#003399;font-size:13px;margin-bottom:6px">📋 Ваша особова картка на підприємстві «${escapeHtml(bld ? bld.name : "Бізнес")}»</div>
+            <div style="padding:10px;line-height:1.5;font-size:12px;color:#000">
+                <div style="font-weight:bold;color:#000080;font-size:13px;margin-bottom:6px">📋 Ваша особова картка на підприємстві «${escapeHtml(bld ? bld.name : "Бізнес")}»</div>
                 <div>• <b>Власник підприємства:</b> ${escapeHtml(owned?.owner || "—")}</div>
-                <div>• <b>Призначена вам посада:</b> <span style="color:#0369a1;font-weight:bold">${escapeHtml(wRec.role)}</span></div>
-                <div>• <b>Ваша індивідуальна зарплата:</b> <span style="color:#15803d;font-weight:bold">+${formatNumberFull(wRec.personalWage)} 💰</span> за кожне виконане замовлення (5 дій)</div>
+                <div>• <b>Призначена вам посада:</b> <span style="color:#000080;font-weight:bold">${escapeHtml(wRec.role)}</span></div>
+                <div>• <b>Ваша індивідуальна зарплата:</b> <span style="color:#006400;font-weight:bold">+${formatNumberFull(wRec.personalWage)} 💰</span> за кожне виконане замовлення (5 дій)</div>
                 <div>• <b>Виконано замовлень вами:</b> <b>${formatNumberFull(wRec.orders)}</b> (${formatNumberFull(wRec.clicks)} робочих дій)</div>
                 <div>• <b>Всього зароблено тут:</b> <b>${formatNumberFull(wRec.totalEarned)} 💰</b></div>
-                <div style="margin-top:8px;padding:8px;background:#eff6ff;border:1px solid #93c5fd;border-radius:5px;color:#1e3a8a">
+                <div style="margin-top:8px;padding:8px;background:#ffffcc;border:1px solid #808080;color:#000">
                     💡 <b>Як отримати підвищення?</b> На роботах гравців звання не прокачуються за XP. Власник (<b>${escapeHtml(owned?.owner || "—")}</b>) у реальному часі бачить кількість виконаних вами замовлень та особисто підвищує вам зарплату і посаду!
                 </div>
             </div>
         `;
     } else {
         html = `
-            <div style="padding:10px;line-height:1.5;font-size:12px;color:#374151">
+            <div style="padding:10px;line-height:1.5;font-size:12px;color:#000">
                 <b>Ви зараз на муніципальному підробітку.</b><br>
                 • Обирайте будь-яке підприємство у вкладці <b>«🏪 Вакансії гравців»</b>, щоб працювати на живих гравців та отримувати підвищення зарплати від власника.<br>
                 • Або пройдіть курс <b>«Основи програмування»</b> у вкладці «🎓 Курси», щоб відкрити ІТ-кар'єру в <b>КовельКорп</b> (9 рангів від Стажера до CTO).
@@ -1597,7 +1580,7 @@ function renderShop() {
         const done = gameState.completedCourses.includes(c.id);
         const active = gameState.activeCourseId === c.id;
         const can = !done && !active && !gameState.activeCourseId && gameState.coins >= c.price;
-        let status = done ? `<span style="color:#15803d;font-weight:bold">✓ Диплом отримано (+${c.boost}% XP)</span>` :
+        let status = done ? `<span style="color:#006400;font-weight:bold">✓ Диплом отримано (+${c.boost}% XP)</span>` :
             active ? `<span class="course-timer">⏳ Залишилось: ${formatDuration(getRemainingCourseMs())}</span>` :
                 `<button class="btn default" ${can ? "" : "disabled"} onclick="buyCourse('${c.id}')">Почати курс (${formatNumber(c.price)} 💰)</button>`;
         html += `<div class="shop-item${done ? " completed" : ""}${active ? " active-course" : ""}">
@@ -1680,8 +1663,8 @@ function renderMap() {
 
         if (owned) {
             if (owned.owner === currentUser) {
-                fillColor = "#4ade80";
-                borderColor = "#14532d";
+                fillColor = "#55ff55";
+                borderColor = "#0b4d0b";
                 labelCls = "win95-map-label owned-self";
             } else {
                 const c = colorFromName(owned.owner);
@@ -1692,7 +1675,7 @@ function renderMap() {
             }
         }
         if (isSelected) {
-            borderColor = "#facc15";
+            borderColor = "#ffff00";
             labelCls += " selected";
         }
 
@@ -1941,7 +1924,7 @@ function initBohdanChatIfEmpty() {
     appendBohdanMsg(
         "bohdan",
         "Богдан Поліщук",
-        "Здоров, козаче! Ого, ти вже оновив систему до Windows XP Luna — красота! Заходь у хату на Миколайчука 100. Як справи? Працюєш у КовельКорп чи відкрив свій бізнес і сам призначаєш людям зарплату?"
+        "Здоров, козаче! Оце я розумію — класична Windows 98 Second Edition, працює як швейцарський годинник! Заходь у хату на Миколайчука 100. Як справи? Працюєш у КовельКорп чи відкрив свій бізнес і сам призначаєш людям зарплату?"
     );
 }
 
@@ -1982,7 +1965,7 @@ window.saveBohdanApiKey = function () {
         else localStorage.removeItem("w95_openrouter_key");
     } catch (e) {}
     $("bohdan-ai-config").style.display = "none";
-    appendBohdanMsg("bohdan", "Система Windows XP", val ? "Ключ OpenRouter збережено! Богдан підключений до хмарної LLM." : "Увімкнено локальний ШІ-движок Богдана.");
+    appendBohdanMsg("bohdan", "Система Windows 98 SE", val ? "Ключ OpenRouter збережено! Богдан підключений до хмарної LLM." : "Увімкнено локальний ШІ-движок Богдана.");
 };
 
 window.askBohdanPreset = function (text) {
@@ -2014,7 +1997,7 @@ function generateSmartBohdanReply(userText) {
         return "Оце по-нашому! ☕ Тримай гарячу каву по-ковельськи і канапки. До речі, як купиш синю комерційну землю в Центрі на Незалежності — відкривай там свою піцерію за 85 000 💰 і став хорошу зарплату активним працівникам!";
     }
     const fallback = [
-        `Слухай, ${currentUser || "брате"}, з новим інтерфейсом Windows XP працювати стало одне задоволення! І головне — тепер ніхто не наклікає мільйони за секунду, кожне замовлення йде по етапах.`,
+        `Слухай, ${currentUser || "брате"}, класичний дизайн Windows 98 SE — це справжня легенда! І панель зверху зручна, і кожне замовлення йде по етапах.`,
         "Я як у Чехії варив металоконструкції, завжди думав: от повернусь у Ковель на Миколайчука 100 — зроблю все по красі. Так що ти теж не зупиняйся!",
         "До речі, якщо ти власник бізнесу — заглядай у вкладку «👨‍💼 Мої робітники та ЗП», дивись, хто найбільше замовлень закрив, і піднімай їм зарплату кнопкою +25%!"
     ];
@@ -2037,7 +2020,7 @@ window.sendBohdanMessage = async function () {
 
     if (apiKey) {
         try {
-            const sysPrompt = `Ти — Богдан Поліщук із міста Ковель (живеш на вул. Миколайчука, 100). Раніше працював зварювальником у Чехії, повернувся додому в Ковель. Розмовляєш живою, дружньою українською мовою з ковельським колоритом. Гравець ${currentUser} зараз у тебе в гостях у грі WinXP Work (гаманець: ${gameState.coins} монет, депозит: ${gameState.deposit?.amount || 0} монет). Відповідай лаконічно (2-3 речення).`;
+            const sysPrompt = `Ти — Богдан Поліщук із міста Ковель (живеш на вул. Миколайчука, 100). Раніше працював зварювальником у Чехії, повернувся додому в Ковель. Розмовляєш живою, дружньою українською мовою з ковельським колоритом. Гравець ${currentUser} зараз у тебе в гостях у грі Win98 SE Work (гаманець: ${gameState.coins} монет, депозит: ${gameState.deposit?.amount || 0} монет). Відповідай лаконічно (2-3 речення).`;
             const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -2160,7 +2143,6 @@ window.startTaskOrShowStatus = function () {
     }
 };
 
-// Підвищення за XP доступне ТІЛЬКИ в КовельКорп (на роботах гравців підвищує власник!)
 window.doPromote = async function () {
     if (gameState.employer !== "corp") {
         return showDialog(
@@ -2373,5 +2355,5 @@ window.addEventListener("beforeunload", () => {
 document.addEventListener("DOMContentLoaded", () => {
     switchAuthTab("login");
     $("auth-username").focus();
-    console.log("%cWinXP Work v" + APP_VERSION, "color:#0054e3;font-weight:bold;font-family:Tahoma,sans-serif");
+    console.log("%cWin98 SE Work v" + APP_VERSION, "color:#000080;font-weight:bold;font-family:monospace");
 });
