@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="3.0.0">
-<title>WinXP Work — Ковель Економіка v3.0</title>
+<meta name="version" content="3.1.0">
+<title>Win98 Work — Ковель Економіка SE</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -13,8 +13,8 @@
 <!-- AUTH -->
 <div class="window" id="auth-window">
     <div class="title-bar">
-        <span class="title-icon">🪟</span>
-        <span class="title-text">Windows XP Work — Вхід у систему Ковеля</span>
+        <span class="title-icon">🖥️</span>
+        <span class="title-text">Windows 98 SE Work — Вхід у систему Ковеля</span>
         <div class="win-controls">
             <button class="win-btn" disabled>_</button>
             <button class="win-btn" disabled>□</button>
@@ -26,7 +26,7 @@
             <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">🔑 Вхід</button>
             <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">📝 Реєстрація</button>
         </div>
-        <div class="group-box" data-label="Обліковий запис Windows XP">
+        <div class="group-box" data-label="Обліковий запис Windows 98">
             <div class="form-row"><label>Логін:</label><input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20" placeholder="Ваш нікнейм..."></div>
             <div class="form-row"><label>Пароль:</label><input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40" placeholder="Пароль..."></div>
             <div class="form-row" id="confirm-row" style="display:none;"><label>Повторіть:</label><input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40" placeholder="Повторіть пароль..."></div>
@@ -37,16 +37,16 @@
         <div class="auth-footer"><button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button></div>
     </div>
     <div class="status-bar">
-        <div class="panel" id="auth-status">Система Windows XP готова</div>
-        <div class="panel small">v3.0 XP</div>
+        <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
+        <div class="panel small">Win98 SE</div>
     </div>
 </div>
 
 <!-- GAME -->
 <div class="window" id="game-screen">
     <div class="title-bar">
-        <span class="title-icon">🪟</span>
-        <span class="title-text" id="game-title">WinXP Work</span>
+        <span class="title-icon">🖥️</span>
+        <span class="title-text" id="game-title">Win98 Work</span>
         <div class="win-controls">
             <button class="win-btn" id="sound-toggle-btn" onclick="toggleSound()" title="Звук">🔊</button>
             <button class="win-btn" disabled>_</button>
@@ -54,7 +54,7 @@
         </div>
     </div>
 
-    <!-- Інтуїтивна верхня панель швидкого огляду (видно на всіх вкладках) -->
+    <!-- Інтуїтивна верхня панель швидкого огляду в стилі Windows 98 Explorer Coolbar (видно на всіх вкладках) -->
     <div class="xp-quick-hud">
         <div class="xp-hud-left">
             <div class="xp-hud-pill coins" title="Баланс гаманця">💰 <b id="hud-coins">0</b></div>
@@ -160,13 +160,13 @@
         <div class="page" id="page-bank">
             <div class="bank-led-banner">
                 <div class="bank-led-left">
-                    <span class="bank-led-title">🏦 КОВЕЛЬ-БАНК XP</span>
-                    <span class="bank-led-sub">вул. Незалежності, 73 • Фінансова система Luna</span>
+                    <span class="bank-led-title">🏦 КОВЕЛЬ-БАНК 98</span>
+                    <span class="bank-led-sub">вул. Незалежності, 73 • Ліцензія НБУ #098-SE</span>
                 </div>
                 <div class="bank-led-right">
                     <div class="bank-led-row"><span>ГАМАНЕЦЬ:</span><b id="bank-top-wallet">0 💰</b></div>
-                    <div class="bank-led-row"><span>ДЕПОЗИТ:</span><b id="bank-top-deposit" style="color:#86efac">0 💰</b></div>
-                    <div class="bank-led-row"><span>БОРГ:</span><b id="bank-top-debt" style="color:#fca5a5">0 💰</b></div>
+                    <div class="bank-led-row"><span>ДЕПОЗИТ:</span><b id="bank-top-deposit" style="color:#00ff66">0 💰</b></div>
+                    <div class="bank-led-row"><span>БОРГ:</span><b id="bank-top-debt" style="color:#ff6666">0 💰</b></div>
                 </div>
             </div>
 
@@ -180,10 +180,10 @@
 
             <div id="bank-panel-deposit" class="bank-subpanel">
                 <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал»">
-                    <div class="credit-card" style="background:#f0fdf4;border-color:#86efac">
+                    <div class="credit-card" style="background:#e4f2e4;border-color:#2d7a2d">
                         <div class="credit-card-header">
                             <span class="credit-card-name">🔐 На депозитному рахунку:</span>
-                            <span class="credit-card-limit" id="dep-balance" style="color:#15803d;font-size:16px">0 💰</span>
+                            <span class="credit-card-limit" id="dep-balance" style="color:#006400;font-size:16px">0 💰</span>
                         </div>
                         <div class="credit-card-info">
                             • Ставка: <b>+3% щохвилини</b> (складний відсоток, капіталізація!).<br>
