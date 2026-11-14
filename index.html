@@ -1,1 +1,208 @@
 
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="version" content="2.0.0">
+<title>Win95 Work — v2.0.0</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- AUTH -->
+<div class="window" id="auth-window">
+    <div class="title-bar">
+        <span class="title-icon">🖥️</span>
+        <span class="title-text">Win95 Work — Вхід</span>
+        <div class="win-controls">
+            <button class="win-btn" disabled>_</button>
+            <button class="win-btn" disabled>□</button>
+            <button class="win-btn" disabled>✕</button>
+        </div>
+    </div>
+    <div style="padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Вхід</button>
+            <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Реєстрація</button>
+        </div>
+        <div class="group-box" data-label="Обліковий запис">
+            <div class="form-row"><label>Логін:</label><input type="text" class="input-field" id="auth-username" autocomplete="username" maxlength="20"></div>
+            <div class="form-row"><label>Пароль:</label><input type="password" class="input-field" id="auth-password" autocomplete="current-password" maxlength="40"></div>
+            <div class="form-row" id="confirm-row" style="display:none;"><label>Повторіть:</label><input type="password" class="input-field" id="auth-password2" autocomplete="new-password" maxlength="40"></div>
+        </div>
+        <div class="error-msg" id="auth-error"></div>
+        <div class="info-msg" id="auth-info"></div>
+        <div class="btn-row"><button class="btn default" id="auth-submit" onclick="handleAuth()">Увійти</button></div>
+        <div class="auth-footer"><button class="btn-link" id="auth-switch-link" onclick="toggleAuthMode()">Ще немає акаунта? Зареєструватись</button></div>
+    </div>
+    <div class="status-bar">
+        <div class="panel" id="auth-status">Готово</div>
+        <div class="panel small">v2.0.0</div>
+    </div>
+</div>
+
+<!-- GAME -->
+<div class="window" id="game-screen">
+    <div class="title-bar">
+        <span class="title-icon">🖥️</span>
+        <span class="title-text" id="game-title">Win95 Work</span>
+        <div class="win-controls">
+            <button class="win-btn" id="sound-toggle-btn" onclick="toggleSound()" title="Звук">🔊</button>
+            <button class="win-btn" disabled>_</button>
+            <button class="win-btn" onclick="logout()" title="Вийти">✕</button>
+        </div>
+    </div>
+
+    <div class="tab-strip">
+        <button class="tab active" id="tabnav-work" onclick="switchPage('work')">💼 Робота</button>
+        <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа</button>
+        <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🛒 Магазин</button>
+        <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
+    </div>
+
+    <div class="tab-content">
+        <!-- РОБОТА -->
+        <div class="page active" id="page-work">
+            <div class="group-box" data-label="Статистика">
+                <div class="stats-grid">
+                    <div class="stat-item"><span class="label">💰 Монети:</span><span class="value" id="stat-coins">0</span></div>
+                    <div class="stat-item"><span class="label">💼 Робота:</span><span class="value" id="stat-job">Стажер</span></div>
+                    <div class="stat-item"><span class="label">⭐ Досвід:</span><span class="value" id="stat-xp">0</span></div>
+                    <div class="stat-item"><span class="label">📈 Буст XP:</span><span class="value" id="stat-boost">0%</span></div>
+                    <div class="stat-item" style="grid-column:span 2"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
+                </div>
+            </div>
+
+            <div class="course-blocker" id="course-blocker">📚 Зараз ви проходите курс. Працювати неможливо.<br><span id="course-blocker-timer">—</span></div>
+
+            <div class="click-area">
+                <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
+
+                <div class="task-box">
+                    <div class="task-title" id="task-title">Задача не почата</div>
+                    <div class="task-bar-wrap"><div class="task-bar" id="task-bar"></div><div class="task-text" id="task-text">0 / 0</div></div>
+                    <div class="task-reward" id="task-reward">Нагорода: —</div>
+                </div>
+
+                <!-- Кнопка старту задачі (коли міні-гра не активна) -->
+                <button id="big-click" onclick="startTaskOrShowStatus()">
+                    <span class="big-emoji">💼</span>
+                    <span class="click-label" id="big-click-label">ПОЧАТИ ЗАДАЧУ</span>
+                </button>
+
+                <!-- Контейнер активної міні-гри в стилі Win95 -->
+                <div class="mg-window" id="mg-window" style="display:none;">
+                    <div class="mg-title-bar">
+                        <span id="mg-icon">🎮</span>
+                        <span class="mg-title-text" id="mg-title">Міні-гра</span>
+                        <span class="mg-badge" id="mg-badge">0/0</span>
+                    </div>
+                    <div class="mg-body" id="mg-body"></div>
+                </div>
+
+                <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись</button>
+            </div>
+
+            <div class="group-box" data-label="Кар'єра">
+                <div class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
+                <div class="jobs-list" id="jobs-list"></div>
+            </div>
+        </div>
+
+        <!-- БАНК -->
+        <div class="page" id="page-bank">
+            <div class="bank-blocked" id="bank-blocked">🚫 Роботу заблоковано через прострочений кредит.<br>Погасіть борг, щоб продовжити.</div>
+            <div class="bank-warning" id="bank-warning">⚠️ У вас прострочений кредит! Штраф 10% монет кожні 5 хв.</div>
+            <div class="group-box" data-label="Кредити">
+                <div class="credit-card" id="credit-card-info">
+                    <div class="credit-card-header"><span class="credit-card-name">🏦 Кредитна лінія</span><span class="credit-card-limit" id="credit-limit">—</span></div>
+                    <div class="credit-card-info" id="credit-info-text">—</div>
+                    <div class="btn-row"><button class="btn default" id="credit-take-btn" onclick="takeCredit()">Взяти кредит</button></div>
+                </div>
+                <div class="credit-card active-credit" id="credit-active-card" style="display:none;">
+                    <div class="credit-card-header"><span class="credit-card-name">💳 Поточний борг</span><span class="credit-card-limit" id="credit-debt">0</span></div>
+                    <div class="credit-card-info" id="credit-due-text">—</div>
+                    <div class="credit-debt-bar"><div class="credit-debt-fill" id="credit-debt-fill"></div><div class="credit-debt-text" id="credit-debt-text">0 / 0</div></div>
+                    <div class="btn-row"><button class="btn" id="credit-repay-btn" onclick="repayCredit()">Погасити</button></div>
+                </div>
+            </div>
+            <div class="muted">Кредит: 5% відсотків, термін 30 хв. Прострочка — автосписання 10% боргу кожні 5 хв + блокування роботи.</div>
+        </div>
+
+        <!-- МАПА -->
+        <div class="page" id="page-map">
+            <div class="sub-title">🗺️ Місто Ковель</div>
+            <div class="muted" style="margin-bottom:8px">Спільна мапа. Натисни на ділянку або будівлю.</div>
+            <div class="map-container" id="map-container">
+                <div class="map-stage" id="map-stage">
+                    <div class="map-grid"></div>
+                    <div id="map-plots"></div>
+                    <div id="map-buildings"></div>
+                </div>
+            </div>
+            <div class="map-info-panel" id="map-info-panel">
+                <button class="map-info-close" onclick="closeMapInfo()">✕ Закрити</button>
+                <div class="map-info-row"><span class="label">Ділянка:</span><span class="value" id="info-name">—</span></div>
+                <div class="map-info-row"><span class="label">Власник:</span><span class="value" id="info-owner">—</span></div>
+                <div class="map-info-row"><span class="label">Ціна:</span><span class="value" id="info-price">—</span></div>
+                <div class="map-info-row"><span class="label">Бонуси:</span><span class="value" id="info-bonus">—</span></div>
+                <div class="map-info-actions">
+                    <button class="btn default" id="info-buy-btn" onclick="buySelectedPlot()">Купити</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- МАГАЗИН -->
+        <div class="page" id="page-shop">
+            <div class="sub-title">🛒 Курси та книжки</div>
+            <div class="muted" style="margin-bottom:8px">Під час курсу працювати неможливо. Час іде офлайн.</div>
+            <div class="shop-list" id="shop-list"></div>
+        </div>
+
+        <!-- ТОП + ОНЛАЙН -->
+        <div class="page" id="page-leaderboard">
+            <div class="lb-refresh-row">
+                <div class="sub-title">🏆 Топ гравців</div>
+                <button class="btn" onclick="loadLeaderboard()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
+            </div>
+            <div class="lb-list" id="lb-list"><div class="lb-loading">Завантаження...</div></div>
+            <div class="muted" id="lb-my-rank">—</div>
+
+            <div class="lb-refresh-row" style="margin-top:12px">
+                <div class="sub-title">👥 Онлайн (5 хв)</div>
+                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:6px 12px;font-size:13px">↻</button>
+            </div>
+            <div class="online-list" id="online-list" style="max-height:220px"><div class="lb-loading">Завантаження...</div></div>
+            <div class="muted" id="online-count">—</div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="panel" id="game-status">Готово</div>
+        <div class="panel small" id="save-status">—</div>
+    </div>
+</div>
+
+<!-- DIALOG -->
+<div class="dialog-overlay" id="dialog-overlay">
+    <div class="dialog">
+        <div class="title-bar">
+            <span class="title-icon">ℹ️</span>
+            <span class="title-text" id="dialog-title">Повідомлення</span>
+            <div class="win-controls">
+                <button class="win-btn" disabled>_</button>
+                <button class="win-btn" disabled>□</button>
+                <button class="win-btn" onclick="closeDialog()">✕</button>
+            </div>
+        </div>
+        <div class="dialog-body">
+            <div class="dialog-icon" id="dialog-icon">ℹ️</div>
+            <div class="dialog-text" id="dialog-text">—</div>
+        </div>
+        <div class="btn-row" style="padding:0 12px 12px"><button class="btn default" onclick="closeDialog()">OK</button></div>
+    </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
