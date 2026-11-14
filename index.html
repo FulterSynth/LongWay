@@ -1,12 +1,13 @@
-
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="2.0.0">
-<title>Win95 Work — v2.0.0</title>
+<meta name="version" content="2.4.0">
+<title>Win95 Work — v2.4.0</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 </head>
 <body>
 <!-- AUTH -->
@@ -37,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Готово</div>
-        <div class="panel small">v2.0.0</div>
+        <div class="panel small">v2.4.0</div>
     </div>
 </div>
 
@@ -56,7 +57,8 @@
     <div class="tab-strip">
         <button class="tab active" id="tabnav-work" onclick="switchPage('work')">💼 Робота</button>
         <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа</button>
-        <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🛒 Магазин</button>
+        <button class="tab" id="tabnav-bank" onclick="switchPage('bank')">🏦 Банк</button>
+        <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🛒 Курси</button>
         <button class="tab" id="tabnav-leaderboard" onclick="switchPage('leaderboard')">🏆 Топ</button>
     </div>
 
@@ -66,10 +68,24 @@
             <div class="group-box" data-label="Статистика">
                 <div class="stats-grid">
                     <div class="stat-item"><span class="label">💰 Монети:</span><span class="value" id="stat-coins">0</span></div>
-                    <div class="stat-item"><span class="label">💼 Робота:</span><span class="value" id="stat-job">Стажер</span></div>
+                    <div class="stat-item"><span class="label">💼 Посада:</span><span class="value" id="stat-job">—</span></div>
                     <div class="stat-item"><span class="label">⭐ Досвід:</span><span class="value" id="stat-xp">0</span></div>
                     <div class="stat-item"><span class="label">📈 Буст XP:</span><span class="value" id="stat-boost">0%</span></div>
-                    <div class="stat-item" style="grid-column:span 2"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
+                    <div class="stat-item"><span class="label">🏘️ Дохід/хв:</span><span class="value" id="stat-income">+0</span></div>
+                    <div class="stat-item"><span class="label">👤 Гравець:</span><span class="value" id="stat-user">—</span></div>
+                </div>
+            </div>
+
+            <!-- Поточний роботодавець та звільнення / перехід -->
+            <div class="employer-bar">
+                <div class="employer-info">
+                    <span class="emp-label">Поточне місце роботи:</span>
+                    <span class="emp-name" id="emp-current-name">Муніципальний підробіток</span>
+                    <span class="emp-sub" id="emp-current-sub">Власник: Міська рада Ковеля</span>
+                </div>
+                <div class="employer-actions">
+                    <button class="btn" id="btn-join-corp" onclick="joinKovelCorp()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px">🏢 В КовельКорп</button>
+                    <button class="btn" id="btn-resign" onclick="resignCurrentJob()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px;color:#800000">🚪 Звільнитись</button>
                 </div>
             </div>
 
@@ -84,13 +100,13 @@
                     <div class="task-reward" id="task-reward">Нагорода: —</div>
                 </div>
 
-                <!-- Кнопка старту задачі (коли міні-гра не активна) -->
+                <!-- Кнопка роботи (міні-ігри в КовельКорп АБО кліки за зарплату на гравця) -->
                 <button id="big-click" onclick="startTaskOrShowStatus()">
-                    <span class="big-emoji">💼</span>
-                    <span class="click-label" id="big-click-label">ПОЧАТИ ЗАДАЧУ</span>
+                    <span class="big-emoji" id="big-click-emoji">💼</span>
+                    <span class="click-label" id="big-click-label">ПРАЦЮВАТИ</span>
                 </button>
 
-                <!-- Контейнер активної міні-гри в стилі Win95 -->
+                <!-- Контейнер активної міні-гри в стилі Win95 (тільки для КовельКорп) -->
                 <div class="mg-window" id="mg-window" style="display:none;">
                     <div class="mg-title-bar">
                         <span id="mg-icon">🎮</span>
@@ -103,7 +119,14 @@
                 <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись</button>
             </div>
 
-            <div class="group-box" data-label="Кар'єра">
+            <!-- Біржа праці: робота в магазинах і підприємствах інших гравців -->
+            <div class="group-box" data-label="🏪 Вакансії у бізнесах гравців Ковеля (кліки за зарплату)">
+                <div class="muted" style="margin-bottom:6px">Влаштуйтесь у магазин, піцерію чи завод іншого гравця. Там окремий досвід, свої посади та миттєва зарплата за кожен клік із каси власника!</div>
+                <div class="private-jobs-list" id="private-jobs-list"></div>
+            </div>
+
+            <!-- Кар'єра поточного напрямку -->
+            <div class="group-box" id="career-group-box" data-label="Кар'єра">
                 <div class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
                 <div class="jobs-list" id="jobs-list"></div>
             </div>
@@ -111,51 +134,192 @@
 
         <!-- БАНК -->
         <div class="page" id="page-bank">
-            <div class="bank-blocked" id="bank-blocked">🚫 Роботу заблоковано через прострочений кредит.<br>Погасіть борг, щоб продовжити.</div>
-            <div class="bank-warning" id="bank-warning">⚠️ У вас прострочений кредит! Штраф 10% монет кожні 5 хв.</div>
-            <div class="group-box" data-label="Кредити">
-                <div class="credit-card" id="credit-card-info">
-                    <div class="credit-card-header"><span class="credit-card-name">🏦 Кредитна лінія</span><span class="credit-card-limit" id="credit-limit">—</span></div>
-                    <div class="credit-card-info" id="credit-info-text">—</div>
-                    <div class="btn-row"><button class="btn default" id="credit-take-btn" onclick="takeCredit()">Взяти кредит</button></div>
+            <div class="bank-led-banner">
+                <div class="bank-led-left">
+                    <span class="bank-led-title">🏦 КОВЕЛЬ-БАНК 95</span>
+                    <span class="bank-led-sub">вул. Незалежності, 73 • Ліцензія НБУ #095</span>
                 </div>
-                <div class="credit-card active-credit" id="credit-active-card" style="display:none;">
-                    <div class="credit-card-header"><span class="credit-card-name">💳 Поточний борг</span><span class="credit-card-limit" id="credit-debt">0</span></div>
-                    <div class="credit-card-info" id="credit-due-text">—</div>
-                    <div class="credit-debt-bar"><div class="credit-debt-fill" id="credit-debt-fill"></div><div class="credit-debt-text" id="credit-debt-text">0 / 0</div></div>
-                    <div class="btn-row"><button class="btn" id="credit-repay-btn" onclick="repayCredit()">Погасити</button></div>
+                <div class="bank-led-right">
+                    <div class="bank-led-row"><span>ГАМАНЕЦЬ:</span><b id="bank-top-wallet">0 💰</b></div>
+                    <div class="bank-led-row"><span>ДЕПОЗИТ:</span><b id="bank-top-deposit" style="color:#00ff66">0 💰</b></div>
+                    <div class="bank-led-row"><span>БОРГ:</span><b id="bank-top-debt" style="color:#ff6666">0 💰</b></div>
                 </div>
             </div>
-            <div class="muted">Кредит: 5% відсотків, термін 30 хв. Прострочка — автосписання 10% боргу кожні 5 хв + блокування роботи.</div>
+
+            <div class="bank-blocked" id="bank-blocked">🚫 Роботу та пасивний дохід заблоковано через прострочений кредит!<br>Погасіть борг нижче, щоб розблокувати рахунки.</div>
+            <div class="bank-warning" id="bank-warning">⚠️ У вас прострочений кредит! Штраф +10% до боргу кожні 5 хв.</div>
+
+            <div class="bank-tabs">
+                <button class="bank-tab active" id="btab-deposit" onclick="switchBankTab('deposit')">📈 Депозитний сейф (+3%/хв)</button>
+                <button class="bank-tab" id="btab-credit" onclick="switchBankTab('credit')">💳 Кредитний відділ</button>
+            </div>
+
+            <!-- ПІДВКЛАДКА ДЕПОЗИТУ -->
+            <div id="bank-panel-deposit" class="bank-subpanel">
+                <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал»">
+                    <div class="credit-card" style="background:#e4f2e4;border-color:#2d7a2d">
+                        <div class="credit-card-header">
+                            <span class="credit-card-name">🔐 На депозитному рахунку:</span>
+                            <span class="credit-card-limit" id="dep-balance" style="color:#006400;font-size:16px">0 💰</span>
+                        </div>
+                        <div class="credit-card-info">
+                            • Ставка: <b>+3% щохвилини</b> (складний відсоток, капіталізація!).<br>
+                            • Наступне нарахування: <b id="dep-next-yield">+0 💰</b> через <b id="dep-next-timer">60с</b>.<br>
+                            • Всього зароблено відсотків: <b id="dep-earned-total">0 💰</b>.
+                        </div>
+                    </div>
+
+                    <div class="bank-op-box">
+                        <div class="bank-op-label">Сума операції (монет):</div>
+                        <div class="bank-input-wrap">
+                            <input type="number" class="input-field" id="dep-amount-input" placeholder="Введіть суму..." min="1">
+                            <button class="btn" onclick="setDepositQuickAmount(0.25)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">25%</button>
+                            <button class="btn" onclick="setDepositQuickAmount(0.5)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">50%</button>
+                            <button class="btn" onclick="setDepositQuickAmount(1)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">MAX</button>
+                        </div>
+                        <div class="bank-action-grid">
+                            <button class="btn default" id="dep-put-btn" onclick="depositMoney()">📥 Покласти на депозит</button>
+                            <button class="btn" id="dep-take-btn" onclick="withdrawDeposit(false)">📤 Зняти суму</button>
+                            <button class="btn" id="dep-take-all-btn" onclick="withdrawDeposit(true)" style="grid-column:span 2">💰 Зняти весь депозит у гаманець</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="muted">Порада: тримайте вільні кошти на депозиті, поки збираєте на дорогу землю та будівлі у Ковелі!</div>
+            </div>
+
+            <!-- ПІДВКЛАДКА КРЕДИТУ -->
+            <div id="bank-panel-credit" class="bank-subpanel" style="display:none;">
+                <div class="group-box" data-label="Кредитна лінія «Іпотека & Бізнес»">
+                    <div class="credit-card" id="credit-card-info">
+                        <div class="credit-card-header">
+                            <span class="credit-card-name">🏦 Доступний кредитний ліміт:</span>
+                            <span class="credit-card-limit" id="credit-limit">—</span>
+                        </div>
+                        <div class="credit-card-info" id="credit-info-text">—</div>
+
+                        <div class="bank-op-box">
+                            <div class="bank-op-label">Оберіть суму кредиту (комісія банку +5% одразу до боргу):</div>
+                            <div class="bank-input-wrap">
+                                <input type="number" class="input-field" id="credit-amount-input" placeholder="Сума кредиту..." min="100">
+                                <button class="btn" onclick="setCreditQuickAmount(0.25)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">25%</button>
+                                <button class="btn" onclick="setCreditQuickAmount(0.5)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">50%</button>
+                                <button class="btn" onclick="setCreditQuickAmount(1)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">MAX</button>
+                            </div>
+                            <div class="btn-row" style="margin-top:6px">
+                                <button class="btn default" id="credit-take-btn" onclick="takeCredit()" style="width:100%">✍️ Оформити кредит</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="credit-card active-credit" id="credit-active-card" style="display:none;">
+                        <div class="credit-card-header">
+                            <span class="credit-card-name">💳 Залишок боргу:</span>
+                            <span class="credit-card-limit" id="credit-debt">0</span>
+                        </div>
+                        <div class="credit-card-info" id="credit-due-text">—</div>
+                        <div class="credit-debt-bar">
+                            <div class="credit-debt-fill" id="credit-debt-fill"></div>
+                            <div class="credit-debt-text" id="credit-debt-text">0 / 0</div>
+                        </div>
+
+                        <div class="bank-op-box" style="margin-top:8px">
+                            <div class="bank-op-label">Часткове або повне погашення боргу:</div>
+                            <div class="bank-input-wrap">
+                                <input type="number" class="input-field" id="repay-amount-input" placeholder="Сума погашення..." min="1">
+                                <button class="btn" onclick="setRepayQuickAmount(0.5)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">50%</button>
+                                <button class="btn" onclick="setRepayQuickAmount(1)" style="min-width:auto;min-height:34px;padding:4px 8px;font-size:12px">Весь борг</button>
+                            </div>
+                            <div class="bank-action-grid">
+                                <button class="btn" id="credit-repay-part-btn" onclick="repayCredit(false)">💸 Сплатити суму</button>
+                                <button class="btn default" id="credit-repay-btn" onclick="repayCredit(true)">✅ Погасити повністю</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="muted">Кредит видається на 30 хв під 5% фіксованої комісії. При прострочці — +10% штрафу кожні 5 хв та блокування роботи.</div>
+            </div>
         </div>
 
         <!-- МАПА -->
         <div class="page" id="page-map">
-            <div class="sub-title">🗺️ Місто Ковель</div>
-            <div class="muted" style="margin-bottom:8px">Спільна мапа. Натисни на ділянку або будівлю.</div>
-            <div class="map-container" id="map-container">
-                <div class="map-stage" id="map-stage">
-                    <div class="map-grid"></div>
-                    <div id="map-plots"></div>
-                    <div id="map-buildings"></div>
+            <div class="map-header-row">
+                <div>
+                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок)</div>
+                    <div class="muted">Купуйте землю, будуйте бізнес, наймайте гравців або влаштовуйтесь на роботу!</div>
+                </div>
+                <div style="display:flex;gap:4px">
+                    <button class="btn" onclick="focusBohdanHouse()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Миколайчука 100">👨‍🏭 Богдан</button>
+                    <button class="btn" onclick="centerKovelMap()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">🎯 Центр</button>
                 </div>
             </div>
+
+            <div class="map-zone-legend">
+                <button class="zone-pill active" id="zfilter-all" onclick="setZoneFilter('all')">Усі (48)</button>
+                <button class="zone-pill res" id="zfilter-residential" onclick="setZoneFilter('residential')">🏡 Жила (зелена)</button>
+                <button class="zone-pill com" id="zfilter-commercial" onclick="setZoneFilter('commercial')">🏪 Комерція (синя)</button>
+                <button class="zone-pill ind" id="zfilter-industrial" onclick="setZoneFilter('industrial')">🏭 Пром (оранжева)</button>
+            </div>
+
+            <div class="map-container" id="map-container">
+                <div id="kovel-leaflet-map"></div>
+            </div>
+
             <div class="map-info-panel" id="map-info-panel">
-                <button class="map-info-close" onclick="closeMapInfo()">✕ Закрити</button>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span class="zone-tag" id="info-zone-tag">Зона</span>
+                    <button class="map-info-close" onclick="closeMapInfo()">✕ Закрити</button>
+                </div>
                 <div class="map-info-row"><span class="label">Ділянка:</span><span class="value" id="info-name">—</span></div>
                 <div class="map-info-row"><span class="label">Власник:</span><span class="value" id="info-owner">—</span></div>
-                <div class="map-info-row"><span class="label">Ціна:</span><span class="value" id="info-price">—</span></div>
-                <div class="map-info-row"><span class="label">Бонуси:</span><span class="value" id="info-bonus">—</span></div>
-                <div class="map-info-actions">
+                <div class="map-info-row"><span class="label">Ціна землі:</span><span class="value" id="info-price">—</span></div>
+                <div class="map-info-row"><span class="label">Забудова:</span><span class="value" id="info-building">—</span></div>
+                <div class="map-info-row"><span class="label">Дохід ділянки:</span><span class="value" id="info-income">—</span></div>
+                <div class="map-info-row"><span class="label">Бонуси ціни:</span><span class="value" id="info-bonus">—</span></div>
+
+                <div class="map-info-actions" id="info-buy-wrap">
                     <button class="btn default" id="info-buy-btn" onclick="buySelectedPlot()">Купити</button>
+                </div>
+
+                <!-- Блок підприємства: працівники на посадах, зарплата, каса та працевлаштування -->
+                <div class="build-section" id="info-workers-section" style="display:none;">
+                    <div class="build-section-title">👷 Штат підприємства та умови праці:</div>
+                    <div class="map-info-row"><span class="label">Каса зарплат (фонд):</span><span class="value" id="info-biz-funds">0 💰</span></div>
+                    <div class="map-info-row"><span class="label">Базова ставка за клік:</span><span class="value" id="info-biz-wage">0 💰</span></div>
+                    <div class="map-info-row"><span class="label">Бонус від робітників:</span><span class="value" id="info-biz-boost">+0% доходу</span></div>
+
+                    <div id="info-workers-list" class="workers-roster"></div>
+
+                    <!-- Кнопка працевлаштування / звільнення для всіх гравців -->
+                    <div class="btn-row" id="info-hire-actions" style="margin-top:4px"></div>
+
+                    <!-- Управління касою та зарплатою для власника -->
+                    <div id="info-owner-Controls" class="bank-op-box" style="display:none;margin-top:6px">
+                        <div class="bank-op-label">⚙️ Керування підприємством (для власника):</div>
+                        <div class="bank-input-wrap">
+                            <span style="font-size:11px;min-width:95px">Ставка/клік (💰):</span>
+                            <input type="number" class="input-field" id="owner-wage-input" min="1" max="50000" style="font-size:12px;padding:4px 6px">
+                            <button class="btn" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">Зберегти ставку</button>
+                        </div>
+                        <div class="bank-input-wrap" style="margin-top:4px">
+                            <input type="number" class="input-field" id="owner-fund-input" placeholder="Сума для каси..." min="100" style="font-size:12px;padding:4px 6px">
+                            <button class="btn default" onclick="fundPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">📥 В касу</button>
+                            <button class="btn" onclick="withdrawPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">📤 З каси</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Панель будівництва для власника ділянки -->
+                <div class="build-section" id="info-build-section" style="display:none;">
+                    <div class="build-section-title">🏗️ Будівництво / модернізація у цій зоні:</div>
+                    <div class="build-options-grid" id="info-build-options"></div>
                 </div>
             </div>
         </div>
 
-        <!-- МАГАЗИН -->
+        <!-- МАГАЗИН КУРСІВ -->
         <div class="page" id="page-shop">
-            <div class="sub-title">🛒 Курси та книжки</div>
-            <div class="muted" style="margin-bottom:8px">Під час курсу працювати неможливо. Час іде офлайн.</div>
+            <div class="sub-title">🛒 Курси та книжки (Перепустка у КовельКорп)</div>
+            <div class="muted" style="margin-bottom:8px">Щоб попасти в КовельКорп — обов'язково пройдіть «Основи програмування». Кожне вище звання в КовельКорп потребує відповідного курсу!</div>
             <div class="shop-list" id="shop-list"></div>
         </div>
 
@@ -180,6 +344,49 @@
     <div class="status-bar">
         <div class="panel" id="game-status">Готово</div>
         <div class="panel small" id="save-status">—</div>
+    </div>
+</div>
+
+<!-- ДІАЛОГ З БОГДАНОМ ПОЛІЩУКОМ (ICQ 95 / Win95 Chat) -->
+<div class="dialog-overlay" id="bohdan-overlay">
+    <div class="dialog bohdan-dialog">
+        <div class="title-bar">
+            <span class="title-icon">👨‍🏭</span>
+            <span class="title-text">В гостях: Богдан Поліщук (вул. Миколайчука, 100)</span>
+            <div class="win-controls">
+                <button class="win-btn" onclick="closeBohdanModal()" title="Закрити">✕</button>
+            </div>
+        </div>
+        <div class="bohdan-header">
+            <div class="bohdan-avatar">👨‍🏭</div>
+            <div class="bohdan-bio">
+                <div class="bohdan-name">Богдан Поліщук <span class="online-badge">● Вдома</span></div>
+                <div class="bohdan-sub">Коваль свого щастя • Екс-зварювальник у Чехії • Миколайчука 100</div>
+            </div>
+            <button class="btn" onclick="openBohdanAiConfig()" style="min-width:auto;min-height:28px;padding:3px 7px;font-size:11px" title="Підключити OpenRouter API">⚙️ ШІ</button>
+        </div>
+
+        <div class="bohdan-ai-config" id="bohdan-ai-config" style="display:none;">
+            <div style="font-size:11px;margin-bottom:4px">Опціонально: вставте ключ <b>OpenRouter</b> (наприклад DeepSeek/Claude), або залиште пустим для вбудованого ШІ-движка Богдана:</div>
+            <div style="display:flex;gap:4px">
+                <input type="password" class="input-field" id="bohdan-api-key" placeholder="sk-or-v1-..." style="font-size:12px;padding:4px 6px">
+                <button class="btn" onclick="saveBohdanApiKey()" style="min-width:auto;min-height:28px;padding:4px 8px;font-size:12px">Зберегти</button>
+            </div>
+        </div>
+
+        <div class="bohdan-chat-log" id="bohdan-chat-log"></div>
+
+        <div class="bohdan-chips">
+            <button class="chip-btn" onclick="askBohdanPreset('Як тобі робота зварювальником у Чехії?')">🔥 Про Чехію і зварку</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Куди краще вкласти монети в Ковелі?')">🗺️ Куди інвестувати в Ковелі?</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Як справи на Миколайчука 100?')">🏠 Як на Миколайчука 100?</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">☕ Заварити кави</button>
+        </div>
+
+        <div class="bohdan-input-row">
+            <input type="text" class="input-field" id="bohdan-input" placeholder="Напиши Богдану повідомлення..." maxlength="200">
+            <button class="btn default" id="bohdan-send-btn" onclick="sendBohdanMessage()" style="min-width:74px">Надіслати</button>
+        </div>
     </div>
 </div>
 
