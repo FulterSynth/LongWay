@@ -15,7 +15,7 @@ class RetroSFX {
         }
         return this.ctx;
     }
-    tone(freq, dur = 0.07, type = "square", vol = 0.06) {
+    tone(freq, dur = 0.07, type = "sine", vol = 0.06) {
         const ctx = this._ensureCtx();
         if (!ctx) return;
         const osc = ctx.createOscillator();
@@ -29,7 +29,7 @@ class RetroSFX {
         osc.start();
         osc.stop(ctx.currentTime + dur);
     }
-    click() { this.tone(660, 0.04, "square", 0.05); }
+    click() { this.tone(680, 0.04, "triangle", 0.05); }
     good() { this.tone(523, 0.06, "triangle", 0.07); setTimeout(() => this.tone(784, 0.08, "triangle", 0.07), 55); }
     bad() { this.tone(180, 0.14, "sawtooth", 0.06); }
     win() {
@@ -43,19 +43,19 @@ export const sfx = new RetroSFX();
 
 const MAIL_POOL = [
     { from: "boss@kovelcorp.ua", subj: "Терміново: звіт по продажах за квартал", spam: false },
-    { from: "promo@free-ram95.net", subj: "Завантажити 128MB RAM безкоштовно зараз!!!", spam: true },
+    { from: "promo@free-ram-xp.net", subj: "Завантажити 2GB RAM для Windows XP безкоштовно!", spam: true },
     { from: "devops@kovelcorp.ua", subj: "Впав продакшн-сервер, потрібен рестарт", spam: false },
-    { from: "lottery@win98-prize.biz", subj: "Вітаємо! Ви виграли новенький Pentium II!", spam: true },
+    { from: "lottery@xp-prize.biz", subj: "Вітаємо! Ви виграли новенький Pentium 4!", spam: true },
     { from: "support@kovelcorp.ua", subj: "Тікет #402: у клієнта не працює оплата", spam: false },
     { from: "antivirus@superclean.exe", subj: "Знайдено 999 вірусів! Натисніть щоб видалити", spam: true },
     { from: "hr@kovelcorp.ua", subj: "Нагадування: дейлі-мітинг о 10:30", spam: false },
-    { from: "prince@dialup-gold.org", subj: "Секрет заробітку 5000$ за годину на модемі", spam: true },
+    { from: "prince@adsl-gold.org", subj: "Секрет заробітку 5000$ за годину в інтернеті", spam: true },
     { from: "qa@kovelcorp.ua", subj: "Знайдено баг у формі авторизації", spam: false },
-    { from: "casino@poker95.ru", subj: "Бонус 1000 фішок без реєстрації!", spam: true },
+    { from: "casino@poker-xp.ru", subj: "Бонус 1000 фішок без реєстрації!", spam: true },
     { from: "sysadmin@kovelcorp.ua", subj: "Оновіть пароль від корпоративної пошти", spam: false },
-    { from: "ads@cursor-pack.info", subj: "Блискучі курсори для Windows 95 без СМС", spam: true },
+    { from: "ads@cursor-xp.info", subj: "Теми Luna Royale для Windows XP без СМС", spam: true },
     { from: "client@volyn-biz.ua", subj: "Потрібна інтеграція CRM до п'ятниці", spam: false },
-    { from: "shop@magic-disk.cc", subj: "Дискета для прискорення інтернету в 10 разів", spam: true }
+    { from: "shop@magic-cd.cc", subj: "CD-диск для прискорення інтернету в 10 разів", spam: true }
 ];
 
 const DOS_COMMANDS = [
@@ -70,10 +70,10 @@ const DOS_COMMANDS = [
 ];
 
 const MEM_ITEMS = [
-    { ico: "💾", label: "Дискета", freq: 392 },
-    { ico: "🔌", label: "Модем", freq: 494 },
+    { ico: "💿", label: "CD-ROM", freq: 392 },
+    { ico: "🌐", label: "Мережа", freq: 494 },
     { ico: "🖱️", label: "Миша", freq: 587 },
-    { ico: "🔑", label: "Ключ", freq: 698 }
+    { ico: "🔑", label: "Ключ XP", freq: 698 }
 ];
 
 export class MiniGameManager {
@@ -132,14 +132,14 @@ export class MiniGameManager {
         const target = Math.min(12, 6 + Math.floor(jobIndex * 0.7));
         let score = 0;
         const cells = Array(12).fill(null);
-        this.elIcon.textContent = "🐛";
-        this.elTitle.textContent = "Баг-Хантер 95";
+        this.elIcon.textContent = "🛡️";
+        this.elTitle.textContent = "Windows XP Брандмауер — Пошук багів";
         this.elBadge.textContent = `0/${target}`;
 
         this.elBody.innerHTML = `
-            <div class="mg-hint">Ловіть баги (🐛 👾 💥), не чіпайте файли (📄 📁)!</div>
+            <div class="mg-hint">Ловіть баги (🐛 👾 💥), не чіпайте системні файли (📄 📁)!</div>
             <div class="mg-bug-grid" id="mg-bug-grid"></div>
-            <div class="mg-feedback" id="mg-fb">Очікування багів...</div>
+            <div class="mg-feedback" id="mg-fb">Сканування системи...</div>
         `;
         const grid = document.getElementById("mg-bug-grid");
         const fb = document.getElementById("mg-fb");
@@ -225,7 +225,7 @@ export class MiniGameManager {
         const target = Math.min(6, 4 + Math.floor(jobIndex / 3));
         let hits = 0;
         this.elIcon.textContent = "💿";
-        this.elTitle.textContent = "Defrag.exe";
+        this.elTitle.textContent = "Дефрагментація диска XP";
         this.elBadge.textContent = `0/${target}`;
 
         const zoneWidth = Math.max(16, 28 - jobIndex * 1.2);
@@ -312,7 +312,7 @@ export class MiniGameManager {
         let current = shuffled[0];
 
         this.elIcon.textContent = "📧";
-        this.elTitle.textContent = "Outlook Express 95";
+        this.elTitle.textContent = "Outlook Express XP";
         this.elBadge.textContent = `0/${target}`;
 
         this.elBody.innerHTML = `
@@ -380,7 +380,7 @@ export class MiniGameManager {
         let locked = true;
 
         this.elIcon.textContent = "🔐";
-        this.elTitle.textContent = "Dial-Up Дешифратор";
+        this.elTitle.textContent = "XP Мережевий Авторизатор";
         this.elBadge.textContent = `1/${rounds}`;
 
         this.elBody.innerHTML = `
@@ -474,13 +474,13 @@ export class MiniGameManager {
         const pickedList = [...DOS_COMMANDS].sort(() => Math.random() - 0.5);
 
         this.elIcon.textContent = "💻";
-        this.elTitle.textContent = "MS-DOS Prompt";
+        this.elTitle.textContent = "Командний рядок cmd.exe";
         this.elBadge.textContent = `0/${totalCmds}`;
 
         this.elBody.innerHTML = `
             <div class="mg-hint">Зберіть команду в правильному порядку:</div>
             <div class="mg-dos-screen">
-                <div>C:\\KOVELCORP&gt; <span style="color:#aaa">потрібна команда:</span></div>
+                <div>C:\\WINDOWS\\system32&gt; <span style="color:#aaa">потрібна команда:</span></div>
                 <div class="mg-dos-target" id="mg-dos-target"></div>
                 <div class="mg-dos-typed" id="mg-dos-typed">&gt; _</div>
             </div>
