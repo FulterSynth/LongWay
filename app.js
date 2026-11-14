@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "3.6.0";
+const APP_VERSION = "3.7.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -175,6 +175,12 @@ function isAdminUser() {
     return currentUser && currentUser.toLowerCase() === "admin";
 }
 
+function getOwnedPlotData(plotId) {
+    const d = sharedPlots ? sharedPlots[plotId] : null;
+    if (!d || !d.owner || String(d.owner).trim() === "" || d.wiped) return null;
+    return d;
+}
+
 function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     if (!Array.isArray(completedList) || !completedList.length) return 0;
     let totalPct = 0;
@@ -246,7 +252,7 @@ function getPlotNeighbors(plotId) {
 }
 
 function countOwnedNeighbors(plotId, owners) {
-    return getPlotNeighbors(plotId).filter(id => owners && owners[id]).length;
+    return getPlotNeighbors(plotId).filter(id => owners && owners[id] && owners[id].owner && !owners[id].wiped).length;
 }
 
 function calcPlotPrice(plot, owners) {
@@ -279,7 +285,7 @@ function getPlotPassiveBonusPct(plot, ownedData) {
 }
 
 function getPlotPassiveIncome(plot, ownedData) {
-    if (!ownedData) return 0;
+    if (!ownedData || !ownedData.owner || ownedData.wiped) return 0;
     const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
     const bld = getBuildingDef(plot.zone, ownedData.building);
     const base = bld ? bld.income : Math.max(25, Math.floor(zInfo.basePrice * 0.005));
@@ -291,7 +297,7 @@ function getTotalPassiveIncomePerMin() {
     if (!currentUser || !sharedPlots) return 0;
     let total = 0;
     MAP_PLOTS_BASE.forEach(p => {
-        const owned = sharedPlots[p.id];
+        const owned = getOwnedPlotData(p.id);
         if (owned && owned.owner === currentUser) {
             total += getPlotPassiveIncome(p, owned);
         }
@@ -445,7 +451,7 @@ function getCourseName(courseId) {
 }
 
 function getWorkerRecordOnPlot(plotId, username = currentUser) {
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!owned) return { role: "Робітник зміни", personalWage: 10, orders: 0, clicks: 0, totalEarned: 0, profitBrought: 0, completedCourses: [] };
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const bld = p ? getBuildingDef(p.zone, owned.building) : null;
@@ -581,7 +587,6 @@ async function startGame() {
     $("stat-user").textContent = currentUser;
     $("game-title").textContent = "Win98 SE Work — " + currentUser;
 
-    // Показуємо кнопку «☢️ ВАЙП» тільки якщо гравець увійшов як admin
     const wipeBtn = $("admin-wipe-btn");
     if (wipeBtn) {
         wipeBtn.style.display = isAdminUser() ? "inline-block" : "none";
@@ -603,7 +608,7 @@ async function startGame() {
     setGameStatus("Ласкаво просимо у Windows 98 SE Work, " + currentUser + "!");
 }
 
-// ===== ГЛОБАЛЬНИЙ ВАЙП СЕРВЕРА (ТІЛЬКИ ДЛЯ ГРАВЦЯ admin) =====
+// ===== ГЛОБАЛЬНИЙ ВАЙП СЕРВЕРА (ТІЛЬКИ ДЛЯ ГРАВЦЯ admin, ЧЕРЕЗ ДОЗВОЛЕНІ ПРАВИЛАМИ ВУЗЛИ users/{uid}/clicker ТА plots/{plotId}) =====
 window.openAdminWipeModal = function () {
     if (!isAdminUser()) return;
     sfx.click();
@@ -614,22 +619,44 @@ window.closeAdminWipeModal = function () {
     $("wipe-overlay").classList.remove("active");
 };
 
-window.executeAdminGlobalWipe = async function (deleteOtherAccounts = false) {
+window.executeAdminGlobalWipe = async function () {
     if (!isAdminUser()) {
         return showDialog("Доступ заборонено", "Ця функція доступна лише гравцю admin!", "🚫");
     }
 
     const btnProg = $("btn-confirm-wipe-progress");
-    const btnAll = $("btn-confirm-wipe-all");
     if (btnProg) btnProg.disabled = true;
-    if (btnAll) btnAll.disabled = true;
-    setGameStatus("☢️ Виконується глобальний вайп бази даних Ковеля...");
+    setGameStatus("☢️ Виконується глобальний вайп усіх гравців і мапи...");
 
     try {
-        // 1. Повністю очищуємо всі куплені ділянки та будівлі на мапі Ковеля
-        await set(ref(db, "plots"), null);
+        // 1. Очищуємо кожну ділянку окремо через дозволений вузол plots/{plotId} (не звертаючись до закритого кореня /plots)
+        const plotIdsToWipe = new Set([
+            ...MAP_PLOTS_BASE.map(p => String(p.id)),
+            ...Object.keys(sharedPlots || {})
+        ]);
 
-        // 2. Отримуємо всіх користувачів і скидаємо прогрес (та пошту) у кожного
+        for (const pid of plotIdsToWipe) {
+            try {
+                await set(ref(db, `plots/${pid}`), null);
+            } catch (errPlotNull) {
+                // Якщо правила Firebase забороняють видалення null, очищуємо поля ділянки через update
+                try {
+                    await update(ref(db, `plots/${pid}`), {
+                        owner: "",
+                        price: 0,
+                        boughtAt: 0,
+                        building: null,
+                        treasury: 0,
+                        wage: 0,
+                        workers: null,
+                        applicants: null,
+                        wiped: true
+                    });
+                } catch (e2) {}
+            }
+        }
+
+        // 2. Скидаємо прогрес та пошту кожного гравця через дозволений вузол users/{uname}/clicker
         const usersSnap = await get(child(ref(db), "users"));
         if (usersSnap.exists()) {
             const allUsers = usersSnap.val() || {};
@@ -648,21 +675,16 @@ window.executeAdminGlobalWipe = async function (deleteOtherAccounts = false) {
                 completedCourses: [],
                 xpBoost: 0,
                 credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 },
-                deposit: { amount: 0, lastInterestAt: now, totalEarned: 0 }
+                deposit: { amount: 0, lastInterestAt: now, totalEarned: 0 },
+                mail: null,
+                sentMail: null
             };
 
-            const promises = Object.keys(allUsers).map(uname => {
-                if (deleteOtherAccounts && uname.toLowerCase() !== "admin") {
-                    return set(ref(db, `users/${uname}`), null);
-                } else {
-                    return update(ref(db, `users/${uname}`), {
-                        clicker: freshClickerState,
-                        mail: null,
-                        sentMail: null
-                    });
-                }
-            });
-            await Promise.all(promises);
+            for (const uname of Object.keys(allUsers)) {
+                try {
+                    await set(ref(db, `users/${uname}/clicker`), freshClickerState);
+                } catch (errUser) {}
+            }
         }
 
         // 3. Очищуємо локальний стан
@@ -700,16 +722,13 @@ window.executeAdminGlobalWipe = async function (deleteOtherAccounts = false) {
         setGameStatus("☢️ Глобальний вайп успішно завершено! Увесь прогрес скинуто до нуля.");
         showDialog(
             "Вайп виконано!",
-            deleteOtherAccounts
-                ? "Усі ділянки мапи очищено, сторонні акаунти видалено, а прогрес скинуто до нуля!"
-                : "Увесь прогрес усіх гравців (монети, депозити, кредити, курси, звання, пошта) та вся мапа Ковеля повністю скинуті до початкового стану!",
+            "Увесь прогрес усіх гравців (монети, депозити, кредити, курси, звання, пошта) та всі ділянки на мапі Ковеля повністю скинуті до початкового стану!",
             "☢️"
         );
     } catch (e) {
         showDialog("Помилка вайпу", e.message, "⚠️");
     } finally {
         if (btnProg) btnProg.disabled = false;
-        if (btnAll) btnAll.disabled = false;
     }
 };
 
@@ -781,7 +800,7 @@ function startMapSync() {
         sharedPlots = snap.exists() ? snap.val() : {};
         if (gameState.employer && gameState.employer.startsWith("plot:")) {
             const pid = Number(gameState.employer.split(":")[1]);
-            const pData = sharedPlots[pid];
+            const pData = getOwnedPlotData(pid);
             if (!pData || !pData.building || !pData.workers || !pData.workers[currentUser]) {
                 gameState.employer = "none";
             }
@@ -843,7 +862,7 @@ async function saveGame() {
             deposit: gameState.deposit
         });
         const pid = getActiveEmployerPlotId();
-        if (pid !== null && sharedPlots[pid]?.workers?.[currentUser]) {
+        if (pid !== null && getOwnedPlotData(pid)?.workers?.[currentUser]) {
             await update(ref(db, `plots/${pid}/workers/${currentUser}`), {
                 completedCourses: gameState.completedCourses
             });
@@ -912,11 +931,11 @@ window.joinKovelCorp = async function () {
     setGameStatus("Ви влаштувались у КовельКорп!");
 };
 
-// ===== ПОДАЧА РЕЗЮМЕ ТА ПОШТА OUTLOOK EXPRESS 98 (ЗБЕРІГАЄТЬСЯ У ВУЗЛІ users/{username}/mail ДЛЯ ПОВНОЇ СУМІСНОСТІ З ПРАВИЛАМИ FIREBASE) =====
+// ===== ПОДАЧА РЕЗЮМЕ ТА ПОШТА OUTLOOK EXPRESS 98 (ЗБЕРІГАЄТЬСЯ ВСЕРЕДИНІ users/{username}/clicker/mail ТА users/{username}/clicker/sentMail) =====
 
 window.openResumeModal = function (plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!p || !owned || !owned.building) {
         return showDialog("Недоступно", "На цій ділянці ще немає збудованого підприємства.", "⚠️");
     }
@@ -947,7 +966,7 @@ window.submitResumeApplication = async function () {
     if (resumeTargetPlotId === null || !currentUser) return;
     const plotId = resumeTargetPlotId;
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!p || !owned || !owned.building) {
         closeResumeModal();
         return;
@@ -978,11 +997,11 @@ window.submitResumeApplication = async function () {
     };
 
     try {
-        // Записуємо всередину дозволеного вузла users/{owner}/mail та users/{currentUser}/sentMail
-        const newMailRef = push(ref(db, `users/${owned.owner}/mail`));
+        // Записуємо всередину дозволеного вузла users/{owner}/clicker/mail
+        const newMailRef = push(ref(db, `users/${owned.owner}/clicker/mail`));
         mailPayload.id = newMailRef.key;
         await set(newMailRef, mailPayload);
-        await set(ref(db, `users/${currentUser}/sentMail/${newMailRef.key}`), mailPayload);
+        await set(ref(db, `users/${currentUser}/clicker/sentMail/${newMailRef.key}`), mailPayload);
         await set(ref(db, `plots/${plotId}/applicants/${currentUser}`), {
             desiredWage,
             zoneBonusPct: zoneBonus,
@@ -1008,13 +1027,13 @@ function startMailSync() {
     if (mailSentListener) { mailSentListener(); mailSentListener = null; }
     if (!currentUser) return;
 
-    mailInboxListener = onValue(ref(db, `users/${currentUser}/mail`), snap => {
+    mailInboxListener = onValue(ref(db, `users/${currentUser}/clicker/mail`), snap => {
         userInboxMail = snap.exists() ? snap.val() : {};
         updateMailBadges();
         if (currentPage === "mail") renderMailPage();
     });
 
-    mailSentListener = onValue(ref(db, `users/${currentUser}/sentMail`), snap => {
+    mailSentListener = onValue(ref(db, `users/${currentUser}/clicker/sentMail`), snap => {
         userSentMail = snap.exists() ? snap.val() : {};
         if (currentPage === "mail" && activeMailSubtab === "sent") renderMailPage();
     });
@@ -1114,11 +1133,11 @@ window.sendPersonalMail = async function () {
             createdAt: Date.now()
         };
 
-        // Записуємо у дозволений вузол users/{to}/mail та users/{currentUser}/sentMail
-        const newRef = push(ref(db, `users/${to}/mail`));
+        // Записуємо всередину дозволеного вузла users/{to}/clicker/mail
+        const newRef = push(ref(db, `users/${to}/clicker/mail`));
         msgData.id = newRef.key;
         await set(newRef, msgData);
-        await set(ref(db, `users/${currentUser}/sentMail/${newRef.key}`), msgData);
+        await set(ref(db, `users/${currentUser}/clicker/sentMail/${newRef.key}`), msgData);
 
         $("mail-subj-input").value = "";
         $("mail-body-input").value = "";
@@ -1136,7 +1155,7 @@ window.acceptResume = async function (mailId) {
 
     const plotId = Number(mail.plotId);
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!p || !owned || owned.owner !== currentUser || !owned.building) {
         return showDialog("Помилка", "Ви більше не є власником цього підприємства.", "⚠️");
     }
@@ -1176,13 +1195,13 @@ window.acceptResume = async function (mailId) {
             taskProgress: 0
         });
 
-        await update(ref(db, `users/${currentUser}/mail/${mailId}`), {
+        await update(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), {
             status: "accepted",
             unread: false,
             approvedWage: approvedWage
         });
 
-        const replyRef = push(ref(db, `users/${applicant}/mail`));
+        const replyRef = push(ref(db, `users/${applicant}/clicker/mail`));
         await set(replyRef, {
             id: replyRef.key,
             type: "system",
@@ -1208,13 +1227,13 @@ window.rejectResume = async function (mailId) {
     const applicant = mail.from;
 
     try {
-        await update(ref(db, `users/${currentUser}/mail/${mailId}`), {
+        await update(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), {
             status: "rejected",
             unread: false
         });
         await set(ref(db, `plots/${plotId}/applicants/${applicant}`), null);
 
-        const replyRef = push(ref(db, `users/${applicant}/mail`));
+        const replyRef = push(ref(db, `users/${applicant}/clicker/mail`));
         await set(replyRef, {
             id: replyRef.key,
             type: "system",
@@ -1236,9 +1255,9 @@ window.rejectResume = async function (mailId) {
 window.deleteMailItem = async function (mailId, isSent = false) {
     try {
         if (isSent) {
-            await set(ref(db, `users/${currentUser}/sentMail/${mailId}`), null);
+            await set(ref(db, `users/${currentUser}/clicker/sentMail/${mailId}`), null);
         } else {
-            await set(ref(db, `users/${currentUser}/mail/${mailId}`), null);
+            await set(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), null);
         }
         sfx.click();
     } catch (e) {}
@@ -1247,7 +1266,7 @@ window.deleteMailItem = async function (mailId, isSent = false) {
 window.markMailRead = async function (mailId) {
     if (!userInboxMail[mailId] || !userInboxMail[mailId].unread) return;
     try {
-        await update(ref(db, `users/${currentUser}/mail/${mailId}`), { unread: false });
+        await update(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), { unread: false });
     } catch (e) {}
 };
 
@@ -1366,7 +1385,7 @@ async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!p || !owned || !owned.building) {
         gameState.employer = "none";
         renderAll();
@@ -1478,7 +1497,7 @@ function doMunicipalStepWork() {
 }
 
 window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!owned || owned.owner !== currentUser) return;
     const wRec = getWorkerRecordOnPlot(plotId, workerName);
     const newWage = Math.min(50000, Math.max(wRec.personalWage + 5, Math.round(wRec.personalWage * mult)));
@@ -1502,7 +1521,7 @@ window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
 };
 
 window.setWorkerCustomWage = async function (plotId, workerName, inputId, roleSelectId) {
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!owned || owned.owner !== currentUser) return;
     const inp = $(inputId);
     const roleSel = $(roleSelectId);
@@ -1523,7 +1542,7 @@ window.setWorkerCustomWage = async function (plotId, workerName, inputId, roleSe
 };
 
 window.fireWorkerFromPlot = async function (plotId, workerName) {
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     if (!owned || owned.owner !== currentUser) return;
     try {
         await set(ref(db, `plots/${plotId}/workers/${workerName}`), null);
@@ -1537,7 +1556,7 @@ window.fireWorkerFromPlot = async function (plotId, workerName) {
 window.savePlotWage = async function (customPlotId = null, customInputId = null) {
     const pid = customPlotId !== null ? customPlotId : selectedPlotId;
     if (pid === null) return;
-    const owned = sharedPlots[pid];
+    const owned = getOwnedPlotData(pid);
     if (!owned || owned.owner !== currentUser) return;
     const inpEl = customInputId ? $(customInputId) : $("owner-wage-input");
     const val = Math.max(5, Math.min(50000, Math.floor(Number(inpEl?.value) || 0)));
@@ -1551,7 +1570,7 @@ window.savePlotWage = async function (customPlotId = null, customInputId = null)
 window.fundPlotTreasury = async function (customPlotId = null, customInputId = null) {
     const pid = customPlotId !== null ? customPlotId : selectedPlotId;
     if (pid === null) return;
-    const owned = sharedPlots[pid];
+    const owned = getOwnedPlotData(pid);
     if (!owned || owned.owner !== currentUser) return;
     const inpEl = customInputId ? $(customInputId) : $("owner-fund-input");
     const val = Math.floor(Number(inpEl?.value) || 0);
@@ -1570,7 +1589,7 @@ window.fundPlotTreasury = async function (customPlotId = null, customInputId = n
 window.withdrawPlotTreasury = async function (customPlotId = null, customInputId = null) {
     const pid = customPlotId !== null ? customPlotId : selectedPlotId;
     if (pid === null) return;
-    const owned = sharedPlots[pid];
+    const owned = getOwnedPlotData(pid);
     if (!owned || owned.owner !== currentUser) return;
     const curTreasury = Number(owned.treasury) || 0;
     if (curTreasury <= 0) return showDialog("Каса порожня", "У касі підприємства зараз немає монет.", "ℹ️");
@@ -1779,7 +1798,7 @@ function renderEmployerBar() {
     } else if (gameState.employer && gameState.employer.startsWith("plot:")) {
         const pid = getActiveEmployerPlotId();
         const p = MAP_PLOTS_BASE.find(x => x.id === pid);
-        const owned = sharedPlots[pid];
+        const owned = getOwnedPlotData(pid);
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
         const zoneBonus = p ? getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone) : 0;
@@ -1805,7 +1824,7 @@ function renderPrivateJobsBoard() {
 
     const businesses = [];
     MAP_PLOTS_BASE.forEach(p => {
-        const owned = sharedPlots[p.id];
+        const owned = getOwnedPlotData(p.id);
         if (owned && owned.building) {
             const bld = getBuildingDef(p.zone, owned.building);
             if (bld) {
@@ -1924,7 +1943,7 @@ function renderOwnerBusinessesHub() {
     let totalWorkersAcrossBiz = 0;
 
     MAP_PLOTS_BASE.forEach(p => {
-        const owned = sharedPlots[p.id];
+        const owned = getOwnedPlotData(p.id);
         if (owned && owned.owner === currentUser && owned.building) {
             const bld = getBuildingDef(p.zone, owned.building);
             const wCount = owned.workers ? Object.keys(owned.workers).length : 0;
@@ -2042,7 +2061,7 @@ function renderTask() {
     } else if (gameState.employer && gameState.employer.startsWith("plot:")) {
         const pid = getActiveEmployerPlotId();
         const p = MAP_PLOTS_BASE.find(x => x.id === pid);
-        const owned = sharedPlots[pid];
+        const owned = getOwnedPlotData(pid);
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
         const step = Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED;
@@ -2183,7 +2202,7 @@ function renderJobsList() {
     } else if (gameState.employer && gameState.employer.startsWith("plot:")) {
         const pid = getActiveEmployerPlotId();
         const p = MAP_PLOTS_BASE.find(x => x.id === pid);
-        const owned = sharedPlots[pid];
+        const owned = getOwnedPlotData(pid);
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
         const zoneBonus = p ? getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone) : 0;
@@ -2321,7 +2340,7 @@ function renderMap() {
         if (currentZoneFilter !== "all" && p.zone !== currentZoneFilter) return;
 
         const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
-        const owned = sharedPlots[p.id];
+        const owned = getOwnedPlotData(p.id);
         const price = calcPlotPrice(p, sharedPlots);
         const canAfford = gameState.coins >= price && !owned;
         const isSelected = selectedPlotId === p.id;
@@ -2410,7 +2429,7 @@ function showMapInfo(plotId) {
     if (!p) return;
     $("map-info-panel").classList.add("show");
     const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
-    const owned = sharedPlots[plotId];
+    const owned = getOwnedPlotData(plotId);
     const price = calcPlotPrice(p, sharedPlots);
     const proximity = getBuildingProximityBonus(p);
     const density = getDensityBonus(p);
@@ -2530,12 +2549,14 @@ window.buySelectedPlot = async function () {
     if (selectedPlotId === null) return;
     const p = MAP_PLOTS_BASE.find(x => x.id === selectedPlotId);
     if (!p) return;
-    if (sharedPlots[selectedPlotId]) return showDialog("Зайнято", "Ділянка вже куплена.", "⚠️");
+    if (getOwnedPlotData(selectedPlotId)) return showDialog("Зайнято", "Ділянка вже куплена.", "⚠️");
     const price = calcPlotPrice(p, sharedPlots);
     if (gameState.coins < price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(price) + " 💰.\nПорада: ви можете накопичити кошти на депозиті або взяти кредит у вкладці «🏦 Банк»!", "💸");
     try {
         const result = await runTransaction(ref(db, `plots/${selectedPlotId}`), (current) => {
-            if (current === null) return { owner: currentUser, price: price, boughtAt: Date.now(), zone: p.zone, building: null, treasury: 0, wage: 0, workers: {} };
+            if (current === null || !current.owner || current.wiped) {
+                return { owner: currentUser, price: price, boughtAt: Date.now(), zone: p.zone, building: null, treasury: 0, wage: 0, workers: {}, wiped: null };
+            }
             return;
         });
         if (!result.committed) return showDialog("Не встигли", "Хтось купив цю ділянку раніше.", "⚠️");
@@ -2551,7 +2572,7 @@ window.buySelectedPlot = async function () {
 window.buildOnSelectedPlot = async function (buildingId) {
     if (selectedPlotId === null) return;
     const p = MAP_PLOTS_BASE.find(x => x.id === selectedPlotId);
-    const owned = sharedPlots[selectedPlotId];
+    const owned = getOwnedPlotData(selectedPlotId);
     if (!p || !owned || owned.owner !== currentUser) return;
 
     const bld = getBuildingDef(p.zone, buildingId);
@@ -2651,7 +2672,7 @@ function generateSmartBohdanReply(userText) {
     const q = userText.toLowerCase();
     const coins = formatNumberFull(gameState.coins);
     const dep = formatNumberFull(gameState.deposit?.amount || 0);
-    const myPlots = MAP_PLOTS_BASE.filter(p => sharedPlots[p.id]?.owner === currentUser);
+    const myPlots = MAP_PLOTS_BASE.filter(p => getOwnedPlotData(p.id)?.owner === currentUser);
 
     if (q.includes("курс") || q.includes("житл") || q.includes("пром") || q.includes("диплом") || q.includes("навч")) {
         return "Тепер у вкладці «🎓 Курси» є три відділення! ІТ-курси відкривають КовельКорп (причому дорожчий курс автоматично зараховує всі дешевші!). Житлові курси (сантехніка, електрика, ОСББ) дають до +185% виручки в Житловій зоні, а Промислові (зварка, ЧПК, інженерія) — до +200% на заводах!";
