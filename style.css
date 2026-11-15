@@ -2082,3 +2082,178 @@ body {
     border-bottom: 1px dotted #b0b0b0;
     padding-bottom: 2px;
 }
+
+
+/* ===== ПРОЗОРА КАСА БІЗНЕСУ, ЧЕК МАРЖІ ТА ВКЛАДКА «ПОЛІТИКА» (v3.9.0) ===== */
+.cashbox-master-banner {
+    background: #002200;
+    color: #00ff66;
+    border: 2px inset #808080;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.cashbox-master-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cashbox-master-title {
+    font-size: 11px;
+    color: #b8ffb8;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.cashbox-master-amount {
+    font-family: "Courier New", monospace;
+    font-size: 19px;
+    font-weight: bold;
+    color: #00ff66;
+}
+
+.cashbox-master-sub {
+    font-size: 11px;
+    color: #d0ffd0;
+}
+
+.biz-cash-highlight {
+    background: #e6f7e6;
+    border: 2px inset #2d7a2d;
+    padding: 7px 9px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.biz-cash-highlight .cash-big {
+    font-family: "Courier New", monospace;
+    font-size: 16px;
+    font-weight: bold;
+    color: #005500;
+}
+
+.receipt-breakdown {
+    background: #fffff0;
+    border: 1px solid #808080;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.receipt-breakdown-title {
+    font-weight: bold;
+    color: #000080;
+    margin-bottom: 4px;
+    border-bottom: 1px dotted #a0a0a0;
+    padding-bottom: 2px;
+}
+
+.receipt-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+.receipt-pill {
+    background: #ffffff;
+    border: 1px solid #909090;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.receipt-pill.tax {
+    background: #fff0f0;
+    border-color: #a04040;
+    color: #800000;
+}
+
+.receipt-pill.wage {
+    background: #eef4ff;
+    border-color: #305090;
+    color: #000080;
+}
+
+.receipt-pill.net-pos {
+    background: #dff5df;
+    border: 1px solid #006400;
+    color: #005000;
+    font-weight: bold;
+}
+
+.receipt-pill.net-neg {
+    background: #ffd6d6;
+    border: 1px solid #900000;
+    color: #900000;
+    font-weight: bold;
+}
+
+.politics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.politics-card {
+    background: #dfdfdf;
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.politics-card.res { border-top: 4px solid #1e8449; }
+.politics-card.com { border-top: 4px solid #1b4f9c; }
+.politics-card.ind { border-top: 4px solid #a04000; }
+
+.politics-card-title {
+    font-weight: bold;
+    font-size: 13px;
+    color: #000080;
+    border-bottom: 1px solid #808080;
+    padding-bottom: 3px;
+}
+
+.politics-rate-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    border: 1px inset #808080;
+    padding: 3px 6px;
+    font-size: 11px;
+}
+
+.politics-rate-val {
+    font-family: "Courier New", monospace;
+    font-weight: bold;
+    font-size: 13px;
+    color: #800000;
+}
+
+.xp-hud-pill.cashbox-pill {
+    cursor: pointer;
+    background: #e6f7e6;
+    color: #004d00;
+}
+
+.xp-hud-pill.cashbox-pill:hover {
+    background: #d0f0d0;
+}
