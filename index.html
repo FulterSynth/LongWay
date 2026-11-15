@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="3.7.0">
-<title>Win98 Work — Ковель Економіка SE v3.7</title>
+<meta name="version" content="3.8.0">
+<title>Win98 Work — Ковель Економіка SE v3.8</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v3.7 SE</div>
+        <div class="panel small">v3.8 SE</div>
     </div>
 </div>
 
@@ -58,7 +58,7 @@
     <div class="xp-quick-hud">
         <div class="xp-hud-left">
             <div class="xp-hud-pill coins" title="Баланс гаманця">💰 <b id="hud-coins">0</b></div>
-            <div class="xp-hud-pill" title="Пасивний дохід від нерухомості за хвилину">🏘️ <b id="hud-income">+0/хв</b></div>
+            <div class="xp-hud-pill" title="Погодинний пасивний дохід від нерухомості">🏘️ <b id="hud-income">+0/год</b></div>
             <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
         </div>
         <div class="xp-hud-right">
@@ -139,7 +139,7 @@
             <!-- Під-вкладка 2: Керування своїми підприємствами та зарплатами робітників -->
             <div class="group-box" id="work-sub-mybiz" data-label="👨‍💼 Мої підприємства: курси робітників, статистика та ЗП" style="display:none;">
                 <div class="muted" style="margin-bottom:6px">
-                    Тут видно кожного працівника, <b>які курси він пройшов</b>, який бонус до виручки дає вашій зоні, скільки замовлень виконав, а також кнопки <b>підвищення зарплати та посади</b>.
+                    Тут видно кожного працівника, <b>які курси він пройшов</b>, який бонус до виручки дає вашій зоні, скільки замовлень виконав, а також кнопки <b>підвищення зарплати</b> та <b>запрошення гравців за координатами</b>.
                 </div>
                 <div id="owner-businesses-hub" class="private-jobs-list" style="max-height:290px;"></div>
             </div>
@@ -159,19 +159,20 @@
             </div>
         </div>
 
-        <!-- ПОШТА (OUTLOOK EXPRESS 98: РЕЗЮМЕ ТА ПЕРЕПИСКИ МІЖ ГРАВЦЯМИ) -->
+        <!-- ПОШТА (OUTLOOK EXPRESS 98: ІСТОРІЯ ПЕРЕПИСОК, ПЕРЕКАЗ ГРОШЕЙ, ПРОПОЗИЦІЇ РОБОТИ З КООРДИНАТАМИ ТА РЕЗЮМЕ) -->
         <div class="page" id="page-mail">
             <div class="mail-banner">
                 <div>
                     <div class="sub-title" style="color:#ffffff;margin:0">📧 Outlook Express 98 — Пошта м. Ковель</div>
-                    <div style="font-size:11px;color:#dbeafe">Приймайте резюме кандидатів на свої підприємства та переписуйтесь із гравцями</div>
+                    <div style="font-size:11px;color:#dbeafe">Історія переписки, пересилання монет, запрошення на роботу за GPS-координатами та резюме</div>
                 </div>
-                <button class="btn" onclick="openComposeMail()" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:12px;font-weight:bold">✍️ Написати листа</button>
+                <button class="btn" onclick="openComposeMail()" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:12px;font-weight:bold">✍️ Написати / Переказ</button>
             </div>
 
             <div class="work-mode-tabs">
-                <button class="work-mode-btn active" id="mtab-inbox" onclick="switchMailSubtab('inbox')">📥 Усі вхідні <span class="badge-cnt" id="badge-mail-all">0</span></button>
-                <button class="work-mode-btn" id="mtab-resumes" onclick="switchMailSubtab('resumes')">📋 Резюме кандидатів <span class="badge-cnt" id="badge-mail-resumes">0</span></button>
+                <button class="work-mode-btn active" id="mtab-inbox" onclick="switchMailSubtab('inbox')">📥 Вхідні <span class="badge-cnt" id="badge-mail-all">0</span></button>
+                <button class="work-mode-btn" id="mtab-resumes" onclick="switchMailSubtab('resumes')">📋 Резюме <span class="badge-cnt" id="badge-mail-resumes">0</span></button>
+                <button class="work-mode-btn" id="mtab-history" onclick="switchMailSubtab('history')">💬 Історія переписок</button>
                 <button class="work-mode-btn" id="mtab-sent" onclick="switchMailSubtab('sent')">📤 Надіслані</button>
                 <button class="work-mode-btn" id="mtab-compose" onclick="switchMailSubtab('compose')">✍️ Новий лист</button>
             </div>
@@ -179,12 +180,24 @@
             <!-- Списки вхідних / резюме / надісланих -->
             <div id="mail-list-container" class="mail-list-box"></div>
 
-            <!-- Панель написання особистого листа іншому гравцю -->
-            <div id="mail-compose-container" class="group-box" data-label="✍️ Написати повідомлення гравцю" style="display:none;margin-top:6px">
+            <!-- Вкладка Історії Переписки (Діалоги з гравцями) -->
+            <div id="mail-history-container" class="mail-thread-view" style="display:none;">
+                <div style="font-size:11px;font-weight:bold;color:#000080">👥 Оберіть співрозмовника для перегляду всієї історії переписки:</div>
+                <div id="mail-history-contacts" class="mail-contacts-bar"></div>
+                <div id="mail-history-log" class="mail-history-log"></div>
+                <div class="bank-input-wrap" id="mail-history-reply-bar" style="display:none;">
+                    <input type="text" class="input-field" id="history-quick-reply-input" placeholder="Швидка відповідь у діалог..." maxlength="400">
+                    <button class="btn default" onclick="sendQuickHistoryReply()" style="min-height:32px;min-width:auto;padding:4px 10px;font-size:12px">📨 Надіслати</button>
+                    <button class="btn" onclick="openComposeWithActiveContact()" style="min-height:32px;min-width:auto;padding:4px 8px;font-size:11px" title="Прикріпити гроші або координати роботи">💰/📍 Вкладення</button>
+                </div>
+            </div>
+
+            <!-- Панель написання особистого листа + пересилання грошей + запрошення на роботу з координатами -->
+            <div id="mail-compose-container" class="group-box" data-label="✍️ Написати листа / Переслати гроші / Запропонувати роботу" style="display:none;margin-top:6px">
                 <div class="form-row">
                     <label>Кому (логін):</label>
                     <input type="text" class="input-field" id="mail-to-input" placeholder="Введіть нік гравця..." maxlength="25">
-                    <select class="input-field" id="mail-to-select" onchange="if(this.value) document.getElementById('mail-to-input').value=this.value" style="max-width:140px">
+                    <select class="input-field" id="mail-to-select" onchange="if(this.value) document.getElementById('mail-to-input').value=this.value" style="max-width:145px">
                         <option value="">▼ Список гравців</option>
                     </select>
                 </div>
@@ -194,9 +207,35 @@
                 </div>
                 <div class="form-row" style="align-items:flex-start">
                     <label style="padding-top:6px">Повідомлення:</label>
-                    <textarea class="input-field" id="mail-body-input" rows="4" placeholder="Напишіть текст листа..." maxlength="600" style="resize:vertical"></textarea>
+                    <textarea class="input-field" id="mail-body-input" rows="3" placeholder="Напишіть текст листа..." maxlength="600" style="resize:vertical"></textarea>
                 </div>
-                <div class="btn-row">
+
+                <!-- Блок прикріплення грошей -->
+                <div class="bank-op-box" style="margin-top:4px">
+                    <div class="bank-op-label">💸 Прикріпити грошовий переказ (необов'язково):</div>
+                    <div class="bank-input-wrap">
+                        <span style="font-size:12px">Сума монет (💰):</span>
+                        <input type="number" class="input-field" id="mail-coins-input" placeholder="0" min="0" style="max-width:130px">
+                        <span class="muted" style="font-size:11px">Спишеться з вашого гаманця та прийде отримувачу в листі</span>
+                    </div>
+                </div>
+
+                <!-- Блок пропозиції роботи з GPS-координатами ділянки -->
+                <div class="bank-op-box" style="margin-top:4px">
+                    <div class="bank-op-label">📍 Запропонувати роботу (надіслати координати підприємства):</div>
+                    <div class="bank-input-wrap">
+                        <select class="input-field" id="mail-job-plot-select" onchange="onMailJobPlotChange()" style="font-size:12px">
+                            <option value="">— Не прикріплювати координати роботи —</option>
+                        </select>
+                    </div>
+                    <div class="bank-input-wrap" id="mail-job-wage-row" style="display:none;margin-top:4px">
+                        <span style="font-size:12px">Запропонована ЗП (💰/замовл.):</span>
+                        <input type="number" class="input-field" id="mail-job-wage-input" min="5" max="50000" style="max-width:110px">
+                        <span class="muted" style="font-size:11px">Гравець побачить координати на мапі й зможе одразу влаштуватись!</span>
+                    </div>
+                </div>
+
+                <div class="btn-row" style="margin-top:8px">
                     <button class="btn" onclick="switchMailSubtab('inbox')">Скасувати</button>
                     <button class="btn default" onclick="sendPersonalMail()">📨 Надіслати листа</button>
                 </div>
@@ -234,24 +273,24 @@
                 </div>
             </div>
 
-            <div class="bank-blocked" id="bank-blocked">🚫 Роботу та пасивний дохід заблоковано через прострочений кредит!<br>Погасіть борг нижче, щоб розблокувати рахунки.</div>
-            <div class="bank-warning" id="bank-warning">⚠️ У вас прострочений кредит! Штраф +10% до боргу кожні 5 хв.</div>
+            <div class="bank-blocked" id="bank-blocked">🚫 У вас прострочений кредит! Усі покупки (земля, будівлі, курси) заблоковано до повного погашення боргу.<br>✅ <b>Працювати можна і треба</b> — заробляйте монети на роботі та гасіть борг нижче!</div>
+            <div class="bank-warning" id="bank-warning">⚠️ Прострочений кредит! Кожні 5 хв нараховується 10% штрафу, який примусово списується з вашого депозиту (а якщо депозиту не вистачає — додається до боргу).</div>
 
             <div class="bank-tabs">
-                <button class="bank-tab active" id="btab-deposit" onclick="switchBankTab('deposit')">📈 Депозитний сейф (+3%/хв)</button>
+                <button class="bank-tab active" id="btab-deposit" onclick="switchBankTab('deposit')">📈 Депозитний сейф (+1%/год)</button>
                 <button class="bank-tab" id="btab-credit" onclick="switchBankTab('credit')">💳 Кредитний відділ</button>
             </div>
 
             <div id="bank-panel-deposit" class="bank-subpanel">
-                <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал»">
+                <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал» (1% на годину)">
                     <div class="credit-card" style="background:#e4f2e4;border-color:#2d7a2d">
                         <div class="credit-card-header">
                             <span class="credit-card-name">🔐 На депозитному рахунку:</span>
                             <span class="credit-card-limit" id="dep-balance" style="color:#006400;font-size:16px">0 💰</span>
                         </div>
                         <div class="credit-card-info">
-                            • Ставка: <b>+3% щохвилини</b> (складний відсоток, капіталізація!).<br>
-                            • Наступне нарахування: <b id="dep-next-yield">+0 💰</b> через <b id="dep-next-timer">60с</b>.<br>
+                            • Ставка: <b>+1% щогодини</b> (складний відсоток, капіталізація!).<br>
+                            • Наступне нарахування: <b id="dep-next-yield">+0 💰</b> через <b id="dep-next-timer">1:00:00</b>.<br>
                             • Всього зароблено відсотків: <b id="dep-earned-total">0 💰</b>.
                         </div>
                     </div>
@@ -271,7 +310,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="muted">Порада: тримайте вільні кошти на депозиті, поки збираєте на дорогу землю та будівлі у Ковелі!</div>
+                <div class="muted">Увага: якщо у вас виникне прострочений кредит, штрафи за нього будуть автоматично стягуватися з вашого депозиту!</div>
             </div>
 
             <div id="bank-panel-credit" class="bank-subpanel" style="display:none;">
@@ -322,7 +361,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="muted">Кредит видається на 30 хв під 5% фіксованої комісії. При прострочці — +10% штрафу кожні 5 хв та блокування роботи.</div>
+                <div class="muted">Кредит видається на 30 хв під 5% фіксованої комісії. При прострочці штраф 10% кожні 5 хв стягується з депозиту, а покупки блокуються (працювати можна!).</div>
             </div>
         </div>
 
@@ -330,8 +369,8 @@
         <div class="page" id="page-map">
             <div class="map-header-row">
                 <div>
-                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок)</div>
-                    <div class="muted">Купуйте землю, будуйте бізнес, подавайте резюме або керуйте власним штатом!</div>
+                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок, дохід щогодини)</div>
+                    <div class="muted">Купуйте землю, будуйте бізнес, запрошуйте гравців за координатами або подавайте резюме!</div>
                 </div>
                 <div style="display:flex;gap:4px">
                     <button class="btn" onclick="focusBohdanHouse()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Миколайчука 100">👨‍🏭 Богдан</button>
@@ -355,7 +394,7 @@
                     <span class="zone-tag" id="info-zone-tag">Зона</span>
                     <button class="map-info-close" onclick="closeMapInfo()">✕ Закрити</button>
                 </div>
-                <div class="map-info-row"><span class="label">Ділянка:</span><span class="value" id="info-name">—</span></div>
+                <div class="map-info-row"><span class="label">Ділянка та GPS:</span><span class="value" id="info-name">—</span></div>
                 <div class="map-info-row"><span class="label">Власник:</span><span class="value" id="info-owner">—</span></div>
                 <div class="map-info-row"><span class="label">Ціна землі:</span><span class="value" id="info-price">—</span></div>
                 <div class="map-info-row"><span class="label">Забудова:</span><span class="value" id="info-building">—</span></div>
@@ -376,11 +415,12 @@
                     <div class="btn-row" id="info-hire-actions" style="margin-top:4px"></div>
 
                     <div id="info-owner-Controls" class="bank-op-box" style="display:none;margin-top:6px">
-                        <div class="bank-op-label">⚙️ Керування касою та базовою ЗП (для нових працівників):</div>
+                        <div class="bank-op-label">⚙️ Керування касою та запрошення працівників:</div>
                         <div class="bank-input-wrap">
                             <span style="font-size:11px;min-width:110px">Базова ЗП/замовл.:</span>
                             <input type="number" class="input-field" id="owner-wage-input" min="5" max="50000" style="font-size:12px;padding:4px 6px">
                             <button class="btn" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">Зберегти</button>
+                            <button class="btn success" onclick="openJobInviteMail(selectedPlotId)" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Надіслати гравцю координати та пропозицію роботи">📍 Запросити на роботу</button>
                         </div>
                         <div class="bank-input-wrap" style="margin-top:4px">
                             <input type="number" class="input-field" id="owner-fund-input" placeholder="Сума для каси..." min="50" style="font-size:12px;padding:4px 6px">
@@ -503,7 +543,7 @@
         <div class="bohdan-chips">
             <button class="chip-btn" onclick="askBohdanPreset('Як тобі робота зварювальником у Чехії?')">🔥 Про Чехію і зварку</button>
             <button class="chip-btn" onclick="askBohdanPreset('Які курси краще пройти для промзони і житлової?')">🎓 Про нові курси</button>
-            <button class="chip-btn" onclick="askBohdanPreset('Як працює пошта і подача резюме?')">📧 Про Пошту і резюме</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Як переслати гроші або координати роботи поштою?')">📧 Про Пошту і перекази</button>
             <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">☕ Заварити кави</button>
         </div>
 
