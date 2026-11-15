@@ -2,13 +2,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "3.8.0";
+const APP_VERSION = "3.9.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
 const LEADERBOARD_LIMIT = 100;
 
-// ВИМОГА 2: І депозит у банку (1% в годину), і весь пасивний дохід з будівель нараховуються ЩОГОДИНИ (3 600 000 мс)
+// Депозит у банку (1% в годину) та погодинний облік землі й будівель (3 600 000 мс)
 const HOUR_MS = 3600000;
 const DEPOSIT_RATE_PER_HOUR = 0.01; // +1% на годину
 
@@ -37,6 +37,20 @@ const OWNER_ASSIGNED_TITLES = [
     "Права рука власника"
 ];
 
+// Базові податкові ставки м. Ковель (вкладка «🏛️ Політика»)
+// turnoverTaxPct — % податку з кожного чека замовлення та з погодинного обороту будівлі
+// landTaxPct — % податку на саму землю щогодини від ринкової ціни ділянки
+const DEFAULT_CITY_TAX_POLICY = {
+    residential: { turnoverTaxPct: 8,  landTaxPct: 0.4 },
+    commercial:  { turnoverTaxPct: 12, landTaxPct: 0.5 },
+    industrial:  { turnoverTaxPct: 16, landTaxPct: 0.6 },
+    updatedAt: 0,
+    updatedBy: "Міська рада Ковеля"
+};
+
+let cityTaxPolicy = JSON.parse(JSON.stringify(DEFAULT_CITY_TAX_POLICY));
+let policyListener = null;
+
 const COURSES = [
     // 1. ІТ-курси (КовельКорп)
     { id: "basics", category: "it", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, zoneBoost: 0, commercialBoost: 5, desc: "Базовий курс для вступу в КовельКорп (або будь-який дорожчий ІТ-курс!)" },
@@ -47,18 +61,18 @@ const COURSES = [
     { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, commercialBoost: 35, desc: "Потрібен для звання Tech Lead та CTO (відкриває всі ІТ-звання)" },
 
     // 2. Курси Житлової та Сервісної зони
-    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 900, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 8, desc: "Дає +15% до виручки, яку ви приносите підприємствам у Житловій зоні (+8% у Комерції)" },
-    { id: "res_electric", category: "residential", name: "Електромонтаж і побутові мережі", price: 3200, durationMs: 7200000, boost: 0, zoneBoost: 25, commercialBoost: 12, desc: "Допуск до обслуговування котеджів і ЖК: +25% виручки в Житловій зоні (+12% у Комерції)" },
-    { id: "res_landscape", category: "residential", name: "Благоустрій території та дизайн", price: 8500, durationMs: 14400000, boost: 0, zoneBoost: 35, commercialBoost: 18, desc: "Професійний догляд за житловими кварталами: +35% виручки в Житловій зоні (+18% у Комерції)" },
+    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 900, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 8, desc: "Дає +15% до чека замовлення при роботі у Житловій зоні (+8% у Комерції)" },
+    { id: "res_electric", category: "residential", name: "Електромонтаж і побутові мережі", price: 3200, durationMs: 7200000, boost: 0, zoneBoost: 25, commercialBoost: 12, desc: "Допуск до обслуговування котеджів і ЖК: +25% до чека в Житловій зоні (+12% у Комерції)" },
+    { id: "res_landscape", category: "residential", name: "Благоустрій території та дизайн", price: 8500, durationMs: 14400000, boost: 0, zoneBoost: 35, commercialBoost: 18, desc: "Професійний догляд за житловими кварталами: +35% до чека в Житловій зоні (+18% у Комерції)" },
     { id: "res_trade", category: "residential", name: "Товарознавство та касовий сервіс", price: 20000, durationMs: 21600000, boost: 0, zoneBoost: 45, commercialBoost: 35, desc: "Організація магазинів біля дому та піцерій: +45% у Житловій зоні та +35% у Комерції" },
-    { id: "res_osbb", category: "residential", name: "Управління ЖКГ та нерухомістю", price: 48000, durationMs: 36000000, boost: 0, zoneBoost: 65, commercialBoost: 45, desc: "Диплом головного управителя ЖК та ТРЦ: +65% виручки у Житловій зоні (+45% у Комерції)" },
+    { id: "res_osbb", category: "residential", name: "Управління ЖКГ та нерухомістю", price: 48000, durationMs: 36000000, boost: 0, zoneBoost: 65, commercialBoost: 45, desc: "Диплом головного управителя ЖК та ТРЦ: +65% до чека у Житловій зоні (+45% у Комерції)" },
 
     // 3. Курси Промислової зони
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 1200, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 5, desc: "Базовий промисловий допуск: +15% до виручки на підприємствах Промислової зони" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 4800, durationMs: 10800000, boost: 0, zoneBoost: 25, commercialBoost: 8, desc: "Курс зварювальника (школа Богдана Поліщука): +25% до виручки у Промисловій зоні" },
-    { id: "ind_forklift", category: "industrial", name: "Водій навантажувача і складська логістика", price: 12000, durationMs: 18000000, boost: 0, zoneBoost: 35, commercialBoost: 15, desc: "Робота на терміналах, елеваторах та складах: +35% виручки у Промисловій зоні" },
-    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та механіка", price: 28000, durationMs: 28800000, boost: 0, zoneBoost: 50, commercialBoost: 15, desc: "Налаштування заводських ліній та депо: +50% до виручки у Промисловій зоні" },
-    { id: "ind_chief", category: "industrial", name: "Головний інженер виробництва", price: 65000, durationMs: 43200000, boost: 0, zoneBoost: 75, commercialBoost: 25, desc: "Вища інженерна кваліфікація для заводів Ковеля: +75% виручки у Промисловій зоні" }
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 1200, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 5, desc: "Базовий промисловий допуск: +15% до чека замовлення у Промисловій зоні" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 4800, durationMs: 10800000, boost: 0, zoneBoost: 25, commercialBoost: 8, desc: "Курс зварювальника (школа Богдана Поліщука): +25% до чека у Промисловій зоні" },
+    { id: "ind_forklift", category: "industrial", name: "Водій навантажувача і складська логістика", price: 12000, durationMs: 18000000, boost: 0, zoneBoost: 35, commercialBoost: 15, desc: "Робота на терміналах, елеваторах та складах: +35% до чека у Промисловій зоні" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та механіка", price: 28000, durationMs: 28800000, boost: 0, zoneBoost: 50, commercialBoost: 15, desc: "Налаштування заводських ліній та депо: +50% до чека у Промисловій зоні" },
+    { id: "ind_chief", category: "industrial", name: "Головний інженер виробництва", price: 65000, durationMs: 43200000, boost: 0, zoneBoost: 75, commercialBoost: 25, desc: "Вища інженерна кваліфікація для заводів Ковеля: +75% до чека у Промисловій зоні" }
 ];
 
 const JOBS = [
@@ -74,38 +88,45 @@ const JOBS = [
 ];
 
 // Усі суми income нараховуються ЗА ГОДИНУ (/год)!
+// clickProfit — це базовий ЧЕК КЛІЄНТА за 1 виконане замовлення (5 дій).
 const ZONE_INFO = {
     residential: {
         name: "🏡 Житлова зона",
+        shortName: "Житлова",
         basePrice: 15000,
         fillFree: "#2ecc71",
         borderFree: "#0b5e28",
+        desc: "Спальні квартали, ОСББ та магазини біля дому. Найменший податок на землю та оборот.",
         buildings: [
-            { id: "kiosk", name: "Магазинчик біля дому", icon: "🏪", cost: 25000, income: 220, defaultWage: 12, clickProfit: 20 },
-            { id: "house", name: "Приватний котедж", icon: "🏡", cost: 65000, income: 620, defaultWage: 25, clickProfit: 42 },
-            { id: "apartments", name: "Житлова забудова (ЖК)", icon: "🏢", cost: 160000, income: 1650, defaultWage: 55, clickProfit: 90 }
+            { id: "kiosk", name: "Магазинчик біля дому", icon: "🏪", cost: 25000, income: 220, defaultWage: 11, clickProfit: 22 },
+            { id: "house", name: "Приватний котедж", icon: "🏡", cost: 65000, income: 620, defaultWage: 22, clickProfit: 45 },
+            { id: "apartments", name: "Житлова забудова (ЖК)", icon: "🏢", cost: 160000, income: 1650, defaultWage: 48, clickProfit: 95 }
         ]
     },
     commercial: {
         name: "🏪 Комерційна зона",
+        shortName: "Комерційна",
         basePrice: 55000,
         fillFree: "#2980ff",
         borderFree: "#003080",
+        desc: "Центральні вулиці, ринки, заклади харчування та ТРЦ. Середній податок і високий потік клієнтів.",
         buildings: [
-            { id: "cafe", name: "Піцерія / Кав'ярня", icon: "🍕", cost: 85000, income: 850, defaultWage: 35, clickProfit: 58 },
-            { id: "mall", name: "Торговий центр (ТРЦ)", icon: "🛍️", cost: 240000, income: 2600, defaultWage: 85, clickProfit: 140 },
-            { id: "it_hub", name: "IT-Бізнес Центр", icon: "💻", cost: 600000, income: 7200, defaultWage: 190, clickProfit: 310 }
+            { id: "cafe", name: "Піцерія / Кав'ярня", icon: "🍕", cost: 85000, income: 850, defaultWage: 32, clickProfit: 62 },
+            { id: "mall", name: "Торговий центр (ТРЦ)", icon: "🛍️", cost: 240000, income: 2600, defaultWage: 75, clickProfit: 145 },
+            { id: "it_hub", name: "IT-Бізнес Центр", icon: "💻", cost: 600000, income: 7200, defaultWage: 165, clickProfit: 320 }
         ]
     },
     industrial: {
         name: "🏭 Промислова зона",
+        shortName: "Промислова",
         basePrice: 180000,
         fillFree: "#ff7722",
         borderFree: "#7a2200",
+        desc: "Заводи, депо, СТО та логістичні термінали. Високий податок на землю, але найбільші чеки замовлень.",
         buildings: [
-            { id: "auto_weld", name: "Зварювальний цех і СТО", icon: "🔧", cost: 250000, income: 2800, defaultWage: 95, clickProfit: 155 },
-            { id: "logistics", name: "Логістичний термінал", icon: "🚛", cost: 650000, income: 8200, defaultWage: 220, clickProfit: 360 },
-            { id: "factory", name: "Завод КовельПром", icon: "🏭", cost: 1500000, income: 22000, defaultWage: 480, clickProfit: 780 }
+            { id: "auto_weld", name: "Зварювальний цех і СТО", icon: "🔧", cost: 250000, income: 2800, defaultWage: 85, clickProfit: 165 },
+            { id: "logistics", name: "Логістичний термінал", icon: "🚛", cost: 650000, income: 8200, defaultWage: 195, clickProfit: 380 },
+            { id: "factory", name: "Завод КовельПром", icon: "🏭", cost: 1500000, income: 22000, defaultWage: 420, clickProfit: 820 }
         ]
     }
 };
@@ -188,6 +209,38 @@ function formatPlotCoords(plot) {
     return `${plot.lat.toFixed(4)}°N, ${plot.lng.toFixed(4)}°E`;
 }
 
+// Отримання діючих податкових ставок для зони
+function getZoneTaxRates(zone) {
+    const z = cityTaxPolicy && cityTaxPolicy[zone] ? cityTaxPolicy[zone] : DEFAULT_CITY_TAX_POLICY[zone] || DEFAULT_CITY_TAX_POLICY.residential;
+    return {
+        turnoverTaxPct: Math.max(0, Math.min(60, Number(z.turnoverTaxPct) || 8)),
+        landTaxPct: Math.max(0.1, Math.min(10, Number(z.landTaxPct) || 0.4))
+    };
+}
+
+// ВИМОГА 1: Перевірка, чи гравець targetUser ВЖЕ працює на власника ownerUser (на будь-якому його бізнесі або на конкретній ділянці)
+function getExistingEmploymentForOwner(targetUser, ownerUser = currentUser) {
+    if (!targetUser || !ownerUser) return null;
+    const tClean = String(targetUser).trim().toLowerCase();
+    for (const p of MAP_PLOTS_BASE) {
+        const owned = getOwnedPlotData(p.id);
+        if (owned && owned.owner === ownerUser && owned.workers) {
+            for (const wName of Object.keys(owned.workers)) {
+                if (wName.toLowerCase() === tClean) {
+                    const bld = getBuildingDef(p.zone, owned.building);
+                    return {
+                        plotId: p.id,
+                        plotName: p.name,
+                        buildingName: bld ? `${bld.icon} ${bld.name}` : p.name,
+                        workerName: wName
+                    };
+                }
+            }
+        }
+    }
+    return null;
+}
+
 function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     if (!Array.isArray(completedList) || !completedList.length) return 0;
     let totalPct = 0;
@@ -203,6 +256,28 @@ function getWorkerZoneSkillBonusPct(completedList, plotZone) {
         }
     });
     return totalPct;
+}
+
+// ВИМОГА 2, 3, 5: Прозора формула розрахунку 1 замовлення (Чек клієнта -> Податок зони -> ЗП робітнику -> Чиста маржа власника)
+function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWage = 15) {
+    const baseCheck = buildingDef ? buildingDef.clickProfit : 22;
+    const skillBonusPct = getWorkerZoneSkillBonusPct(workerCourses, plotZone);
+    const grossCheck = Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
+    const { turnoverTaxPct } = getZoneTaxRates(plotZone);
+    const taxAmount = Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
+    const afterTaxRevenue = Math.max(1, grossCheck - taxAmount);
+    const wage = Math.max(1, Math.floor(Number(workerWage) || (buildingDef ? buildingDef.defaultWage : 12)));
+    const ownerNetMargin = afterTaxRevenue - wage; // може бути > 0 (плюс у касу) або < 0 (збиток із каси!)
+    return {
+        baseCheck,
+        skillBonusPct,
+        grossCheck,
+        turnoverTaxPct,
+        taxAmount,
+        afterTaxRevenue,
+        wage,
+        ownerNetMargin
+    };
 }
 
 function renderCourseChipsHtml(completedList, targetZone = null) {
@@ -291,26 +366,89 @@ function getPlotPassiveBonusPct(plot, ownedData) {
     return Math.min(180, totalBoostPct);
 }
 
-function getPlotPassiveIncome(plot, ownedData) {
-    if (!ownedData || !ownedData.owner || ownedData.wiped) return 0;
-    const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
+// ВИМОГА 4 і 5: Сама земля обкладається податком! Порожня земля приносить 0 доходу і списує податок на землю щогодини.
+// Повертає повну погодинну бухгалтерію ділянки: валовий дохід будівлі, податок на землю, податок з обороту зони та чистий плюс/мінус.
+function calcPlotHourlyTaxAndNet(plot, ownedData) {
+    if (!plot) return { grossIncome: 0, landTax: 0, turnoverTax: 0, totalTax: 0, netIncome: 0, landTaxPct: 0, turnoverTaxPct: 0 };
+    const { turnoverTaxPct, landTaxPct } = getZoneTaxRates(plot.zone);
+    const landValue = ownedData && Number(ownedData.price) > 0 ? Number(ownedData.price) : calcPlotPrice(plot, sharedPlots);
+    const landTax = Math.max(10, Math.round(landValue * (landTaxPct / 100)));
+
+    if (!ownedData || !ownedData.owner || ownedData.wiped) {
+        return { grossIncome: 0, landTax, turnoverTax: 0, totalTax: landTax, netIncome: -landTax, landTaxPct, turnoverTaxPct };
+    }
+
     const bld = getBuildingDef(plot.zone, ownedData.building);
-    const base = bld ? bld.income : Math.max(25, Math.floor(zInfo.basePrice * 0.005));
+    if (!bld) {
+        // Незабудована земля не генерує жодних «грошей з неба» — лише платить податок на землю!
+        return { grossIncome: 0, landTax, turnoverTax: 0, totalTax: landTax, netIncome: -landTax, landTaxPct, turnoverTaxPct };
+    }
+
     const bonusPct = getPlotPassiveBonusPct(plot, ownedData);
-    return Math.floor(base * (1 + bonusPct / 100));
+    const grossIncome = Math.floor(bld.income * (1 + bonusPct / 100));
+    const turnoverTax = Math.max(1, Math.round(grossIncome * (turnoverTaxPct / 100)));
+    const totalTax = landTax + turnoverTax;
+    const netIncome = grossIncome - totalTax;
+
+    return {
+        grossIncome,
+        landTax,
+        turnoverTax,
+        totalTax,
+        netIncome,
+        landTaxPct,
+        turnoverTaxPct,
+        bonusPct
+    };
 }
 
-// Загальний пасивний дохід гравця ЗА ГОДИНУ
-function getTotalPassiveIncomePerHour() {
-    if (!currentUser || !sharedPlots) return 0;
-    let total = 0;
+function getPlotPassiveIncome(plot, ownedData) {
+    return calcPlotHourlyTaxAndNet(plot, ownedData).netIncome;
+}
+
+// Загальний ЧИСТИЙ погодинний баланс гравця по всіх його ділянках (після вирахування податків на землю та оборот)
+function getPlayerPortfolioHourlyBreakdown(username = currentUser) {
+    let grossTotal = 0;
+    let landTaxTotal = 0;
+    let turnoverTaxTotal = 0;
+    let netTotal = 0;
+    let plotsCount = 0;
+    let builtCount = 0;
+
+    if (!username || !sharedPlots) {
+        return { grossTotal: 0, landTaxTotal: 0, turnoverTaxTotal: 0, netTotal: 0, plotsCount: 0, builtCount: 0 };
+    }
+
     MAP_PLOTS_BASE.forEach(p => {
         const owned = getOwnedPlotData(p.id);
-        if (owned && owned.owner === currentUser) {
-            total += getPlotPassiveIncome(p, owned);
+        if (owned && owned.owner === username) {
+            plotsCount++;
+            if (owned.building) builtCount++;
+            const calc = calcPlotHourlyTaxAndNet(p, owned);
+            grossTotal += calc.grossIncome;
+            landTaxTotal += calc.landTax;
+            turnoverTaxTotal += calc.turnoverTax;
+            netTotal += calc.netIncome;
         }
     });
-    return total;
+
+    return { grossTotal, landTaxTotal, turnoverTaxTotal, netTotal, plotsCount, builtCount };
+}
+
+function getTotalPassiveIncomePerHour() {
+    return getPlayerPortfolioHourlyBreakdown(currentUser).netTotal;
+}
+
+function getTotalOwnerTreasury() {
+    if (!currentUser || !sharedPlots) return 0;
+    let sum = 0;
+    MAP_PLOTS_BASE.forEach(p => {
+        const owned = getOwnedPlotData(p.id);
+        if (owned && owned.owner === currentUser && owned.building) {
+            sum += Math.max(0, Number(owned.treasury) || 0);
+        }
+    });
+    return sum;
 }
 
 const firebaseConfig = {
@@ -409,12 +547,17 @@ window.toggleSound = function () {
 
 function $(id) { return document.getElementById(id); }
 function formatNumber(n) {
-    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
-    return Math.floor(n).toString();
+    const sign = n < 0 ? "-" : "";
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return sign + (abs / 1e9).toFixed(2) + "B";
+    if (abs >= 1e6) return sign + (abs / 1e6).toFixed(2) + "M";
+    if (abs >= 1e3) return sign + (abs / 1e3).toFixed(1) + "K";
+    return sign + Math.floor(abs).toString();
 }
-function formatNumberFull(n) { return Math.floor(n).toLocaleString("uk-UA"); }
+function formatNumberFull(n) {
+    const sign = n < 0 ? "-" : "";
+    return sign + Math.floor(Math.abs(n)).toLocaleString("uk-UA");
+}
 function formatTimeAgo(ts) {
     if (!ts) return "—";
     const d = Date.now() - ts;
@@ -461,7 +604,7 @@ function getCourseName(courseId) {
 
 function getWorkerRecordOnPlot(plotId, username = currentUser) {
     const owned = getOwnedPlotData(plotId);
-    if (!owned) return { role: "Робітник зміни", personalWage: 10, orders: 0, clicks: 0, totalEarned: 0, profitBrought: 0, completedCourses: [] };
+    if (!owned) return { role: "Робітник зміни", personalWage: 10, orders: 0, clicks: 0, totalEarned: 0, profitBrought: 0, netMarginBrought: 0, taxPaidTotal: 0, completedCourses: [] };
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const bld = p ? getBuildingDef(p.zone, owned.building) : null;
     const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
@@ -472,11 +615,13 @@ function getWorkerRecordOnPlot(plotId, username = currentUser) {
     const clicks = Number(w?.clicks) || 0;
     const totalEarned = Number(w?.totalEarned) || 0;
     const profitBrought = Number(w?.profitBrought) || 0;
+    const netMarginBrought = w?.netMarginBrought !== undefined ? Number(w.netMarginBrought) : Math.max(0, profitBrought - totalEarned);
+    const taxPaidTotal = Number(w?.taxPaidTotal) || 0;
     const lastWorkAt = Number(w?.lastWorkAt) || 0;
     const completedCourses = Array.isArray(w?.completedCourses)
         ? w.completedCourses
         : (username === currentUser ? gameState.completedCourses : []);
-    return { role, personalWage, baseWage, orders, clicks, totalEarned, profitBrought, lastWorkAt, completedCourses };
+    return { role, personalWage, baseWage, orders, clicks, totalEarned, profitBrought, netMarginBrought, taxPaidTotal, lastWorkAt, completedCourses };
 }
 
 function triggerWorkCooldown(durationMs, reason) {
@@ -501,6 +646,11 @@ function triggerWorkCooldown(durationMs, reason) {
     }, 100);
 }
 
+window.openMyBizCashboxQuick = function () {
+    switchPage("work");
+    switchWorkSubtab("mybiz");
+};
+
 window.switchWorkSubtab = function (sub) {
     activeWorkSubtab = sub;
     ["vacancies", "mybiz", "career"].forEach(k => {
@@ -509,6 +659,7 @@ window.switchWorkSubtab = function (sub) {
         if (btn) btn.classList.toggle("active", k === sub);
         if (box) box.style.display = k === sub ? "block" : "none";
     });
+    if (sub === "mybiz") renderOwnerBusinessesHub();
 };
 
 window.switchCourseCategory = function (cat) {
@@ -603,6 +754,7 @@ async function startGame() {
     }
 
     await loadGame();
+    startPolicySync();
     startLiveSync();
     startMapSync();
     startMailSync();
@@ -615,6 +767,30 @@ async function startGame() {
     startCourseTimer();
     startCreditTimer();
     setGameStatus("Ласкаво просимо у Windows 98 SE Work, " + currentUser + "!");
+}
+
+// Синхронізація міської податкової політики (зберігається у users/admin/clicker/cityPolicy для сумісності з Firebase Rules)
+function startPolicySync() {
+    if (policyListener) { policyListener(); policyListener = null; }
+    policyListener = onValue(ref(db, "users/admin/clicker/cityPolicy"), snap => {
+        if (snap.exists() && snap.val()) {
+            const v = snap.val();
+            cityTaxPolicy = {
+                residential: { ...DEFAULT_CITY_TAX_POLICY.residential, ...(v.residential || {}) },
+                commercial:  { ...DEFAULT_CITY_TAX_POLICY.commercial,  ...(v.commercial || {}) },
+                industrial:  { ...DEFAULT_CITY_TAX_POLICY.industrial,  ...(v.industrial || {}) },
+                updatedAt: Number(v.updatedAt) || 0,
+                updatedBy: v.updatedBy || "Міська рада Ковеля"
+            };
+        } else {
+            cityTaxPolicy = JSON.parse(JSON.stringify(DEFAULT_CITY_TAX_POLICY));
+        }
+        renderStats();
+        renderPrivateJobsBoard();
+        renderOwnerBusinessesHub();
+        if (currentPage === "politics") renderPoliticsPage();
+        if (selectedPlotId !== null) showMapInfo(selectedPlotId);
+    });
 }
 
 // ===== ГЛОБАЛЬНИЙ ВАЙП СЕРВЕРА (ТІЛЬКИ ДЛЯ ГРАВЦЯ admin) =====
@@ -822,33 +998,74 @@ function startMapSync() {
         renderJobsList();
         renderTask();
         renderMap();
+        if (currentPage === "politics") renderPoliticsPage();
         if (selectedPlotId !== null) showMapInfo(selectedPlotId);
     });
 }
 
-// ВИМОГА 2: Весь пасивний дохід з будівель нараховується ЩОГОДИНИ (3 600 000 мс)
-function checkPassiveRentIncome() {
+// ВИМОГА 4 і 5: Погодинний облік землі та будівель (відрахування податків на землю і оборот, зарахування чистого прибутку в Касу бізнесу!)
+async function checkPassiveRentIncome() {
     if (!currentUser || !sharedPlots) return;
     const now = Date.now();
     if (!gameState.lastRentAt) {
         gameState.lastRentAt = now;
         return;
     }
-    const incomePerHour = getTotalPassiveIncomePerHour();
-    if (incomePerHour <= 0) {
+
+    const portfolio = getPlayerPortfolioHourlyBreakdown(currentUser);
+    if (portfolio.plotsCount <= 0) {
         gameState.lastRentAt = now;
         return;
     }
+
     const elapsed = now - gameState.lastRentAt;
-    if (elapsed >= HOUR_MS) {
-        const hours = Math.min(48, Math.floor(elapsed / HOUR_MS));
-        const totalRent = incomePerHour * hours;
-        gameState.coins += totalRent;
-        gameState.lastRentAt += hours * HOUR_MS;
-        renderStats();
-        if (currentPage === "bank") renderBank();
-        saveGame();
-        setGameStatus(`🏘️ Погодинний дохід нерухомості за ${hours} год: +${formatNumberFull(totalRent)} 💰!`);
+    if (elapsed < HOUR_MS) return;
+
+    const hours = Math.min(48, Math.floor(elapsed / HOUR_MS));
+    gameState.lastRentAt += hours * HOUR_MS;
+
+    let totalAddedToCashboxes = 0;
+    let totalEmptyLandTaxDeducted = 0;
+
+    for (const p of MAP_PLOTS_BASE) {
+        const owned = getOwnedPlotData(p.id);
+        if (!owned || owned.owner !== currentUser) continue;
+
+        const calc = calcPlotHourlyTaxAndNet(p, owned);
+        const deltaForHours = calc.netIncome * hours;
+
+        if (owned.building) {
+            // Забудоване підприємство: чистий погодинний дохід (після сплати земельного податку і податку зони) йде прямо в КАСУ бізнесу!
+            if (deltaForHours >= 0) {
+                totalAddedToCashboxes += deltaForHours;
+                try {
+                    await runTransaction(ref(db, `plots/${p.id}/treasury`), cur => Math.max(0, (Number(cur) || 0) + deltaForHours));
+                } catch (e) {}
+            } else {
+                const loss = Math.abs(deltaForHours);
+                totalEmptyLandTaxDeducted += loss;
+                gameState.coins = Math.max(0, gameState.coins - loss);
+            }
+        } else {
+            // Порожня земля без будівлі: приносить 0 доходу, списує податок на землю з гаманця
+            const landTaxBill = calc.landTax * hours;
+            totalEmptyLandTaxDeducted += landTaxBill;
+            gameState.coins = Math.max(0, gameState.coins - landTaxBill);
+        }
+    }
+
+    renderStats();
+    renderOwnerBusinessesHub();
+    if (currentPage === "bank") renderBank();
+    if (currentPage === "politics") renderPoliticsPage();
+    saveGame();
+
+    if (totalAddedToCashboxes > 0 && totalEmptyLandTaxDeducted > 0) {
+        setGameStatus(`🏛️ Погодинний звіт (${hours} год): у Каси бізнесів +${formatNumberFull(totalAddedToCashboxes)} 💰 (після податків), податок за пусту землю: -${formatNumberFull(totalEmptyLandTaxDeducted)} 💰`);
+    } else if (totalAddedToCashboxes > 0) {
+        setGameStatus(`🏦 Погодинний дохід бізнесів за ${hours} год (після сплати податків): +${formatNumberFull(totalAddedToCashboxes)} 💰 зараховано у ваші Каси!`);
+    } else if (totalEmptyLandTaxDeducted > 0) {
+        setGameStatus(`🏛️ Сплачено податок на незабудовану землю за ${hours} год: -${formatNumberFull(totalEmptyLandTaxDeducted)} 💰!`);
     }
 }
 
@@ -923,8 +1140,8 @@ function checkCourseCompletion() {
         const bonusDesc = c?.category === "it"
             ? `+${c.boost}% IT-XP та доступ до посад у КовельКорп!`
             : (c?.category === "residential"
-                ? `+${c.zoneBoost}% до виручки на роботах у Житловій зоні!`
-                : `+${c?.zoneBoost || 0}% до виручки на роботах у Промисловій зоні!`);
+                ? `+${c.zoneBoost}% до чека замовлення у Житловій зоні!`
+                : `+${c?.zoneBoost || 0}% до чека замовлення у Промисловій зоні!`);
         showDialog("Диплом отримано!", `🎓 ${c ? c.name : "Курс"}\n${bonusDesc}`, "🎓");
         saveGame();
     }
@@ -961,22 +1178,40 @@ window.openResumeModal = function (plotId) {
     if (!p || !owned || !owned.building) {
         return showDialog("Недоступно", "На цій ділянці ще немає збудованого підприємства.", "⚠️");
     }
+
+    // ВИМОГА 1: Якщо гравець вже працює на цьому підприємстві або вже працює на цього власника
+    if (getActiveEmployerPlotId() === plotId || (owned.workers && owned.workers[currentUser])) {
+        return showDialog("Ви вже тут працюєте!", "Ви вже працевлаштовані на цьому підприємстві.", "👷");
+    }
+    const existingForOwner = getExistingEmploymentForOwner(currentUser, owned.owner);
+    if (existingForOwner) {
+        return showDialog(
+            "Ви вже працюєте на цього власника!",
+            `Ви вже працевлаштовані у власника «${owned.owner}» на підприємстві «${existingForOwner.buildingName}» (${existingForOwner.plotName}). Спочатку звільніться, якщо хочете перейти на іншу його точку.`,
+            "👷"
+        );
+    }
+
     resumeTargetPlotId = plotId;
     const bld = getBuildingDef(p.zone, owned.building);
     const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
-    const zoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
+    const fin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, baseWage);
     const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
 
     $("resume-target-info").innerHTML = `
         <div><b>Підприємство:</b> ${bld ? bld.icon + " " + escapeHtml(bld.name) : escapeHtml(p.name)} (${escapeHtml(p.name)})</div>
         <div><b>Координати GPS:</b> <span class="coord-badge">${formatPlotCoords(p)}</span></div>
         <div><b>Зона:</b> ${escapeHtml(zInfo.name)} • <b>Власник:</b> <span style="color:#000080;font-weight:bold">${escapeHtml(owned.owner)}</span></div>
-        <div><b>Базова ЗП на об'єкті:</b> ${formatNumberFull(baseWage)} 💰 за замовлення</div>
+        <div style="margin-top:4px;padding:4px 6px;background:#ffffff;border:1px solid #808080">
+            <b>Економіка 1 вашого замовлення для власника:</b><br>
+            • Чек клієнта з вашими курсами (+${fin.skillBonusPct}%): <b>+${fin.grossCheck} 💰</b><br>
+            • Податок зони (${fin.turnoverTaxPct}%): <b style="color:#800000">-${fin.taxAmount} 💰</b> (залишається <b>${fin.afterTaxRevenue} 💰</b>)<br>
+            • Базова ЗП на об'єкті: <b style="color:#006400">${baseWage} 💰</b> (власнику в касу: <b>${fin.ownerNetMargin >= 0 ? "+" + fin.ownerNetMargin : fin.ownerNetMargin} 💰</b>)
+        </div>
         <div style="margin-top:4px"><b>Ваші дипломи у резюме:</b><br>${renderCourseChipsHtml(gameState.completedCourses, p.zone)}</div>
-        <div style="margin-top:4px;color:#006400;font-weight:bold">📈 Ваш бонус виручки для цієї зони від курсів: +${zoneBonus}%</div>
     `;
     $("resume-desired-wage").value = baseWage;
-    $("resume-note-input").value = `Вітаю! Прошу прийняти мене на роботу у «${bld ? bld.name : p.name}». Мій бонус виручки для вашої зони: +${zoneBonus}%.`;
+    $("resume-note-input").value = `Вітаю! Прошу прийняти мене на роботу у «${bld ? bld.name : p.name}». Чек мого замовлення з курсами: ${fin.grossCheck} 💰 (+${fin.skillBonusPct}%).`;
     $("resume-overlay").classList.add("active");
 };
 
@@ -993,6 +1228,11 @@ window.submitResumeApplication = async function () {
     if (!p || !owned || !owned.building) {
         closeResumeModal();
         return;
+    }
+
+    if (owned.workers && owned.workers[currentUser]) {
+        closeResumeModal();
+        return showDialog("Ви вже тут працюєте", "Ви вже є працівником цього підприємства!", "👷");
     }
 
     const bld = getBuildingDef(p.zone, owned.building);
@@ -1133,6 +1373,17 @@ window.openComposeMail = function (toUser = "", subject = "", preselectPlotId = 
 
 window.openJobInviteMail = function (plotId, toUser = "") {
     if (plotId === null || plotId === undefined) return;
+    // ВИМОГА 1: Якщо вказано конкретного гравця, який вже працює на нас — блокуємо одразу
+    if (toUser) {
+        const existing = getExistingEmploymentForOwner(toUser, currentUser);
+        if (existing) {
+            return showDialog(
+                "Вже працює на вас!",
+                `Гравець «${existing.workerName}» вже працює на вашому підприємстві «${existing.buildingName}» (${existing.plotName}).\nНе можна просити влаштуватись на роботу людину, яка вже працює на вас!`,
+                "👷"
+            );
+        }
+    }
     const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
     const owned = getOwnedPlotData(Number(plotId));
     const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
@@ -1147,20 +1398,17 @@ window.openJobInviteMail = function (plotId, toUser = "") {
 
 function populateJobOfferPlotsSelect(preselectPlotId = null) {
     const sel = $("mail-job-plot-select");
-    const wageRow = $("mail-job-wage-row");
-    const wageInp = $("mail-job-wage-input");
     if (!sel) return;
 
     const options = [`<option value="">— Не прикріплювати координати роботи —</option>`];
     MAP_PLOTS_BASE.forEach(p => {
         const owned = getOwnedPlotData(p.id);
-        if (owned && owned.building) {
+        // Власник може запрошувати на свої забудовані ділянки
+        if (owned && owned.building && owned.owner === currentUser) {
             const bld = getBuildingDef(p.zone, owned.building);
-            const isMine = owned.owner === currentUser;
-            const prefix = isMine ? "⭐ [Моє] " : `[${owned.owner}] `;
             const selAttr = (preselectPlotId !== null && Number(preselectPlotId) === p.id) ? " selected" : "";
             options.push(
-                `<option value="${p.id}"${selAttr}>${prefix}#${p.id + 1} ${escapeHtml(p.name)} — ${bld ? bld.icon + " " + escapeHtml(bld.name) : ""} (${formatPlotCoords(p)})</option>`
+                `<option value="${p.id}"${selAttr}>⭐ #${p.id + 1} ${escapeHtml(p.name)} — ${bld ? bld.icon + " " + escapeHtml(bld.name) : ""} (${formatPlotCoords(p)})</option>`
             );
         }
     });
@@ -1194,7 +1442,11 @@ async function populatePlayersSelectForMail() {
         if (!snap.exists()) return;
         const names = Object.keys(snap.val()).filter(n => n !== currentUser).sort();
         sel.innerHTML = `<option value="">▼ Оберіть гравця (${names.length})</option>` +
-            names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+            names.map(n => {
+                const alreadyWorks = getExistingEmploymentForOwner(n, currentUser);
+                const suffix = alreadyWorks ? ` (👷 вже працює у вас)` : "";
+                return `<option value="${escapeHtml(n)}">${escapeHtml(n)}${suffix}</option>`;
+            }).join("");
     } catch (e) {}
 }
 
@@ -1210,9 +1462,31 @@ window.sendPersonalMail = async function () {
         : 0;
 
     if (!to) return showDialog("Вкажіть отримувача", "Введіть логін гравця, якому хочете написати листа.", "⚠️");
-    if (to === currentUser && attachedCoins > 0) return showDialog("Помилка", "Не можна пересилати гроші самому собі.", "⚠️");
+    if (to.toLowerCase() === currentUser.toLowerCase() && (attachedCoins > 0 || offerPlotId !== null)) {
+        return showDialog("Помилка", "Не можна пересилати гроші або запрошення на роботу самому собі.", "⚠️");
+    }
     if (!body && attachedCoins <= 0 && offerPlotId === null) {
         return showDialog("Порожній лист", "Напишіть текст повідомлення, додайте переказ монет або координати роботи.", "⚠️");
+    }
+
+    // ВИМОГА 1: Заборона запрошувати на роботу людину, яка вже працює на тебе!
+    if (offerPlotId !== null) {
+        const existingEmp = getExistingEmploymentForOwner(to, currentUser);
+        if (existingEmp) {
+            return showDialog(
+                "Ця людина вже працює на вас!",
+                `Гравець «${existingEmp.workerName}» вже працевлаштований на вашому підприємстві «${existingEmp.buildingName}» (${existingEmp.plotName}).\n\nНе можна просити влаштовуватись на роботу людину, яка вже працює на вас!`,
+                "👷"
+            );
+        }
+        const targetPlotOwned = getOwnedPlotData(offerPlotId);
+        if (targetPlotOwned && targetPlotOwned.workers && targetPlotOwned.workers[to]) {
+            return showDialog(
+                "Вже працює тут!",
+                `Гравець «${to}» вже працює на цьому підприємстві!`,
+                "👷"
+            );
+        }
     }
 
     if (attachedCoins > 0) {
@@ -1228,6 +1502,22 @@ window.sendPersonalMail = async function () {
         const userSnap = await get(child(ref(db), `users/${to}`));
         if (!userSnap.exists()) {
             return showDialog("Гравця не знайдено", `Користувача з логіном «${to}» не існує в базі Ковеля.`, "⚠️");
+        }
+
+        // Додаткова перевірка за профілем отримувача у БД
+        if (offerPlotId !== null) {
+            const targetEmp = userSnap.val()?.clicker?.employer || "none";
+            if (String(targetEmp).startsWith("plot:")) {
+                const tPid = Number(String(targetEmp).split(":")[1]);
+                const tOwned = getOwnedPlotData(tPid);
+                if (tPid === offerPlotId || (tOwned && tOwned.owner === currentUser)) {
+                    return showDialog(
+                        "Вже працює на вас!",
+                        `Гравець «${to}» вже працює на вашому підприємстві! Не можна повторно кликати на роботу своїх працівників.`,
+                        "👷"
+                    );
+                }
+            }
         }
 
         let jobOfferMeta = null;
@@ -1354,7 +1644,10 @@ window.acceptJobOfferFromMail = async function (mailId) {
         return showDialog("Недоступно", "Це підприємство більше не існує на мапі.", "⚠️");
     }
 
-    // Якщо відправник листа є власником цього підприємства — працевлаштовуємо миттєво за запропонованою ставкою!
+    if (getActiveEmployerPlotId() === plotId || (owned.workers && owned.workers[currentUser])) {
+        return showDialog("Ви вже тут працюєте!", "Ви вже працевлаштовані на цьому підприємстві.", "👷");
+    }
+
     if (owned.owner === mail.from) {
         try {
             const prevPlotId = getActiveEmployerPlotId();
@@ -1371,6 +1664,8 @@ window.acceptJobOfferFromMail = async function (mailId) {
                 clicks: Number(owned.workers?.[currentUser]?.clicks) || 0,
                 totalEarned: Number(owned.workers?.[currentUser]?.totalEarned) || 0,
                 profitBrought: Number(owned.workers?.[currentUser]?.profitBrought) || 0,
+                netMarginBrought: Number(owned.workers?.[currentUser]?.netMarginBrought) || 0,
+                taxPaidTotal: Number(owned.workers?.[currentUser]?.taxPaidTotal) || 0,
                 joinedAt: Date.now(),
                 lastWorkAt: Date.now()
             });
@@ -1399,7 +1694,6 @@ window.acceptJobOfferFromMail = async function (mailId) {
             showDialog("Помилка", e.message, "⚠️");
         }
     } else {
-        // Якщо координати скинув друг (не власник) — відкриваємо подачу резюме на цю ділянку
         openResumeModal(plotId);
     }
 };
@@ -1453,7 +1747,6 @@ function renderMailHistoryView() {
     const replyBar = $("mail-history-reply-bar");
     if (!contactsBar || !logEl) return;
 
-    // Збираємо всіх співрозмовників із вхідних та надісланих
     const contactsSet = new Set();
     Object.values(userInboxMail || {}).forEach(m => { if (m && m.from && m.from !== currentUser) contactsSet.add(m.from); });
     Object.values(userSentMail || {}).forEach(m => { if (m && m.to && m.to !== currentUser) contactsSet.add(m.to); });
@@ -1477,7 +1770,6 @@ function renderMailHistoryView() {
 
     if (replyBar) replyBar.style.display = "flex";
 
-    // Збираємо всю історію повідомлень з activeHistoryContact
     const thread = [];
     Object.entries(userInboxMail || {}).forEach(([id, m]) => {
         if (m && m.from === activeHistoryContact) {
@@ -1581,6 +1873,8 @@ window.acceptResume = async function (mailId) {
             clicks: Number(owned.workers?.[applicant]?.clicks) || 0,
             totalEarned: Number(owned.workers?.[applicant]?.totalEarned) || 0,
             profitBrought: Number(owned.workers?.[applicant]?.profitBrought) || 0,
+            netMarginBrought: Number(owned.workers?.[applicant]?.netMarginBrought) || 0,
+            taxPaidTotal: Number(owned.workers?.[applicant]?.taxPaidTotal) || 0,
             joinedAt: Date.now(),
             lastWorkAt: Date.now()
         });
@@ -1604,7 +1898,7 @@ window.acceptResume = async function (mailId) {
             from: currentUser,
             to: applicant,
             subject: `🎉 Ваше резюме прийнято! (${mail.buildingName})`,
-            body: `Вітаємо! Власник ${currentUser} розглянув ваше резюме та прийняв вас на роботу у «${mail.buildingName}» (${mail.plotName}).\nВаша затверджена зарплата: +${formatNumberFull(approvedWage)} 💰 за виконане замовлення! Перейдіть у вкладку «💼 Робота», щоб розпочати зміну.`,
+            body: `Вітаємо! Власник ${currentUser} розглянув ваше резюме та прийняв вас на роботу у «${mail.buildingName}» (${mail.plotName}).\nВаша затверджена зарплата: +${formatNumberFull(approvedWage)} 💰 за виконане замовлення! Перейдіть у вкладку «💼 Робота і Бізнес», щоб розпочати зміну.`,
             unread: true,
             createdAt: Date.now()
         };
@@ -1727,7 +2021,23 @@ function renderMailPage() {
         const isResume = m.type === "resume";
         const isUnread = Boolean(m.unread);
         const coursesHtml = isResume ? renderCourseChipsHtml(m.completedCourses || [], m.plotZone) : "";
-        const bonusPct = Number(m.zoneBonusPct) || getWorkerZoneSkillBonusPct(m.completedCourses || [], m.plotZone);
+
+        // Розрахунок маржі для кандидата в резюме!
+        let resumeMarginHtml = "";
+        if (isResume) {
+            const p = MAP_PLOTS_BASE.find(x => x.id === Number(m.plotId));
+            const owned = getOwnedPlotData(Number(m.plotId));
+            const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
+            const fin = calcOrderFinancials(m.plotZone || (p ? p.zone : "residential"), bld, m.completedCourses || [], m.desiredWage || 15);
+            const netSign = fin.ownerNetMargin >= 0 ? `+${fin.ownerNetMargin} 💰 (в плюсі)` : `${fin.ownerNetMargin} 💰 (ЗБИТОК!)`;
+            const netColor = fin.ownerNetMargin >= 0 ? "#006400" : "#900000";
+            resumeMarginHtml = `
+                <div style="margin-top:3px;padding:4px 6px;background:#fffff0;border:1px solid #808080;font-size:11px">
+                    📊 <b>Розрахунок з цим кандидатом за 1 замовлення:</b><br>
+                    Чек покупця: <b>+${fin.grossCheck} 💰</b> (бонус курсів +${fin.skillBonusPct}%) ➔ Податок (${fin.turnoverTaxPct}%): <b style="color:#800000">-${fin.taxAmount} 💰</b> ➔ Бажана ЗП: <b>-${fin.wage} 💰</b> ➔ <b>Ваш чистий плюс у касу: <span style="color:${netColor}">${netSign}</span></b>
+                </div>
+            `;
+        }
 
         let resumeActionsHtml = "";
         if (isResume) {
@@ -1790,9 +2100,8 @@ function renderMailPage() {
                 ${isResume ? `
                 <div class="mail-resume-details">
                     <div><b>Підприємство:</b> ${escapeHtml(m.buildingName || "")} (${escapeHtml(m.plotName || "")}) ${m.plotCoords ? `<span class="coord-badge">${escapeHtml(m.plotCoords)}</span>` : ""}</div>
-                    <div><b>Бажана зарплата кандидата:</b> <span style="color:#006400;font-weight:bold">${formatNumberFull(m.desiredWage || 15)} 💰 / замовлення</span></div>
                     <div><b>Пройдені курси кандидата:</b> ${coursesHtml}</div>
-                    <div style="color:#006400;font-weight:bold">📈 Бонус виручки для вашого підприємства від курсів кандидата: +${bonusPct}%</div>
+                    ${resumeMarginHtml}
                 </div>
                 ` : ""}
                 <div class="mail-body-text">${escapeHtml(m.body || "")}</div>
@@ -1827,6 +2136,7 @@ window.resignCurrentJob = async function () {
     showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете подати резюме в бізнес іншого гравця або піти в КовельКорп.", "🚪");
 };
 
+// ВИМОГА 2, 3, 5: Прозора економіка замовлення (Чек клієнта -> Податок -> ЗП робітнику -> Чиста маржа власника в Касу)
 async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
@@ -1851,38 +2161,42 @@ async function doPrivateOrderStepWork(plotId) {
     isProcessingWorkClick = true;
     const bld = getBuildingDef(p.zone, owned.building);
     const wRec = getWorkerRecordOnPlot(plotId, currentUser);
-    const desiredPay = Math.max(1, Math.floor(wRec.personalWage));
-
-    const zoneSkillBonusPct = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
-    const baseOrderRevenue = bld ? bld.clickProfit : 20;
-    const orderRevenue = Math.max(2, Math.round(baseOrderRevenue * (1 + zoneSkillBonusPct / 100)));
+    const fin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, wRec.personalWage);
     const isSelfOwner = owned.owner === currentUser;
 
     let paidToWorker = 0;
     let netOwnerTreasuryDelta = 0;
+    let taxPaidThisOrder = fin.taxAmount;
 
     try {
         await runTransaction(ref(db, `plots/${plotId}`), (cur) => {
             if (!cur) return cur;
-            const treasury = Number(cur.treasury) || 0;
+            const treasury = Math.max(0, Number(cur.treasury) || 0);
             const curWorker = (cur.workers && cur.workers[currentUser]) ? cur.workers[currentUser] : {};
             const baseWage = Number(cur.wage) > 0 ? Number(cur.wage) : (bld ? bld.defaultWage : 15);
             const activeWage = Number(curWorker.personalWage) > 0 ? Number(curWorker.personalWage) : baseWage;
+            const txFin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, activeWage);
+            taxPaidThisOrder = txFin.taxAmount;
 
             if (isSelfOwner) {
-                paidToWorker = Math.max(1, Math.floor(orderRevenue * 0.45));
-                netOwnerTreasuryDelta = Math.max(1, orderRevenue - paidToWorker);
+                // Якщо власник сам обслуговує клієнта на своєму підприємстві:
+                // Після сплати податку зони 50% чистого чека йде власнику в руки, а 50% — у Касу бізнесу!
+                paidToWorker = Math.max(1, Math.floor(txFin.afterTaxRevenue * 0.5));
+                netOwnerTreasuryDelta = Math.max(1, txFin.afterTaxRevenue - paidToWorker);
                 cur.treasury = treasury + netOwnerTreasuryDelta;
             } else {
-                const availableFunds = treasury + orderRevenue;
-                if (availableFunds >= activeWage) {
+                // Гроші приходять від реального клієнта (afterTaxRevenue) + за потреби покриваються з Каси бізнесу.
+                // Жодних «грошей з неба»: якщо власник поставив ЗП вищу за чек після податку, різниця береться з Каси!
+                const availableForPay = treasury + txFin.afterTaxRevenue;
+                if (availableForPay >= activeWage) {
                     paidToWorker = activeWage;
-                    cur.treasury = availableFunds - activeWage;
-                    netOwnerTreasuryDelta = orderRevenue - activeWage;
+                    netOwnerTreasuryDelta = txFin.afterTaxRevenue - activeWage;
+                    cur.treasury = treasury + netOwnerTreasuryDelta;
                 } else {
-                    paidToWorker = Math.max(1, availableFunds);
-                    cur.treasury = 0;
+                    // У касі не вистачає грошей на завищену ЗП — працівник отримує все, що реально є з чека + залишку каси
+                    paidToWorker = Math.max(1, availableForPay);
                     netOwnerTreasuryDelta = -treasury;
+                    cur.treasury = 0;
                 }
             }
 
@@ -1891,6 +2205,10 @@ async function doPrivateOrderStepWork(plotId) {
             const prevClicks = Number(curWorker.clicks) || 0;
             const prevEarned = Number(curWorker.totalEarned) || 0;
             const prevProfit = Number(curWorker.profitBrought) || 0;
+            const prevNetMargin = curWorker.netMarginBrought !== undefined
+                ? Number(curWorker.netMarginBrought)
+                : Math.max(0, prevProfit - prevEarned);
+            const prevTax = Number(curWorker.taxPaidTotal) || 0;
 
             cur.workers[currentUser] = {
                 role: curWorker.role || "Робітник зміни",
@@ -1899,14 +2217,17 @@ async function doPrivateOrderStepWork(plotId) {
                 orders: prevOrders + 1,
                 clicks: prevClicks + ORDER_STEPS_REQUIRED,
                 totalEarned: prevEarned + paidToWorker,
-                profitBrought: prevProfit + orderRevenue,
+                profitBrought: prevProfit + txFin.grossCheck,
+                netMarginBrought: prevNetMargin + netOwnerTreasuryDelta,
+                taxPaidTotal: prevTax + taxPaidThisOrder,
                 joinedAt: curWorker.joinedAt || Date.now(),
                 lastWorkAt: Date.now()
             };
             return cur;
         });
     } catch (e) {
-        paidToWorker = Math.max(1, Math.floor(desiredPay * 0.5));
+        paidToWorker = Math.max(1, Math.min(fin.wage, fin.afterTaxRevenue));
+        netOwnerTreasuryDelta = fin.afterTaxRevenue - paidToWorker;
     } finally {
         isProcessingWorkClick = false;
     }
@@ -1917,9 +2238,11 @@ async function doPrivateOrderStepWork(plotId) {
     triggerWorkCooldown(PRIVATE_ORDER_COOLDOWN_MS, "order");
     renderStats();
     renderEmployerBar();
+    renderOwnerBusinessesHub();
     saveGame();
-    const bonusNote = zoneSkillBonusPct > 0 ? ` (виручка бізнесу +${zoneSkillBonusPct}% від ваших курсів!)` : "";
-    setGameStatus(`✅ Замовлення виконано! Ваша ЗП: +${formatNumberFull(paidToWorker)} 💰${bonusNote}. Перерва 7с.`);
+
+    const marginStr = netOwnerTreasuryDelta >= 0 ? `+${netOwnerTreasuryDelta} 💰 у касу` : `${netOwnerTreasuryDelta} 💰 з каси`;
+    setGameStatus(`✅ Чек покупця: ${fin.grossCheck} 💰 | Податок (${fin.turnoverTaxPct}%): -${taxPaidThisOrder} 💰 | Ваша ЗП: +${paidToWorker} 💰 | Власнику: ${marginStr}`);
 }
 
 function doMunicipalStepWork() {
@@ -1945,8 +2268,14 @@ function doMunicipalStepWork() {
 window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
     const owned = getOwnedPlotData(plotId);
     if (!owned || owned.owner !== currentUser) return;
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    const bld = p ? getBuildingDef(p.zone, owned.building) : null;
     const wRec = getWorkerRecordOnPlot(plotId, workerName);
-    const newWage = Math.min(50000, Math.max(wRec.personalWage + 5, Math.round(wRec.personalWage * mult)));
+    const fin = calcOrderFinancials(p ? p.zone : "residential", bld, wRec.completedCourses, wRec.personalWage);
+
+    // За замовчуванням не піднімаємо ЗП вище беззбиткового порогу чека без відома власника, якщо вона була нижчою
+    const rawTarget = Math.max(wRec.personalWage + 3, Math.round(wRec.personalWage * mult));
+    const newWage = Math.min(50000, rawTarget);
 
     const curTitleIdx = OWNER_ASSIGNED_TITLES.indexOf(wRec.role);
     const nextTitle = curTitleIdx >= 0 && curTitleIdx < OWNER_ASSIGNED_TITLES.length - 1
@@ -1960,7 +2289,9 @@ window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
             lastRaisedAt: Date.now()
         });
         sfx.win();
-        setGameStatus(`⬆️ Працівнику ${workerName} підвищено ЗП до ${formatNumberFull(newWage)} 💰 та надано звання «${nextTitle}»!`);
+        const newMargin = fin.afterTaxRevenue - newWage;
+        const mInfo = newMargin >= 0 ? `чистий плюс з замовлення: +${newMargin} 💰` : `⚠️ ЗБИТОК з замовлення: ${newMargin} 💰`;
+        setGameStatus(`⬆️ ${workerName}: ЗП ${formatNumberFull(newWage)} 💰 («${nextTitle}», ${mInfo})`);
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -2020,7 +2351,7 @@ window.fundPlotTreasury = async function (customPlotId = null, customInputId = n
     if (!owned || owned.owner !== currentUser) return;
     const inpEl = customInputId ? $(customInputId) : $("owner-fund-input");
     const val = Math.floor(Number(inpEl?.value) || 0);
-    if (val <= 0) return showDialog("Введіть суму", "Вкажіть суму монет для поповнення зарплатної каси.", "⚠️");
+    if (val <= 0) return showDialog("Введіть суму", "Вкажіть суму монет для поповнення каси підприємства.", "⚠️");
     if (gameState.coins < val) return showDialog("Недостатньо монет", `У гаманці лише ${formatNumberFull(gameState.coins)} 💰`, "💸");
     try {
         await runTransaction(ref(db, `plots/${pid}/treasury`), (cur) => (Number(cur) || 0) + val);
@@ -2032,24 +2363,76 @@ window.fundPlotTreasury = async function (customPlotId = null, customInputId = n
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
 };
 
-window.withdrawPlotTreasury = async function (customPlotId = null, customInputId = null) {
+window.withdrawPlotTreasury = async function (customPlotId = null, customInputId = null, takeAll = false) {
     const pid = customPlotId !== null ? customPlotId : selectedPlotId;
     if (pid === null) return;
     const owned = getOwnedPlotData(pid);
     if (!owned || owned.owner !== currentUser) return;
-    const curTreasury = Number(owned.treasury) || 0;
-    if (curTreasury <= 0) return showDialog("Каса порожня", "У касі підприємства зараз немає монет.", "ℹ️");
+    const curTreasury = Math.max(0, Number(owned.treasury) || 0);
+    if (curTreasury <= 0) return showDialog("Каса порожня", "У касі цього підприємства зараз 0 монет. Коли робітники виконують замовлення або минає година роботи, прибуток надходить сюди!", "ℹ️");
     const inpEl = customInputId ? $(customInputId) : $("owner-fund-input");
     const inputVal = Math.floor(Number(inpEl?.value) || 0);
-    const takeAmt = inputVal > 0 ? Math.min(curTreasury, inputVal) : curTreasury;
+    const takeAmt = (takeAll || inputVal <= 0) ? curTreasury : Math.min(curTreasury, inputVal);
     try {
         await runTransaction(ref(db, `plots/${pid}/treasury`), (cur) => Math.max(0, (Number(cur) || 0) - takeAmt));
         gameState.coins += takeAmt;
         if (inpEl) inpEl.value = "";
         sfx.win();
         renderAll(); saveGame();
-        setGameStatus(`Знято з каси підприємства: +${formatNumberFull(takeAmt)} 💰`);
+        setGameStatus(`💰 Виведено з Каси бізнесу у ваш гаманець: +${formatNumberFull(takeAmt)} 💰!`);
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
+};
+
+// Зняття грошей одразу з УСІХ кас підприємств власника одним кліком!
+window.withdrawAllPlotsTreasury = async function () {
+    if (!currentUser || !sharedPlots) return;
+    let totalTaken = 0;
+    for (const p of MAP_PLOTS_BASE) {
+        const owned = getOwnedPlotData(p.id);
+        if (owned && owned.owner === currentUser && owned.building) {
+            const curT = Math.max(0, Math.floor(Number(owned.treasury) || 0));
+            if (curT > 0) {
+                try {
+                    await set(ref(db, `plots/${p.id}/treasury`), 0);
+                    totalTaken += curT;
+                } catch (e) {}
+            }
+        }
+    }
+    if (totalTaken <= 0) {
+        return showDialog("Каси порожні", "Наразі в касах ваших підприємств 0 💰.", "ℹ️");
+    }
+    gameState.coins += totalTaken;
+    sfx.win();
+    renderAll();
+    await saveGame();
+    setGameStatus(`💰 Ви забрали весь прибуток з усіх своїх Кас у гаманець: +${formatNumberFull(totalTaken)} 💰!`);
+    showDialog("Прибуток забрано!", `Із кас усіх ваших підприємств у ваш гаманець переведено:\n\n+${formatNumberFull(totalTaken)} 💰`, "💰");
+};
+
+// Продаж незабудованої (або збиткової) ділянки назад місту за 75% ціни, щоб не платити земельний податок
+window.sellPlotToCity = async function (plotId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    const owned = getOwnedPlotData(Number(plotId));
+    if (!p || !owned || owned.owner !== currentUser) return;
+    const paidPrice = Number(owned.price) > 0 ? Number(owned.price) : calcPlotPrice(p, sharedPlots);
+    const bld = getBuildingDef(p.zone, owned.building);
+    const bldCost = bld ? bld.cost : 0;
+    const treasuryLeft = Math.max(0, Number(owned.treasury) || 0);
+    const refund = Math.floor((paidPrice + bldCost) * 0.75) + treasuryLeft;
+
+    try {
+        await set(ref(db, `plots/${p.id}`), null);
+        gameState.coins += refund;
+        if (selectedPlotId === p.id) closeMapInfo();
+        sfx.win();
+        renderAll();
+        await saveGame();
+        setGameStatus(`🏷️ Ділянку «${p.name}» продано місту за +${formatNumberFull(refund)} 💰 (податок на землю більше не стягується).`);
+        showDialog("Ділянку продано місту!", `Ви продали «${p.name}» міській раді Ковеля та отримали:\n+${formatNumberFull(refund)} 💰 (75% вартості + залишок каси).\nПодаток на цю землю більше не стягується.`, "🏷️");
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
 };
 
 window.switchBankTab = function (tab) {
@@ -2100,13 +2483,12 @@ window.withdrawDeposit = function (all = false) {
     setGameStatus(`Знято з депозиту: +${formatNumberFull(val)} 💰`);
 };
 
-// ВИМОГА 2: Депозит дає +1% ЩОГОДИНИ (HOUR_MS = 3 600 000 мс)
+// Депозит дає +1% ЩОГОДИНИ (HOUR_MS = 3 600 000 мс)
 function checkDepositInterest() {
     const dep = gameState.deposit;
     if (!dep || dep.amount <= 0) return;
     const now = Date.now();
     if (!dep.lastInterestAt) { dep.lastInterestAt = now; return; }
-    // Якщо кредит прострочено, відсотки по депозиту не нараховуються
     if (isBankBlocked()) {
         dep.lastInterestAt = now;
         return;
@@ -2180,7 +2562,7 @@ window.repayCredit = async function (payAll = true) {
     const payAmount = payAll ? debt : Math.min(debt, inputVal);
 
     if (payAmount <= 0) return showDialog("Введіть суму", "Вкажіть суму для часткового погашення або натисніть «Погасити повністю».", "⚠️");
-    if (gameState.coins < payAmount) return showDialog("Недостатньо монет у гаманці", `Потрібно ${formatNumberFull(payAmount)} 💰.\nВи можете заробити монети на роботі або зняти кошти з депозиту.`, "💸");
+    if (gameState.coins < payAmount) return showDialog("Недостатньо монет у гаманці", `Потрібно ${formatNumberFull(payAmount)} 💰.\nВи можете заробити монети на роботі або зняти кошти з депозиту чи Каси бізнесу.`, "💸");
 
     gameState.coins -= payAmount;
     gameState.credit.amount -= payAmount;
@@ -2199,7 +2581,7 @@ window.repayCredit = async function (payAll = true) {
     }
 };
 
-// ВИМОГА 1: Штрафи за прострочений кредит стягують гроші з ДЕПОЗИТУ (а за нестачі на депозиті — додають до боргу)
+// Штрафи за прострочений кредит стягують гроші з ДЕПОЗИТУ (а за нестачі на депозиті — додають до боргу)
 function applyOverduePenaltyTick(c) {
     const penalty = Math.max(10, Math.floor(c.amount * 0.10));
     if (!gameState.deposit) gameState.deposit = { amount: 0, lastInterestAt: Date.now(), totalEarned: 0 };
@@ -2263,6 +2645,7 @@ function renderAll() {
     renderMap();
     renderBank();
     if (currentPage === "mail") renderMailPage();
+    if (currentPage === "politics") renderPoliticsPage();
     updateWorkButtonState();
 }
 
@@ -2285,16 +2668,16 @@ function renderEmployerBar() {
         const owned = getOwnedPlotData(pid);
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
-        const zoneBonus = p ? getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone) : 0;
+        const fin = calcOrderFinancials(p ? p.zone : "residential", bld, gameState.completedCourses, wRec.personalWage);
         nameEl.textContent = `${bld ? bld.icon + " " + bld.name : (p ? p.name : "Підприємство")} — ${wRec.role}`;
-        subEl.textContent = `Власник: ${owned?.owner || "—"} • ЗП: +${formatNumberFull(wRec.personalWage)} 💰/замовл. • Ваш бонус курсів для зони: +${zoneBonus}%`;
+        subEl.textContent = `Власник: ${owned?.owner || "—"} • Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰 • Чек вашого замовлення: ${fin.grossCheck} 💰 (податок -${fin.taxAmount} 💰)`;
         joinCorpBtn.style.display = "inline-block";
         resignBtn.style.display = "inline-block";
     } else {
         nameEl.textContent = `🧹 Муніципальний підробіток (Вільний працівник)`;
         subEl.textContent = hasCourse("basics")
-            ? "У вас є ІТ-диплом для КовельКорп або подайте резюме на підприємство гравця!"
-            : "Подайте резюме у бізнес гравця нижче або пройдіть будь-який ІТ-курс для роботи в КовельКорп!";
+            ? "Ви можете увійти в КовельКорп або подати резюме на підприємство гравця нижче!"
+            : "Оберіть підприємство у вкладці «🏪 Вакансії» нижче або вивчіть ІТ-курс для КовельКорп!";
         joinCorpBtn.style.display = "inline-block";
         resignBtn.style.display = "none";
     }
@@ -2322,7 +2705,7 @@ function renderPrivateJobsBoard() {
     if (badgeEl) badgeEl.textContent = businesses.length;
 
     if (!businesses.length) {
-        listEl.innerHTML = `<div class="muted" style="padding:10px;text-align:center">Поки жоден гравець не побудував магазин чи підприємство на мапі Ковеля. Станьте першим або пройдіть курс програмування для роботи в КовельКорп!</div>`;
+        listEl.innerHTML = `<div class="muted" style="padding:10px;text-align:center">Поки жоден гравець не побудував магазин чи підприємство на мапі Ковеля. Купіть ділянку у вкладці «🗺️ Мапа» або пройдіть курс програмування для роботи в КовельКорп!</div>`;
         return;
     }
 
@@ -2331,25 +2714,28 @@ function renderPrivateJobsBoard() {
     let html = "";
     businesses.forEach(({ plot, owned, bld, wage, workersCount }) => {
         const isCurrent = activePid === plot.id;
+        const alreadyWorksForThisOwner = getExistingEmploymentForOwner(currentUser, owned.owner);
         const hasPendingResume = Boolean(owned.applicants && owned.applicants[currentUser]);
-        const myZoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, plot.zone);
+        const fin = calcOrderFinancials(plot.zone, bld, gameState.completedCourses, wage);
         const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
-        const treasury = Number(owned.treasury) || 0;
+        const treasury = Math.max(0, Number(owned.treasury) || 0);
 
         let actionBtnHtml = "";
         if (isCurrent) {
-            actionBtnHtml = `<button class="btn danger" onclick="resignCurrentJob()" style="min-height:30px;min-width:80px;padding:4px 8px;font-size:11px">Звільнитись</button>`;
+            actionBtnHtml = `<button class="btn danger" onclick="resignCurrentJob()" style="min-height:30px;min-width:85px;padding:4px 8px;font-size:11px">Звільнитись</button>`;
+        } else if (alreadyWorksForThisOwner) {
+            actionBtnHtml = `<span style="font-size:11px;color:#006400;font-weight:bold">👷 Вже працюєте у ${escapeHtml(owned.owner)}</span>`;
         } else if (hasPendingResume) {
             actionBtnHtml = `<button class="btn" onclick="openResumeModal(${plot.id})" style="min-height:30px;min-width:90px;padding:4px 8px;font-size:11px;color:#000080">⏳ Резюме подано</button>`;
         } else {
-            actionBtnHtml = `<button class="btn default" onclick="openResumeModal(${plot.id})" style="min-height:30px;min-width:94px;padding:4px 8px;font-size:11px">📨 Подати резюме</button>`;
+            actionBtnHtml = `<button class="btn default" onclick="openResumeModal(${plot.id})" style="min-height:30px;min-width:96px;padding:4px 8px;font-size:11px">📨 Подати резюме</button>`;
         }
 
         html += `<div class="pjob-card${isCurrent ? " active-emp" : ""}">
             <div class="pjob-info">
-                <div class="pjob-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px">(${escapeHtml(zInfo.name)})</span></div>
-                <div class="pjob-meta">Власник: <b>${escapeHtml(owned.owner)}</b> • GPS: <span class="coord-badge">${formatPlotCoords(plot)}</span> • Штат: ${workersCount} роб. • Каса: ${formatNumber(treasury)} 💰</div>
-                <div class="pjob-wage">Базова ЗП: <b>+${formatNumberFull(wage)} 💰</b>/замовл. • Ваш бонус курсів для цієї зони: <b>+${myZoneBonus}% виручки</b></div>
+                <div class="pjob-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px">(${escapeHtml(zInfo.shortName)}, податок ${fin.turnoverTaxPct}%)</span></div>
+                <div class="pjob-meta">Власник: <b>${escapeHtml(owned.owner)}</b> • Штат: ${workersCount} роб. • У касі бізнесу: <b>${formatNumberFull(treasury)} 💰</b></div>
+                <div class="pjob-wage">ЗП вам: <b>+${formatNumberFull(wage)} 💰</b>/замовл. • Чек з вашими курсами (+${fin.skillBonusPct}%): <b>${fin.grossCheck} 💰</b></div>
             </div>
             <div>${actionBtnHtml}</div>
         </div>`;
@@ -2357,6 +2743,7 @@ function renderPrivateJobsBoard() {
     listEl.innerHTML = html;
 }
 
+// ВИМОГА 2 і 3: Інтуїтивно зрозуміла відомість робітників (по кожному видно Чек -> Податок -> ЗП -> Чистий Плюс власника!)
 function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const plotZone = p ? p.zone : "residential";
@@ -2366,7 +2753,7 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
 
     if (!workersArr.length) {
-        return `<div class="muted" style="text-align:center;padding:6px">Наразі найманих робітників немає. Гравці подають сюди резюме або ви можете запросити їх листом з координатами!</div>`;
+        return `<div class="muted" style="text-align:center;padding:8px;background:#f8f8f8;border:1px dashed #808080">На цьому підприємстві ще немає найманих робітників. Коли гравці подадуть резюме на Пошту або приймуть ваше запрошення за координатами — тут з'явиться їхній розрахунок прибутку!</div>`;
     }
 
     workersArr.sort((a, b) => (Number(b[1]?.orders) || 0) - (Number(a[1]?.orders) || 0));
@@ -2375,17 +2762,24 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
         const pWage = Number(wData?.personalWage) > 0 ? Number(wData.personalWage) : baseWage;
         const role = wData?.role || "Робітник зміни";
         const orders = Number(wData?.orders) || 0;
-        const clicks = Number(wData?.clicks) || 0;
         const totalEarned = Number(wData?.totalEarned) || 0;
         const profitBrought = Number(wData?.profitBrought) || 0;
-        const lastAgo = formatTimeAgo(wData?.lastWorkAt);
         const wCourses = Array.isArray(wData?.completedCourses) ? wData.completedCourses : [];
-        const zoneSkillBonus = getWorkerZoneSkillBonusPct(wCourses, plotZone);
+        const fin = calcOrderFinancials(plotZone, bld, wCourses, pWage);
+        const netTotalBrought = wData?.netMarginBrought !== undefined
+            ? Number(wData.netMarginBrought)
+            : (orders * fin.ownerNetMargin);
+        const lastAgo = formatTimeAgo(wData?.lastWorkAt);
 
         const safeId = `${prefix}_${plotId}_${wName.replace(/[^a-zA-Z0-9_]/g, "")}`;
         const roleOptions = OWNER_ASSIGNED_TITLES.map(t =>
             `<option value="${escapeHtml(t)}"${t === role ? " selected" : ""}>${escapeHtml(t)}</option>`
         ).join("");
+
+        const isPositive = fin.ownerNetMargin >= 0;
+        const marginText = isPositive
+            ? `+${formatNumberFull(fin.ownerNetMargin)} 💰 у касу`
+            : `${formatNumberFull(fin.ownerNetMargin)} 💰 ЗБИТОК!`;
 
         return `
             <div class="worker-row">
@@ -2393,82 +2787,368 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
                     <div>
                         <span class="w-name">👷 ${escapeHtml(wName)}</span>
                         <span class="w-role">${escapeHtml(role)}</span>
+                        <span style="font-size:10px;color:#555">(${lastAgo})</span>
                     </div>
-                    <span class="w-wage-badge">ЗП: ${formatNumberFull(pWage)} 💰 / замовл.</span>
+                    <span class="w-wage-badge">ЗП робітнику: ${formatNumberFull(pWage)} 💰</span>
                 </div>
+
+                <!-- Наочний рядок: скільки платить клієнт, скільки йде на податок, скільки ЗП і скільки ЧИСТОЇ МАРЖІ власнику -->
+                <div class="receipt-pills-row" style="margin:3px 0">
+                    <span class="receipt-pill">🛒 Чек клієнта: <b>+${fin.grossCheck} 💰</b> (курси +${fin.skillBonusPct}%)</span>
+                    <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
+                    <span class="receipt-pill wage">👷 ЗП: <b>-${fin.wage} 💰</b></span>
+                    <span class="receipt-pill ${isPositive ? "net-pos" : "net-neg"}">📈 Ваша маржа з замовлення: ${marginText}</span>
+                </div>
+
                 <div class="w-stats">
-                    <span>📦 Замовлень: <b>${formatNumberFull(orders)}</b> (${formatNumberFull(clicks)} дій)</span>
-                    <span>📈 Виручка власнику: <b>+${formatNumberFull(profitBrought)} 💰</b> (бонус курсів: <b style="color:#006400">+${zoneSkillBonus}%</b>)</span>
-                    <span>💵 Виплачено: <b>${formatNumberFull(totalEarned)} 💰</b> • 🕒 ${lastAgo}</span>
+                    <span>📦 Виконано замовлень: <b>${formatNumberFull(orders)}</b></span>
+                    <span>💵 Виплачено ЗП: <b>${formatNumberFull(totalEarned)} 💰</b></span>
+                    <span>🏦 Всього приніс вам чистими в Касу: <b style="color:${netTotalBrought >= 0 ? "#006400" : "#900000"}">${netTotalBrought >= 0 ? "+" : ""}${formatNumberFull(netTotalBrought)} 💰</b></span>
                 </div>
+
                 <div style="font-size:11px;margin-top:2px">
-                    <b>Пройдені курси робітника:</b> ${renderCourseChipsHtml(wCourses, plotZone)}
+                    <b>Дипломи робітника:</b> ${renderCourseChipsHtml(wCourses, plotZone)}
                 </div>
+
                 ${isOwner ? `
                 <div class="worker-owner-actions">
                     <button class="btn success" onclick="raiseWorkerWage(${plotId}, '${escapeHtml(wName)}', 1.25)" title="Підвищити ЗП на +25% та підняти посаду">⬆️ Підвищити ЗП (+25%)</button>
-                    <select id="role_${safeId}" class="input-field" style="max-width:135px;padding:2px 4px;font-size:11px;height:28px">${roleOptions}</select>
-                    <input type="number" id="wage_${safeId}" class="input-field" value="${pWage}" min="5" max="50000" title="Індивідуальна ЗП">
-                    <button class="btn default" onclick="setWorkerCustomWage(${plotId}, '${escapeHtml(wName)}', 'wage_${safeId}', 'role_${safeId}')">💾 Зберегти</button>
-                    <button class="btn" onclick="openConversationHistory('${escapeHtml(wName)}')" title="Історія переписки з працівником">💬</button>
-                    <button class="btn danger" onclick="fireWorkerFromPlot(${plotId}, '${escapeHtml(wName)}')" title="Звільнити працівника">✕</button>
+                    <select id="role_${safeId}" class="input-field" style="max-width:130px;padding:2px 4px;font-size:11px;height:28px">${roleOptions}</select>
+                    <input type="number" id="wage_${safeId}" class="input-field" value="${pWage}" min="5" max="50000" title="Індивідуальна ЗП (беззбитково до ${fin.afterTaxRevenue} 💰)">
+                    <button class="btn default" onclick="setWorkerCustomWage(${plotId}, '${escapeHtml(wName)}', 'wage_${safeId}', 'role_${safeId}')">💾 Зберегти ЗП</button>
+                    <button class="btn" onclick="openConversationHistory('${escapeHtml(wName)}')" title="Історія переписки з працівником">💬 Чат</button>
+                    <button class="btn danger" onclick="fireWorkerFromPlot(${plotId}, '${escapeHtml(wName)}')" title="Звільнити працівника">✕ Звільнити</button>
                 </div>` : ""}
             </div>
         `;
     }).join("");
 }
 
+// Допоміжна функція для живого перегляду маржі при введенні базової ЗП у кабінеті власника
+window.previewHubBaseWageMargin = function (plotId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    const owned = getOwnedPlotData(plotId);
+    if (!p || !owned || !owned.building) return;
+    const bld = getBuildingDef(p.zone, owned.building);
+    const inp = $("hub_basewage_" + plotId);
+    const hintEl = $("hub_wage_hint_" + plotId);
+    if (!inp || !hintEl || !bld) return;
+    const testWage = Math.max(1, Math.floor(Number(inp.value) || bld.defaultWage));
+    const fin = calcOrderFinancials(p.zone, bld, [], testWage);
+    if (fin.ownerNetMargin >= 0) {
+        hintEl.innerHTML = `✅ При ЗП <b>${testWage} 💰</b> (без курсів): чек <b>${fin.grossCheck} 💰</b> − податок <b>${fin.taxAmount} 💰</b> − ЗП <b>${testWage} 💰</b> = <b style="color:#006400">ваш чистий плюс +${fin.ownerNetMargin} 💰 у касу</b> (з курсами робітника буде ще більше!)`;
+    } else {
+        hintEl.innerHTML = `⚠️ При ЗП <b>${testWage} 💰</b> ви будете <b style="color:#900000">В МІНУСІ на ${fin.ownerNetMargin} 💰</b> з замовлення (максимальна беззбиткова ЗП без курсів: <b>${fin.afterTaxRevenue} 💰</b>)!`;
+    }
+};
+
+window.previewMapOwnerWageMargin = function () {
+    if (selectedPlotId === null) return;
+    const p = MAP_PLOTS_BASE.find(x => x.id === selectedPlotId);
+    const owned = getOwnedPlotData(selectedPlotId);
+    const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
+    const inp = $("owner-wage-input");
+    const hintEl = $("owner-wage-preview-hint");
+    if (!inp || !hintEl || !p || !bld) return;
+    const testWage = Math.max(1, Math.floor(Number(inp.value) || bld.defaultWage));
+    const fin = calcOrderFinancials(p.zone, bld, [], testWage);
+    if (fin.ownerNetMargin >= 0) {
+        hintEl.innerHTML = `✅ Чиста маржа власника (без курсів): <b style="color:#006400">+${fin.ownerNetMargin} 💰 у касу</b> за замовлення (податок -${fin.taxAmount} 💰).`;
+    } else {
+        hintEl.innerHTML = `⚠️ <b style="color:#900000">ЗБИТОК ${fin.ownerNetMargin} 💰 з каси!</b> Чек після податку становить лише <b>${fin.afterTaxRevenue} 💰</b>.`;
+    }
+};
+
+// ВИМОГА 2 і 3: Максимально наочний кабінет власника з великою панеллю КАСИ, податками та маржею
 function renderOwnerBusinessesHub() {
+    const masterEl = $("owner-master-summary");
     const hubEl = $("owner-businesses-hub");
     const badgeEl = $("badge-mybiz");
     if (!hubEl) return;
 
-    const myBuiltPlots = [];
+    const myOwnedPlots = [];
     let totalWorkersAcrossBiz = 0;
 
     MAP_PLOTS_BASE.forEach(p => {
         const owned = getOwnedPlotData(p.id);
-        if (owned && owned.owner === currentUser && owned.building) {
+        if (owned && owned.owner === currentUser) {
             const bld = getBuildingDef(p.zone, owned.building);
             const wCount = owned.workers ? Object.keys(owned.workers).length : 0;
             totalWorkersAcrossBiz += wCount;
-            myBuiltPlots.push({ plot: p, owned, bld, wCount });
+            myOwnedPlots.push({ plot: p, owned, bld, wCount });
         }
     });
 
-    if (badgeEl) badgeEl.textContent = totalWorkersAcrossBiz > 0 ? `${myBuiltPlots.length} (${totalWorkersAcrossBiz}👷)` : myBuiltPlots.length;
+    if (badgeEl) {
+        badgeEl.textContent = totalWorkersAcrossBiz > 0 ? `${myOwnedPlots.length} (${totalWorkersAcrossBiz}👷)` : myOwnedPlots.length;
+    }
 
-    if (!myBuiltPlots.length) {
-        hubEl.innerHTML = `<div class="muted" style="padding:12px;text-align:center">У вас поки немає власних побудованих підприємств.<br>Купіть ділянку та збудуйте магазин, піцерію чи завод у вкладці «🗺️ Мапа», щоб приймати резюме або запрошувати гравців за координатами!</div>`;
+    const totalTreasury = getTotalOwnerTreasury();
+    const portfolio = getPlayerPortfolioHourlyBreakdown(currentUser);
+
+    if (masterEl) {
+        if (!myOwnedPlots.length) {
+            masterEl.innerHTML = "";
+        } else {
+            const netSign = portfolio.netTotal >= 0 ? `+${formatNumberFull(portfolio.netTotal)} 💰/год (у плюсі)` : `${formatNumberFull(portfolio.netTotal)} 💰/год (у мінусі через податки!)`;
+            masterEl.innerHTML = `
+                <div class="cashbox-master-banner">
+                    <div class="cashbox-master-left">
+                        <span class="cashbox-master-title">🏦 ЗАГАЛЬНА КАСА ВАШИХ ПІДПРИЄМСТВ (ГОТОВА ДО ВИВЕДЕННЯ):</span>
+                        <span class="cashbox-master-amount">💰 ${formatNumberFull(totalTreasury)} монет</span>
+                        <span class="cashbox-master-sub">
+                            Погодинний обіг будівель: <b>+${formatNumberFull(portfolio.grossTotal)}/год</b> •
+                            Податок на землю: <b style="color:#ff9999">-${formatNumberFull(portfolio.landTaxTotal)}/год</b> •
+                            Податок зон: <b style="color:#ff9999">-${formatNumberFull(portfolio.turnoverTaxTotal)}/год</b> ➔
+                            <b>Підсумок: ${netSign}</b>
+                        </span>
+                    </div>
+                    <button class="btn success" onclick="withdrawAllPlotsTreasury()" ${totalTreasury <= 0 ? "disabled" : ""} style="min-height:38px;padding:6px 14px;font-size:13px;font-weight:bold">
+                        💰 Забрати ВСЮ Касу в гаманець (+${formatNumberFull(totalTreasury)} 💰)
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    if (!myOwnedPlots.length) {
+        hubEl.innerHTML = `<div class="muted" style="padding:14px;text-align:center">У вас поки немає куплених ділянок чи підприємств.<br>Перейдіть у вкладку <b>«🗺️ Мапа»</b>, купіть ділянку та збудуйте магазин, піцерію чи завод!</div>`;
         return;
     }
 
-    hubEl.innerHTML = myBuiltPlots.map(({ plot, owned, bld }) => {
-        const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : (bld ? bld.defaultWage : 15);
-        const treasury = Number(owned.treasury) || 0;
-        const passiveInc = getPlotPassiveIncome(plot, owned);
+    hubEl.innerHTML = myOwnedPlots.map(({ plot, owned, bld }) => {
+        const calc = calcPlotHourlyTaxAndNet(plot, owned);
+        const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
+
+        // Якщо це порожня земля без будівлі — показуємо чітке попередження про земельний податок!
+        if (!bld) {
+            return `
+                <div class="group-box" data-label="⚠️ Незабудована земля: ${escapeHtml(plot.name)} (${escapeHtml(zInfo.shortName)})" style="margin-top:8px;background:#fff0f0">
+                    <div style="font-size:12px;color:#800000;line-height:1.45">
+                        <b>На цій ділянці ще немає будівлі!</b> Порожня земля приносить <b>0 💰 доходу</b>, але обкладається <b>податком на землю (${calc.landTaxPct}%/год = -${formatNumberFull(calc.landTax)} 💰 щогодини)</b>.<br>
+                        Збудуйте тут підприємство на мапі або продайте ділянку місту, щоб не йти в мінус!
+                    </div>
+                    <div class="btn-row" style="margin-top:6px;justify-content:flex-start">
+                        <button class="btn default" onclick="focusPlotFromMail(${plot.id})" style="min-height:30px;padding:4px 10px;font-size:11px">🏗️ Перейти на мапу і забудувати</button>
+                        <button class="btn danger" onclick="sellPlotToCity(${plot.id})" style="min-height:30px;padding:4px 10px;font-size:11px">🏷️ Продати землю місту (повернути 75%)</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : bld.defaultWage;
+        const treasury = Math.max(0, Number(owned.treasury) || 0);
+        const fin = calcOrderFinancials(plot.zone, bld, [], baseWage);
+        const isOrderProfitable = fin.ownerNetMargin >= 0;
+
         return `
-            <div class="group-box" data-label="${bld ? bld.icon + " " + escapeHtml(bld.name) : "Бізнес"} — ${escapeHtml(plot.name)} (${formatPlotCoords(plot)})" style="margin-top:8px">
-                <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;margin-bottom:6px">
-                    <span>💰 Каса ЗП: <b>${formatNumberFull(treasury)} 💰</b></span>
-                    <span>💵 Базова ЗП нових: <b>${formatNumberFull(baseWage)} 💰</b></span>
-                    <span>🏘️ Пасивний дохід: <b style="color:#006400">+${formatNumberFull(passiveInc)}/год</b></span>
+            <div class="group-box" data-label="${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} (${escapeHtml(zInfo.shortName)})" style="margin-top:10px">
+                <!-- БЛОК 1: ВЕЛИКА І ПОМІТНА КАСА ПІДПРИЄМСТВА -->
+                <div class="biz-cash-highlight">
+                    <div>
+                        <div style="font-size:11px;color:#004000;font-weight:bold">🏦 КАСА ПІДПРИЄМСТВА (гроші з замовлень і погодинної роботи):</div>
+                        <div class="cash-big">💰 У касі зараз: ${formatNumberFull(treasury)} монет</div>
+                    </div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+                        <button class="btn success" onclick="withdrawPlotTreasury(${plot.id}, 'hub_fund_${plot.id}', true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:32px;padding:4px 12px;font-size:12px;font-weight:bold">
+                            💰 Забрати в гаманець (+${formatNumberFull(treasury)})
+                        </button>
+                        <input type="number" class="input-field" id="hub_fund_${plot.id}" placeholder="Сума..." min="10" style="max-width:80px;padding:3px 6px;font-size:12px">
+                        <button class="btn" onclick="fundPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:30px;min-width:auto;padding:3px 8px;font-size:11px" title="Покласти монети з гаманця в касу">➕ В касу</button>
+                    </div>
                 </div>
-                <div class="workers-roster" style="max-height:220px">
+
+                <!-- БЛОК 2: ПРОЗОРИЙ ЧЕК 1 ЗАМОВЛЕННЯ ТА ПОГОДИННИЙ БАЛАНС З ПОДАТКАМИ -->
+                <div class="receipt-breakdown">
+                    <div class="receipt-breakdown-title">🧾 Як розподіляються гроші з 1 замовлення клієнта (при базовій ЗП ${baseWage} 💰):</div>
+                    <div class="receipt-pills-row">
+                        <span class="receipt-pill">🛒 Покупець платить: <b>+${fin.grossCheck} 💰</b></span>
+                        <span>➔</span>
+                        <span class="receipt-pill tax">🏛️ Податок зони (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
+                        <span>➔</span>
+                        <span class="receipt-pill wage">👷 ЗП робітнику: <b>-${fin.wage} 💰</b></span>
+                        <span>=</span>
+                        <span class="receipt-pill ${isOrderProfitable ? "net-pos" : "net-neg"}">
+                            📈 Ваш ЧИСТИЙ ПЛЮС у касу: ${isOrderProfitable ? "+" + fin.ownerNetMargin + " 💰" : fin.ownerNetMargin + " 💰 (ЗБИТОК!)"}
+                        </span>
+                    </div>
+                    <div style="margin-top:4px;font-size:11px;color:#333">
+                        ⏱️ <b>Погодинний баланс будівлі:</b> Валовий дохід <b>+${formatNumberFull(calc.grossIncome)}/год</b> (бонус штату +${calc.bonusPct || 0}%)
+                        − Податок на землю (${calc.landTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.landTax)}/год</b>
+                        − Податок зони (${calc.turnoverTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.turnoverTax)}/год</b>
+                        = <b style="color:${calc.netIncome >= 0 ? "#006400" : "#900000"}">Чистими в касу: ${calc.netIncome >= 0 ? "+" : ""}${formatNumberFull(calc.netIncome)} 💰/год</b>
+                    </div>
+                </div>
+
+                <!-- БЛОК 3: НАЛАШТУВАННЯ БАЗОВОЇ ЗП ТА ЗАПРОШЕННЯ ПРАЦІВНИКІВ -->
+                <div class="bank-input-wrap" style="margin-bottom:6px">
+                    <span style="font-size:11px;font-weight:bold">Базова ЗП для нових робітників:</span>
+                    <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" oninput="previewHubBaseWageMargin(${plot.id})" style="max-width:85px;padding:3px 6px;font-size:12px">
+                    <button class="btn default" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}')" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px">💾 Зберегти ЗП</button>
+                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px" title="Надіслати гравцю координати цього місця для роботи">📍 Запросити людину на роботу</button>
+                </div>
+                <div id="hub_wage_hint_${plot.id}" style="font-size:11px;margin-bottom:6px;color:#004000"></div>
+
+                <!-- БЛОК 4: СПИСОК РОБІТНИКІВ ТА ЇХНЯ МАРЖА -->
+                <div class="workers-roster" style="max-height:240px">
                     ${buildWorkersRosterHtml(plot.id, owned, bld, "hub")}
-                </div>
-                <div class="bank-input-wrap" style="margin-top:6px">
-                    <span style="font-size:11px">Базова ЗП:</span>
-                    <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" style="max-width:75px;padding:3px 6px;font-size:12px">
-                    <button class="btn" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}')" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">Зберегти</button>
-                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px" title="Надіслати гравцю координати цього місця для роботи">📍 Запросити</button>
-                    <input type="number" class="input-field" id="hub_fund_${plot.id}" placeholder="Сума..." min="50" style="max-width:90px;padding:3px 6px;font-size:12px">
-                    <button class="btn default" onclick="fundPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">📥 В касу</button>
-                    <button class="btn" onclick="withdrawPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">📤 Зняти</button>
                 </div>
             </div>
         `;
     }).join("");
+}
+
+// ===== ВИМОГА 4: ВКЛАДКА «🏛️ ПОЛІТИКА» (ПОДАТКИ НА ЗЕМЛЮ ТА ЗОНИ) =====
+window.saveAdminTaxPolicy = async function () {
+    if (!isAdminUser()) return;
+    const resTurn = Math.max(0, Math.min(50, Number($("pol_res_turn")?.value) || 8));
+    const resLand = Math.max(0.1, Math.min(5, Number($("pol_res_land")?.value) || 0.4));
+    const comTurn = Math.max(0, Math.min(50, Number($("pol_com_turn")?.value) || 12));
+    const comLand = Math.max(0.1, Math.min(5, Number($("pol_com_land")?.value) || 0.5));
+    const indTurn = Math.max(0, Math.min(50, Number($("pol_ind_turn")?.value) || 16));
+    const indLand = Math.max(0.1, Math.min(5, Number($("pol_ind_land")?.value) || 0.6));
+
+    const newPolicy = {
+        residential: { turnoverTaxPct: resTurn, landTaxPct: resLand },
+        commercial:  { turnoverTaxPct: comTurn, landTaxPct: comLand },
+        industrial:  { turnoverTaxPct: indTurn, landTaxPct: indLand },
+        updatedAt: Date.now(),
+        updatedBy: currentUser
+    };
+
+    try {
+        await set(ref(db, `users/${currentUser}/clicker/cityPolicy`), newPolicy);
+        cityTaxPolicy = newPolicy;
+        sfx.win();
+        renderAll();
+        setGameStatus("🏛️ Податкову політику м. Ковель оновлено для всіх гравців!");
+        showDialog("Податки оновлено!", "Нові податкові ставки для Житлової, Комерційної та Промислової зон набули чинності!", "🏛️");
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+function renderPoliticsPage() {
+    const zonesGrid = $("politics-zones-grid");
+    const adminBox = $("politics-admin-box");
+    const adminCtrl = $("politics-admin-controls");
+    const ledgerEl = $("politics-player-ledger");
+    if (!zonesGrid || !ledgerEl) return;
+
+    const zonesOrder = [
+        { key: "residential", cls: "res" },
+        { key: "commercial",  cls: "com" },
+        { key: "industrial",  cls: "ind" }
+    ];
+
+    zonesGrid.innerHTML = zonesOrder.map(({ key, cls }) => {
+        const zInfo = ZONE_INFO[key];
+        const rates = getZoneTaxRates(key);
+        const sampleLandTax = Math.round(zInfo.basePrice * (rates.landTaxPct / 100));
+        return `
+            <div class="politics-card ${cls}">
+                <div class="politics-card-title">${zInfo.name}</div>
+                <div style="font-size:11px;color:#333;min-height:30px">${escapeHtml(zInfo.desc)}</div>
+                <div class="politics-rate-row">
+                    <span>🧾 Податок з обороту / замовлень:</span>
+                    <span class="politics-rate-val">${rates.turnoverTaxPct}%</span>
+                </div>
+                <div class="politics-rate-row">
+                    <span>🌍 Податок на землю (щогодини):</span>
+                    <span class="politics-rate-val">${rates.landTaxPct}% / год</span>
+                </div>
+                <div style="font-size:11px;color:#004000;margin-top:2px">
+                    • Базова ціна землі: <b>${formatNumberFull(zInfo.basePrice)} 💰</b><br>
+                    • Базовий податок на землю: <b>~${formatNumberFull(sampleLandTax)} 💰/год</b>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    if (adminBox && adminCtrl) {
+        if (isAdminUser()) {
+            adminBox.style.display = "block";
+            const rRes = getZoneTaxRates("residential");
+            const rCom = getZoneTaxRates("commercial");
+            const rInd = getZoneTaxRates("industrial");
+            adminCtrl.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;font-size:11px">
+                    <div style="background:#fff;padding:6px;border:1px solid #808080">
+                        <b>🏡 Житлова зона:</b><br>
+                        Оборот (%): <input type="number" id="pol_res_turn" class="input-field" value="${rRes.turnoverTaxPct}" min="0" max="50" style="max-width:60px;padding:2px 4px"><br>
+                        Земля (%/год): <input type="number" id="pol_res_land" class="input-field" value="${rRes.landTaxPct}" step="0.1" min="0.1" max="5" style="max-width:60px;padding:2px 4px;margin-top:3px">
+                    </div>
+                    <div style="background:#fff;padding:6px;border:1px solid #808080">
+                        <b>🏪 Комерційна зона:</b><br>
+                        Оборот (%): <input type="number" id="pol_com_turn" class="input-field" value="${rCom.turnoverTaxPct}" min="0" max="50" style="max-width:60px;padding:2px 4px"><br>
+                        Земля (%/год): <input type="number" id="pol_com_land" class="input-field" value="${rCom.landTaxPct}" step="0.1" min="0.1" max="5" style="max-width:60px;padding:2px 4px;margin-top:3px">
+                    </div>
+                    <div style="background:#fff;padding:6px;border:1px solid #808080">
+                        <b>🏭 Промислова зона:</b><br>
+                        Оборот (%): <input type="number" id="pol_ind_turn" class="input-field" value="${rInd.turnoverTaxPct}" min="0" max="50" style="max-width:60px;padding:2px 4px"><br>
+                        Земля (%/год): <input type="number" id="pol_ind_land" class="input-field" value="${rInd.landTaxPct}" step="0.1" min="0.1" max="5" style="max-width:60px;padding:2px 4px;margin-top:3px">
+                    </div>
+                </div>
+                <div class="btn-row" style="margin-top:6px">
+                    <button class="btn default" onclick="saveAdminTaxPolicy()">💾 Затвердити нові податки по місту</button>
+                </div>
+            `;
+        } else {
+            adminBox.style.display = "none";
+        }
+    }
+
+    // Персональна відомість по ділянках гравця
+    const myPlots = [];
+    MAP_PLOTS_BASE.forEach(p => {
+        const owned = getOwnedPlotData(p.id);
+        if (owned && owned.owner === currentUser) {
+            myPlots.push({ plot: p, owned, bld: getBuildingDef(p.zone, owned.building), calc: calcPlotHourlyTaxAndNet(p, owned) });
+        }
+    });
+
+    if (!myPlots.length) {
+        ledgerEl.innerHTML = `<div class="muted" style="padding:10px;text-align:center">У вас наразі немає земельних ділянок у власності, тому земельний податок з вас не стягується.</div>`;
+        return;
+    }
+
+    const pf = getPlayerPortfolioHourlyBreakdown(currentUser);
+    const totalNetColor = pf.netTotal >= 0 ? "#006400" : "#900000";
+
+    ledgerEl.innerHTML = `
+        <div style="background:#fffff0;border:1px solid #808080;padding:8px;margin-bottom:8px;font-size:12px;line-height:1.5">
+            <div><b>Ваші володіння:</b> ділянок <b>${pf.plotsCount}</b> (забудовано: <b>${pf.builtCount}</b>, пустих: <b>${pf.plotsCount - pf.builtCount}</b>)</div>
+            <div>• Сумарний валовий дохід будівель: <b style="color:#006400">+${formatNumberFull(pf.grossTotal)} 💰/год</b></div>
+            <div>• Податок на землю по всіх ділянках: <b style="color:#800000">-${formatNumberFull(pf.landTaxTotal)} 💰/год</b></div>
+            <div>• Податок з обороту по зонах: <b style="color:#800000">-${formatNumberFull(pf.turnoverTaxTotal)} 💰/год</b></div>
+            <div style="border-top:1px solid #a0a0a0;margin-top:4px;padding-top:4px;font-size:13px">
+                📈 <b>Чистий погодинний підсумок (у Касу після всіх податків): <span style="color:${totalNetColor}">${pf.netTotal >= 0 ? "+" : ""}${formatNumberFull(pf.netTotal)} 💰/год</span></b>
+            </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto">
+            ${myPlots.map(({ plot, owned, bld, calc }) => {
+                const zInfo = ZONE_INFO[plot.zone];
+                const netPositive = calc.netIncome >= 0;
+                return `
+                    <div style="background:#ffffff;border:1px solid #808080;padding:6px 8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                        <div>
+                            <b>#${plot.id + 1} ${escapeHtml(plot.name)}</b> (${escapeHtml(zInfo.shortName)}) —
+                            ${bld ? `<b>${bld.icon} ${escapeHtml(bld.name)}</b>` : `<b style="color:#900000">⚠️ Порожня земля (без будівлі!)</b>`}<br>
+                            Валовий дохід: <b>+${formatNumberFull(calc.grossIncome)}/год</b> |
+                            Податок на землю (${calc.landTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.landTax)}/год</b> |
+                            Податок зони (${calc.turnoverTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.turnoverTax)}/год</b>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px">
+                            <span class="receipt-pill ${netPositive ? "net-pos" : "net-neg"}">
+                                ${netPositive ? "+" + formatNumberFull(calc.netIncome) + " 💰/год" : formatNumberFull(calc.netIncome) + " 💰/год (ЗБИТОК)"}
+                            </span>
+                            ${!bld ? `<button class="btn danger" onclick="sellPlotToCity(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 6px;font-size:10px">🏷️ Продати</button>` : ""}
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
 }
 
 function renderStats() {
@@ -2480,10 +3160,15 @@ function renderStats() {
     if ($("stat-ind-boost")) $("stat-ind-boost").textContent = "+" + indBoost + "%";
 
     const incPerHour = getTotalPassiveIncomePerHour();
+    const totalTreasury = getTotalOwnerTreasury();
     $("big-coins").textContent = formatNumberFull(gameState.coins);
 
     if ($("hud-coins")) $("hud-coins").textContent = formatNumberFull(gameState.coins);
-    if ($("hud-income")) $("hud-income").textContent = "+" + formatNumber(incPerHour) + "/год";
+    if ($("hud-treasury")) $("hud-treasury").textContent = formatNumberFull(totalTreasury) + " 💰";
+    if ($("hud-income")) {
+        $("hud-income").textContent = (incPerHour >= 0 ? "+" : "") + formatNumber(incPerHour) + "/год";
+        $("hud-income").style.color = incPerHour >= 0 ? "#006400" : "#900000";
+    }
 
     const promoteBtn = $("promote-btn");
     const xpWrap = $("career-xp-wrap");
@@ -2549,6 +3234,7 @@ function renderTask() {
         const owned = getOwnedPlotData(pid);
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
+        const fin = calcOrderFinancials(p ? p.zone : "residential", bld, gameState.completedCourses, wRec.personalWage);
         const step = Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED;
 
         if (onCooldown && workCooldownReason === "order") {
@@ -2561,7 +3247,7 @@ function renderTask() {
             $("task-bar").style.width = ((step / ORDER_STEPS_REQUIRED) * 100) + "%";
             $("task-text").textContent = `Етап замовлення: ${step} / ${ORDER_STEPS_REQUIRED}`;
         }
-        $("task-reward").textContent = `Ваша ЗП за замовлення (5 дій): +${formatNumberFull(wRec.personalWage)} 💰 • Виконано вами: ${wRec.orders}`;
+        $("task-reward").textContent = `Чек клієнта: ${fin.grossCheck} 💰 ➔ Податок: -${fin.taxAmount} 💰 ➔ Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰`;
         $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — Посада: ${wRec.role}`;
     } else {
         const step = Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED;
@@ -2580,7 +3266,6 @@ function renderTask() {
     }
 }
 
-// ВИМОГА 1: Навіть якщо кредит прострочено (isBankBlocked), ПРАЦЮВАТИ МОЖНА І ТРЕБА!
 function updateWorkButtonState() {
     const btn = $("big-click"), label = $("big-click-label"), sub = $("big-click-sub"), emoji = $("big-click-emoji"), blocker = $("course-blocker");
     if (!btn) return;
@@ -2680,19 +3365,16 @@ function renderJobsList() {
         const owned = getOwnedPlotData(pid);
         const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
         const wRec = getWorkerRecordOnPlot(pid, currentUser);
-        const zoneBonus = p ? getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone) : 0;
+        const fin = calcOrderFinancials(p ? p.zone : "residential", bld, gameState.completedCourses, wRec.personalWage);
         html = `
             <div style="padding:10px;line-height:1.5;font-size:12px;color:#000">
                 <div style="font-weight:bold;color:#000080;font-size:13px;margin-bottom:6px">📋 Ваша особова картка на підприємстві «${escapeHtml(bld ? bld.name : "Бізнес")}»</div>
                 <div>• <b>Власник підприємства:</b> ${escapeHtml(owned?.owner || "—")}</div>
-                <div>• <b>Призначена вам посада:</b> <span style="color:#000080;font-weight:bold">${escapeHtml(wRec.role)}</span></div>
-                <div>• <b>Ваша індивідуальна зарплата:</b> <span style="color:#006400;font-weight:bold">+${formatNumberFull(wRec.personalWage)} 💰</span> за кожне виконане замовлення (5 дій)</div>
+                <div>• <b>Ваша посада:</b> <span style="color:#000080;font-weight:bold">${escapeHtml(wRec.role)}</span></div>
+                <div>• <b>Ваша зарплата:</b> <span style="color:#006400;font-weight:bold">+${formatNumberFull(wRec.personalWage)} 💰</span> за кожне замовлення (5 дій)</div>
+                <div>• <b>Чек вашого замовлення (з курсами +${fin.skillBonusPct}%):</b> <b>${fin.grossCheck} 💰</b> (податок місту: -${fin.taxAmount} 💰, чиста маржа власника в касу: <b>${fin.ownerNetMargin >= 0 ? "+" + fin.ownerNetMargin : fin.ownerNetMargin} 💰</b>)</div>
                 <div>• <b>Ваші дипломи:</b> ${renderCourseChipsHtml(gameState.completedCourses, p ? p.zone : null)}</div>
-                <div>• <b>Бонус виручки для цієї зони від ваших курсів:</b> <b style="color:#006400">+${zoneBonus}%</b></div>
-                <div>• <b>Виконано замовлень вами:</b> <b>${formatNumberFull(wRec.orders)}</b> (${formatNumberFull(wRec.clicks)} робочих дій)</div>
-                <div style="margin-top:8px;padding:8px;background:#ffffcc;border:1px solid #808080;color:#000">
-                    💡 <b>Як отримати підвищення?</b> Власник (<b>${escapeHtml(owned?.owner || "—")}</b>) бачить ваші пройдені курси та кількість виконаних замовлень і сам підвищує вам зарплату та посаду!
-                </div>
+                <div>• <b>Виконано замовлень вами:</b> <b>${formatNumberFull(wRec.orders)}</b></div>
             </div>
         `;
     } else {
@@ -2700,7 +3382,7 @@ function renderJobsList() {
             <div style="padding:10px;line-height:1.5;font-size:12px;color:#000">
                 <div style="margin-bottom:6px"><b>🎓 Ваші отримані дипломи та сертифікати:</b><br>${renderCourseChipsHtml(gameState.completedCourses)}</div>
                 <b>Як влаштуватися на престижну роботу:</b><br>
-                • <b>У бізнес гравця:</b> оберіть підприємство у вкладці «🏪 Вакансії (Резюме)» та натисніть <b>«📨 Подати резюме»</b> або прийміть запрошення за координатами на Пошті.<br>
+                • <b>У бізнес гравця:</b> оберіть підприємство у вкладці «🏪 Вакансії» та натисніть <b>«📨 Подати резюме»</b> або прийміть запрошення за координатами на Пошті.<br>
                 • <b>У КовельКорп:</b> пройдіть будь-який курс програмування у вкладці «🎓 Курси» (дорожчий ІТ-курс автоматично відкриває вступ і молодші звання!).
             </div>
         `;
@@ -2718,10 +3400,10 @@ function renderShop() {
             bannerEl.innerHTML = `💻 <b>Курси програмування (КовельКорп):</b> Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп. Дорожчий курс автоматично зараховує вимоги всіх дешевших ІТ-курсів!`;
         } else if (activeCourseCategory === "residential") {
             const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
-            bannerEl.innerHTML = `🏡 <b>Курси Житлової та Сервісної зони:</b> Збільшують виручку, яку ви приносите власнику при роботі в Житловій та Комерційній зонах! Ваш поточний бонус: <span style="color:#006400">+${myRes}%</span>.`;
+            bannerEl.innerHTML = `🏡 <b>Курси Житлової та Сервісної зони:</b> Збільшують чек клієнта при роботі в Житловій та Комерційній зонах! Ваш поточний бонус чека: <span style="color:#006400">+${myRes}%</span>.`;
         } else {
             const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони:</b> Збільшують виручку, яку ви приносите власнику на заводах, СТО та терміналах Промзони! Ваш поточний бонус: <span style="color:#006400">+${myInd}%</span>.`;
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони:</b> Збільшують чек клієнта при роботі на заводах, СТО та терміналах Промзони! Ваш поточний бонус чека: <span style="color:#006400">+${myInd}%</span>.`;
         }
     }
 
@@ -2910,30 +3592,29 @@ function showMapInfo(plotId) {
     const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
     const owned = getOwnedPlotData(plotId);
     const price = calcPlotPrice(p, sharedPlots);
-    const proximity = getBuildingProximityBonus(p);
-    const density = getDensityBonus(p);
-    const neighbors = countOwnedNeighbors(plotId, sharedPlots);
     const overdueBlocked = isBankBlocked();
+    const calc = calcPlotHourlyTaxAndNet(p, owned);
 
     const tagEl = $("info-zone-tag");
     tagEl.className = "zone-tag " + p.zone;
-    tagEl.textContent = zInfo.name;
-
-    const bonusText = [];
-    if (proximity > 0) bonusText.push(`будівлі +${proximity}%`);
-    if (density > 0) bonusText.push(`густота +${density}%`);
-    if (neighbors > 0) bonusText.push(`сусіди +${neighbors * 10}%`);
+    tagEl.textContent = `${zInfo.name} (Податок зони: ${calc.turnoverTaxPct}% | Земля: ${calc.landTaxPct}%/год)`;
 
     const bld = owned ? getBuildingDef(p.zone, owned.building) : null;
-    const baseRent = Math.max(25, Math.floor(zInfo.basePrice * 0.005));
-    const currentIncome = owned ? getPlotPassiveIncome(p, owned) : 0;
 
     $("info-name").textContent = `#${p.id + 1} ${p.name} [${formatPlotCoords(p)}]`;
     $("info-owner").textContent = owned ? owned.owner : "Вільна (Міська рада)";
-    $("info-price").textContent = owned ? `Куплено (${formatNumberFull(owned.price || price)})` : formatNumberFull(price) + " 💰";
-    $("info-building").textContent = bld ? `${bld.icon} ${bld.name}` : (owned ? "Не забудовано" : "—");
-    $("info-income").textContent = owned ? `+${formatNumberFull(currentIncome)} 💰/год` : `від +${baseRent} до +${formatNumberFull(zInfo.buildings[zInfo.buildings.length - 1].income)} 💰/год`;
-    $("info-bonus").textContent = bonusText.length ? bonusText.join(", ") : "базова ставка";
+    $("info-price").textContent = owned ? `Куплено (${formatNumberFull(owned.price || price)} 💰)` : formatNumberFull(price) + " 💰";
+    $("info-building").textContent = bld ? `${bld.icon} ${bld.name}` : (owned ? "⚠️ Не забудовано (приносить 0 доходу!)" : "—");
+    if ($("info-land-tax")) {
+        $("info-land-tax").textContent = `-${formatNumberFull(calc.landTax)} 💰/год (${calc.landTaxPct}% від ціни землі)`;
+    }
+    if (owned) {
+        $("info-income").innerHTML = bld
+            ? `Валовий +${formatNumberFull(calc.grossIncome)}/год − Податки -${formatNumberFull(calc.totalTax)}/год = <b style="color:${calc.netIncome >= 0 ? "#006400" : "#900000"}">${calc.netIncome >= 0 ? "+" : ""}${formatNumberFull(calc.netIncome)} 💰/год у Касу</b>`
+            : `<b style="color:#900000">-${formatNumberFull(calc.landTax)} 💰/год (земельний податок без будівлі!)</b>`;
+    } else {
+        $("info-income").textContent = `Збудуйте бізнес: до +${formatNumberFull(zInfo.buildings[zInfo.buildings.length - 1].income)} 💰/год (мінус податки)`;
+    }
 
     const buyWrap = $("info-buy-wrap");
     const buyBtn = $("info-buy-btn");
@@ -2944,27 +3625,58 @@ function showMapInfo(plotId) {
     if (owned && bld) {
         workersSec.style.display = "flex";
         const wage = Number(owned.wage) > 0 ? Number(owned.wage) : bld.defaultWage;
-        const treasury = Number(owned.treasury) || 0;
-        const workersMap = owned.workers || {};
-        const workersArr = Object.entries(workersMap);
-        const boostPct = getPlotPassiveBonusPct(p, owned);
+        const treasury = Math.max(0, Number(owned.treasury) || 0);
+        const fin = calcOrderFinancials(p.zone, bld, [], wage);
+        const isPos = fin.ownerNetMargin >= 0;
 
-        $("info-biz-funds").textContent = formatNumberFull(treasury) + " 💰";
-        $("info-biz-wage").textContent = formatNumberFull(wage) + " 💰 / замовлення";
-        $("info-biz-boost").textContent = `+${boostPct}% (${workersArr.length} роб. + їхні курси)`;
+        const cashboxBannerEl = $("info-cashbox-banner");
+        if (cashboxBannerEl) {
+            cashboxBannerEl.innerHTML = `
+                <div class="biz-cash-highlight" style="margin-bottom:4px">
+                    <div>
+                        <div style="font-size:11px;font-weight:bold;color:#004000">🏦 КАСА ПІДПРИЄМСТВА:</div>
+                        <div class="cash-big">💰 ${formatNumberFull(treasury)} монет</div>
+                    </div>
+                    ${owned.owner === currentUser ? `
+                        <button class="btn success" onclick="withdrawPlotTreasury(${plotId}, null, true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:30px;padding:4px 10px;font-size:11px;font-weight:bold">
+                            💰 Забрати в гаманець (+${formatNumberFull(treasury)})
+                        </button>
+                    ` : ""}
+                </div>
+            `;
+        }
+
+        const formulaEl = $("info-order-formula");
+        if (formulaEl) {
+            formulaEl.innerHTML = `
+                <div class="receipt-breakdown">
+                    <div class="receipt-breakdown-title">🧾 Чек 1 замовлення на цьому підприємстві (базова ЗП ${wage} 💰):</div>
+                    <div class="receipt-pills-row">
+                        <span class="receipt-pill">🛒 Чек покупця: <b>+${fin.grossCheck} 💰</b></span>
+                        <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
+                        <span class="receipt-pill wage">👷 ЗП робітнику: <b>-${fin.wage} 💰</b></span>
+                        <span class="receipt-pill ${isPos ? "net-pos" : "net-neg"}">📈 Маржа власника в касу: ${isPos ? "+" + fin.ownerNetMargin + " 💰" : fin.ownerNetMargin + " 💰 (ЗБИТОК)"}</span>
+                    </div>
+                </div>
+            `;
+        }
 
         const wListEl = $("info-workers-list");
         wListEl.innerHTML = buildWorkersRosterHtml(plotId, owned, bld, "map");
 
         const hireActions = $("info-hire-actions");
         const isEmployedHere = getActiveEmployerPlotId() === plotId;
+        const alreadyWorksForOwner = getExistingEmploymentForOwner(currentUser, owned.owner);
         const myRec = getWorkerRecordOnPlot(plotId, currentUser);
         const myZoneBonus = getWorkerZoneSkillBonusPct(gameState.completedCourses, p.zone);
+
         if (isEmployedHere) {
             hireActions.innerHTML = `
                 <button class="btn default" onclick="switchPage('work')" style="min-height:32px;padding:4px 10px;font-size:12px">🛒 Перейти до роботи (ЗП: +${formatNumberFull(myRec.personalWage)} 💰/замовл.)</button>
                 <button class="btn danger" onclick="resignCurrentJob()" style="min-height:32px;padding:4px 10px;font-size:12px">🚪 Звільнитись</button>
             `;
+        } else if (alreadyWorksForOwner) {
+            hireActions.innerHTML = `<span style="font-size:11px;color:#006400;font-weight:bold">👷 Ви вже працюєте у власника ${escapeHtml(owned.owner)} на об'єкті «${escapeHtml(alreadyWorksForOwner.plotName)}».</span>`;
         } else {
             hireActions.innerHTML = `
                 <button class="btn default" onclick="openResumeModal(${plotId})" style="min-height:32px;padding:4px 12px;font-size:12px">📨 Подати резюме власнику (ваш бонус курсів: +${myZoneBonus}%)</button>
@@ -2977,6 +3689,7 @@ function showMapInfo(plotId) {
             ownerCtrl.style.display = "flex";
             const wageInp = $("owner-wage-input");
             if (wageInp && document.activeElement !== wageInp) wageInp.value = wage;
+            previewMapOwnerWageMargin();
         } else {
             ownerCtrl.style.display = "none";
         }
@@ -2993,17 +3706,19 @@ function showMapInfo(plotId) {
             const isCurrent = owned.building === b.id;
             const isLower = curIdx >= idx;
             const canBuild = !isLower && !overdueBlocked && gameState.coins >= b.cost;
+            const bFin = calcOrderFinancials(p.zone, b, [], b.defaultWage);
             const btnLabel = isCurrent
                 ? "✓ Збудовано"
                 : (isLower ? "✓ Пройдено" : (overdueBlocked ? "🚫 Борг у банку" : `Збудувати (${formatNumber(b.cost)})`));
             bHtml += `<div class="build-card${isCurrent ? " current-bld" : ""}">
                 <div class="build-card-info">
                     <span class="build-card-name">${b.icon} ${b.name}</span>
-                    <span class="build-card-sub">Ціна: ${formatNumberFull(b.cost)} 💰 • Дохід: +${formatNumberFull(b.income)}/год • Базова ЗП: ${b.defaultWage} 💰/замовл.</span>
+                    <span class="build-card-sub">Ціна: ${formatNumberFull(b.cost)} 💰 • Валовий дохід: +${formatNumberFull(b.income)}/год • Чек замовлення: ${b.clickProfit} 💰 (ЗП ${b.defaultWage} 💰, маржа +${bFin.ownerNetMargin} 💰)</span>
                 </div>
                 <button class="btn default" ${canBuild ? "" : "disabled"} onclick="buildOnSelectedPlot('${b.id}')">${btnLabel}</button>
             </div>`;
         });
+        bHtml += `<div style="margin-top:4px;text-align:right"><button class="btn danger" onclick="sellPlotToCity(${plotId})" style="min-height:26px;padding:2px 8px;font-size:11px">🏷️ Продати ділянку місту (повернути 75%)</button></div>`;
         buildGrid.innerHTML = bHtml;
     } else {
         buildSec.style.display = "none";
@@ -3018,7 +3733,7 @@ function showMapInfo(plotId) {
             buyBtn.textContent = "Недостатньо монет (" + formatNumber(price) + ")";
             buyBtn.disabled = true;
         } else {
-            buyBtn.textContent = "Купити землю (" + formatNumber(price) + " 💰)";
+            buyBtn.textContent = `Купити землю (${formatNumber(price)} 💰, податок -${calc.landTax}/год)`;
             buyBtn.disabled = false;
         }
     }
@@ -3049,11 +3764,16 @@ window.buySelectedPlot = async function () {
         });
         if (!result.committed) return showDialog("Не встигли", "Хтось купив цю ділянку раніше.", "⚠️");
         gameState.coins -= price;
+        const calc = calcPlotHourlyTaxAndNet(p, { owner: currentUser, price });
         sfx.win();
         renderAll(); saveGame();
         showMapInfo(selectedPlotId);
         setGameStatus("Ділянку куплено: " + p.name);
-        showDialog("Ділянку куплено!", `${p.name} (${formatPlotCoords(p)})\nЗона: ${ZONE_INFO[p.zone].name}\nТепер ви можете звести тут прибуткову будівлю та приймати резюме гравців на Пошту!`, "🗺️");
+        showDialog(
+            "Ділянку куплено!",
+            `${p.name} (${formatPlotCoords(p)})\nЗона: ${ZONE_INFO[p.zone].name}\n⚠️ Податок на саму землю: -${formatNumberFull(calc.landTax)} 💰/год.\nЗбудуйте тут підприємство, щоб земля почала приносити прибуток у вашу Касу!`,
+            "🗺️"
+        );
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
 };
 
@@ -3071,19 +3791,24 @@ window.buildOnSelectedPlot = async function (buildingId) {
     if (gameState.coins < bld.cost) return showDialog("Недостатньо монет", "Потрібно " + formatNumberFull(bld.cost) + " 💰", "💸");
 
     try {
-        const starterTreasury = (Number(owned.treasury) || 0) + Math.floor(bld.defaultWage * 20);
+        const currentTreasury = Math.max(0, Number(owned.treasury) || 0);
         await update(ref(db, `plots/${selectedPlotId}`), {
             building: bld.id,
             builtAt: Date.now(),
             wage: bld.defaultWage,
-            treasury: starterTreasury
+            treasury: currentTreasury
         });
         gameState.coins -= bld.cost;
+        const fin = calcOrderFinancials(p.zone, bld, [], bld.defaultWage);
         sfx.win();
         renderAll(); saveGame();
         showMapInfo(selectedPlotId);
-        setGameStatus(`Збудовано: ${bld.name} (+${bld.income}/год)`);
-        showDialog("Будівництво завершено!", `${bld.icon} ${bld.name}\nДілянка: ${p.name} (${formatPlotCoords(p)})\nБазовий дохід: +${formatNumberFull(bld.income)} монет/год\nСтартова каса зарплат: ${formatNumberFull(starterTreasury)} 💰\nВи можете запрошувати гравців на роботу, надіславши їм координати поштою!`, "🏗️");
+        setGameStatus(`Збудовано: ${bld.name}! Чек замовлення: ${bld.clickProfit} 💰, ваша маржа: +${fin.ownerNetMargin} 💰 у Касу.`);
+        showDialog(
+            "Підприємство відкрито!",
+            `${bld.icon} ${bld.name} (${p.name})\n\n• Чек покупця за замовлення: +${bld.clickProfit} 💰\n• Податок зони (${fin.turnoverTaxPct}%): -${fin.taxAmount} 💰\n• Базова ЗП робітнику: -${bld.defaultWage} 💰\n• Ваша чиста маржа в Касу: +${fin.ownerNetMargin} 💰 з кожного замовлення!\n\nЗабирайте зароблені гроші у вкладці «💼 Робота і Бізнес ➔ 🏦 Мій бізнес і КАСА» або прямо тут на мапі!`,
+            "🏗️"
+        );
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -3110,7 +3835,7 @@ function initBohdanChatIfEmpty() {
     appendBohdanMsg(
         "bohdan",
         "Богдан Поліщук",
-        "Здоров, козаче! Бачив оновлення в Ковелі? Тепер поштою Outlook Express 98 можна і гроші товаришу переслати, і скинути точні GPS-координати свого цеху чи магазину, щоб запросити людину на роботу! І вся історія переписки зберігається."
+        "Здоров, козаче! Тепер у Ковелі все прозоро і без жодних «грошей з неба»: у верхній панелі одразу світиться твоя «🏦 Каса», по кожному робітнику видно чек клієнта, податок місту, зарплату і твій чистий плюс. А у вкладці «🏛️ Політика» розписані податки на землю і зони!"
     );
 }
 
@@ -3162,19 +3887,21 @@ window.askBohdanPreset = function (text) {
 function generateSmartBohdanReply(userText) {
     const q = userText.toLowerCase();
     const coins = formatNumberFull(gameState.coins);
-    const dep = formatNumberFull(gameState.deposit?.amount || 0);
-    const myPlots = MAP_PLOTS_BASE.filter(p => getOwnedPlotData(p.id)?.owner === currentUser);
+    const cashbox = formatNumberFull(getTotalOwnerTreasury());
 
-    if (q.includes("пошт") || q.includes("переказ") || q.includes("координат") || q.includes("історі")) {
-        return "У вкладці «📧 Пошта» тепер є розділ «💬 Історія переписок», де видно весь діалог з кожним гравцем! А коли пишеш нового листа — можеш прикріпити монети для переказу або обрати своє підприємство й відправити людині координати місця роботи!";
+    if (q.includes("кас") || q.includes("марж") || q.includes("робітник") || q.includes("бізнес")) {
+        return `Дивись по-простому: коли твій робітник закриває замовлення (5 дій), клієнт платить Чек (плюс бонус від дипломів робітника). З цього чека автоматично віднімається Податок зони та Зарплата робітнику, а вся чиста маржа лягає у твою «🏦 Касу»! Натисни на кнопку «🏦 Каса: ${cashbox}» зверху екрана і забери гроші в гаманець!`;
     }
-    if (q.includes("курс") || q.includes("житл") || q.includes("пром") || q.includes("диплом") || q.includes("навч")) {
-        return "У вкладці «🎓 Курси» є три відділення! ІТ-курси відкривають КовельКорп (причому дорожчий курс автоматично зараховує всі дешевші!). Житлові курси дають до +185% виручки в Житловій зоні, а Промислові — до +200% на заводах!";
+    if (q.includes("подат") || q.includes("політик") || q.includes("земл")) {
+        const rRes = getZoneTaxRates("residential");
+        const rCom = getZoneTaxRates("commercial");
+        const rInd = getZoneTaxRates("industrial");
+        return `У вкладці «🏛️ Політика» діють ставки: Житлова зона — ${rRes.turnoverTaxPct}% з обороту і ${rRes.landTaxPct}%/год за землю; Комерція — ${rCom.turnoverTaxPct}% і ${rCom.landTaxPct}%/год; Промзона — ${rInd.turnoverTaxPct}% і ${rInd.landTaxPct}%/год. І пам'ятай: пуста земля без будівлі дає 0 доходу, а податок на землю жере щогодини!`;
     }
-    if (q.includes("банк") || q.includes("кредит") || q.includes("депозит")) {
-        return "У КовельБанку тепер чесна ставка: депозит дає +1% за годину, і будівлі теж приносять ренту раз на годину. А якщо прострочиш кредит — штрафи стягуватимуться з депозиту і нічого купити не зможеш, зате працювати можна і треба, щоб віддати борг!";
+    if (q.includes("пошт") || q.includes("переказ") || q.includes("координат")) {
+        return "У вкладці «📧 Пошта» можна переглянути історію переписки з кожним гравцем, переслати монети або запропонувати роботу з GPS-координатами ділянки (причому гравців, які вже працюють на тебе, кликати повторно система не дозволить!).";
     }
-    return `У тебе в гаманці ${coins} 💰 і на депозиті ${dep} 💰 (ділянок: ${myPlots.length}). Працюй, будуй бізнес у Ковелі та запрошуй друзів за координатами через Пошту!`;
+    return `У твоєму гаманці зараз ${coins} 💰, а в Касах твоїх бізнесів — ${cashbox} 💰. Відкривай «🏦 Мій бізнес і КАСА» або «🏛️ Політика», там уся бухгалтерія як на долоні!`;
 }
 
 window.sendBohdanMessage = async function () {
@@ -3193,7 +3920,7 @@ window.sendBohdanMessage = async function () {
 
     if (apiKey) {
         try {
-            const sysPrompt = `Ти — Богдан Поліщук із міста Ковель (живеш на вул. Миколайчука, 100). Раніше працював зварювальником у Чехії, повернувся додому в Ковель. Розмовляєш живою, дружньою українською мовою з ковельським колоритом. Гравець ${currentUser} зараз у тебе в гостях у грі Win98 SE Work (гаманець: ${gameState.coins} монет, депозит: ${gameState.deposit?.amount || 0} монет). Відповідай лаконічно (2-3 речення).`;
+            const sysPrompt = `Ти — Богдан Поліщук із міста Ковель (живеш на вул. Миколайчука, 100). Раніше працював зварювальником у Чехії, повернувся додому в Ковель. Розмовляєш живою, дружньою українською мовою з ковельським колоритом. Гравець ${currentUser} зараз у тебе в гостях у грі Win98 SE Work (гаманець: ${gameState.coins} монет, у касі бізнесів: ${getTotalOwnerTreasury()} монет). Відповідай лаконічно (2-3 речення).`;
             const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -3297,7 +4024,6 @@ function renderBank() {
     }
 }
 
-// ВИМОГА 1: Працювати можна навіть при простроченому кредиті (немає перевірки isBankBlocked)!
 window.startTaskOrShowStatus = function () {
     if (!currentUser || isCourseRunning()) return;
     if (Date.now() < workCooldownUntil) return;
@@ -3398,6 +4124,7 @@ window.switchPage = function (page) {
     if (page === "leaderboard") { loadLeaderboard(); loadOnline(); }
     if (page === "shop") renderShop();
     if (page === "mail") renderMailPage();
+    if (page === "politics") renderPoliticsPage();
     if (page === "map") {
         renderMap();
         setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 60);
@@ -3486,6 +4213,7 @@ window.logout = async function () {
     if (mapListener) { mapListener(); mapListener = null; }
     if (mailInboxListener) { mailInboxListener(); mailInboxListener = null; }
     if (mailSentListener) { mailSentListener(); mailSentListener = null; }
+    if (policyListener) { policyListener(); policyListener = null; }
     currentUser = "";
     userInboxMail = {}; userSentMail = {}; lastUnreadMailCount = 0; activeHistoryContact = "";
     if ($("admin-wipe-btn")) $("admin-wipe-btn").style.display = "none";
