@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="3.8.0">
-<title>Win98 Work — Ковель Економіка SE v3.8</title>
+<meta name="version" content="3.9.0">
+<title>Win98 Work — Ковель Економіка SE v3.9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v3.8 SE</div>
+        <div class="panel small">v3.9 SE</div>
     </div>
 </div>
 
@@ -57,8 +57,9 @@
     <!-- Інтуїтивна верхня панель швидкого огляду в стилі Windows 98 Explorer Coolbar -->
     <div class="xp-quick-hud">
         <div class="xp-hud-left">
-            <div class="xp-hud-pill coins" title="Баланс гаманця">💰 <b id="hud-coins">0</b></div>
-            <div class="xp-hud-pill" title="Погодинний пасивний дохід від нерухомості">🏘️ <b id="hud-income">+0/год</b></div>
+            <div class="xp-hud-pill coins" title="Готівка у вашому гаманці">💰 <b id="hud-coins">0</b></div>
+            <div class="xp-hud-pill cashbox-pill" onclick="openMyBizCashboxQuick()" title="Гроші у касах ваших підприємств (натисніть, щоб відкрити Касу і забрати прибуток)">🏦 Каса: <b id="hud-treasury">0</b></div>
+            <div class="xp-hud-pill" onclick="switchPage('politics')" style="cursor:pointer" title="Чистий погодинний баланс землі та будівель після вирахування податків (натисніть для деталей)">🏘️ <b id="hud-income">+0/год</b></div>
             <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
         </div>
         <div class="xp-hud-right">
@@ -69,8 +70,9 @@
     </div>
 
     <div class="tab-strip">
-        <button class="tab active" id="tabnav-work" onclick="switchPage('work')">💼 Робота</button>
+        <button class="tab active" id="tabnav-work" onclick="switchPage('work')">💼 Робота і Бізнес</button>
         <button class="tab" id="tabnav-map" onclick="switchPage('map')">🗺️ Мапа</button>
+        <button class="tab" id="tabnav-politics" onclick="switchPage('politics')">🏛️ Політика</button>
         <button class="tab" id="tabnav-mail" onclick="switchPage('mail')">📧 Пошта <span class="tab-badge" id="tab-mail-badge" style="display:none">0</span></button>
         <button class="tab" id="tabnav-shop" onclick="switchPage('shop')">🎓 Курси</button>
         <button class="tab" id="tabnav-bank" onclick="switchPage('bank')">🏦 Банк</button>
@@ -78,11 +80,11 @@
     </div>
 
     <div class="tab-content">
-        <!-- РОБОТА -->
+        <!-- РОБОТА І БІЗНЕС -->
         <div class="page active" id="page-work">
             <div class="employer-bar">
                 <div class="employer-info">
-                    <span class="emp-label">Поточне місце роботи:</span>
+                    <span class="emp-label">Ваша поточна робота:</span>
                     <span class="emp-name" id="emp-current-name">Муніципальний підробіток</span>
                     <span class="emp-sub" id="emp-current-sub">Власник: Міська рада Ковеля</span>
                 </div>
@@ -123,25 +125,23 @@
 
             <!-- Інтуїтивні під-вкладки робочої панелі -->
             <div class="work-mode-tabs">
-                <button class="work-mode-btn active" id="wtab-vacancies" onclick="switchWorkSubtab('vacancies')">🏪 Вакансії (Резюме) <span class="badge-cnt" id="badge-vacancies">0</span></button>
-                <button class="work-mode-btn" id="wtab-mybiz" onclick="switchWorkSubtab('mybiz')">👨‍💼 Мої робітники та ЗП <span class="badge-cnt" id="badge-mybiz">0</span></button>
+                <button class="work-mode-btn active" id="wtab-vacancies" onclick="switchWorkSubtab('vacancies')">🏪 Вакансії (Влаштуватись) <span class="badge-cnt" id="badge-vacancies">0</span></button>
+                <button class="work-mode-btn" id="wtab-mybiz" onclick="switchWorkSubtab('mybiz')">🏦 Мій бізнес і КАСА <span class="badge-cnt" id="badge-mybiz">0</span></button>
                 <button class="work-mode-btn" id="wtab-career" onclick="switchWorkSubtab('career')">📊 Дипломи і Кар'єра</button>
             </div>
 
-            <!-- Під-вкладка 1: Вакансії у бізнесах гравців (через подачу резюме!) -->
-            <div class="group-box" id="work-sub-vacancies" data-label="🏪 Біржа праці Ковеля (вступ за резюме через Пошту)">
+            <!-- Під-вкладка 1: Вакансії у бізнесах гравців -->
+            <div class="group-box" id="work-sub-vacancies" data-label="🏪 Біржа праці Ковеля (подача резюме на підприємства гравців)">
                 <div class="muted" style="margin-bottom:6px">
-                    Щоб влаштуватися на підприємство іншого гравця, <b>надішліть резюме</b>. Воно прийде власнику на <b>📧 Пошту</b> разом зі списком ваших пройдених курсів. Профільні курси (Житлові чи Промислові) суттєво збільшують виручку, яку ви приносите власнику!
+                    Оберіть підприємство нижче та натисніть <b>«📨 Подати резюме»</b>. Коли ви виконуєте замовлення на роботі, покупець оплачує чек: з нього списується міський податок і ваша зарплата, а решта йде власнику в касу!
                 </div>
                 <div class="private-jobs-list" id="private-jobs-list"></div>
             </div>
 
-            <!-- Під-вкладка 2: Керування своїми підприємствами та зарплатами робітників -->
-            <div class="group-box" id="work-sub-mybiz" data-label="👨‍💼 Мої підприємства: курси робітників, статистика та ЗП" style="display:none;">
-                <div class="muted" style="margin-bottom:6px">
-                    Тут видно кожного працівника, <b>які курси він пройшов</b>, який бонус до виручки дає вашій зоні, скільки замовлень виконав, а також кнопки <b>підвищення зарплати</b> та <b>запрошення гравців за координатами</b>.
-                </div>
-                <div id="owner-businesses-hub" class="private-jobs-list" style="max-height:290px;"></div>
+            <!-- Під-вкладка 2: Керування своїми підприємствами, КАСА, податки та маржа з робітників -->
+            <div class="group-box" id="work-sub-mybiz" data-label="🏦 Мій бізнес: Каса, Податки та Чистий прибуток з робітників" style="display:none;">
+                <div id="owner-master-summary"></div>
+                <div id="owner-businesses-hub" class="private-jobs-list" style="max-height:380px;"></div>
             </div>
 
             <!-- Під-вкладка 3: Кар'єра та детальна статистика -->
@@ -156,6 +156,37 @@
                 </div>
                 <div id="career-xp-wrap" class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
                 <div class="jobs-list" id="jobs-list"></div>
+            </div>
+        </div>
+
+        <!-- ПОЛІТИКА ТА ПОДАТКИ МІСТА КОВЕЛЬ -->
+        <div class="page" id="page-politics">
+            <div class="mail-banner" style="background:linear-gradient(90deg,#003366 0%,#0b5e28 100%)">
+                <div>
+                    <div class="sub-title" style="color:#ffffff;margin:0">🏛️ Міська рада Ковеля — Податкова політика та Земля</div>
+                    <div style="font-size:11px;color:#e0f2fe">Оподаткування земельних ділянок та бізнесу в Житловій, Комерційній і Промисловій зонах</div>
+                </div>
+                <button class="btn" onclick="openMyBizCashboxQuick()" style="min-height:28px;min-width:auto;padding:3px 9px;font-size:11px;font-weight:bold">🏦 Відкрити мою Касу</button>
+            </div>
+
+            <div class="group-box" data-label="📜 Діючі податкові ставки по зонах м. Ковель">
+                <div class="muted" style="margin-bottom:6px">
+                    <b>Як працюють податки (жодних грошей з неба!):</b><br>
+                    1) <b>Податок на землю (/год):</b> стягується щогодини за сам факт володіння ділянкою (% від базової вартості ділянки). Якщо купити землю і нічого не збудувати — вона приносить <b>0 💰 доходу</b> і тягне вас у мінус на суму земельного податку!<br>
+                    2) <b>Податок з обороту зони (%):</b> автоматично утримується з кожного чека клієнта (коли працює робітник) та з погодинної виручки будівлі перед тим, як чистий прибуток потрапляє у вашу <b>Касу бізнесу</b>.
+                </div>
+                <div class="politics-grid" id="politics-zones-grid"></div>
+            </div>
+
+            <!-- Панель зміни податків для мера / admin -->
+            <div class="group-box" id="politics-admin-box" data-label="⚖️ Кабінет Мера (admin): Зміна ставок податків у місті" style="display:none;">
+                <div class="muted" style="margin-bottom:6px">Як адміністратор (мер Ковеля), ви можете змінювати податок з обороту та земельний податок для кожної зони в реальному часі:</div>
+                <div id="politics-admin-controls"></div>
+            </div>
+
+            <!-- Персональна податкова відомість гравця по його землі та бізнесах -->
+            <div class="group-box" data-label="📊 Ваш особистий податковий баланс та рентабельність ділянок">
+                <div id="politics-player-ledger"></div>
             </div>
         </div>
 
@@ -197,7 +228,7 @@
                 <div class="form-row">
                     <label>Кому (логін):</label>
                     <input type="text" class="input-field" id="mail-to-input" placeholder="Введіть нік гравця..." maxlength="25">
-                    <select class="input-field" id="mail-to-select" onchange="if(this.value) document.getElementById('mail-to-input').value=this.value" style="max-width:145px">
+                    <select class="input-field" id="mail-to-select" onchange="if(this.value) document.getElementById('mail-to-input').value=this.value" style="max-width:165px">
                         <option value="">▼ Список гравців</option>
                     </select>
                 </div>
@@ -231,7 +262,7 @@
                     <div class="bank-input-wrap" id="mail-job-wage-row" style="display:none;margin-top:4px">
                         <span style="font-size:12px">Запропонована ЗП (💰/замовл.):</span>
                         <input type="number" class="input-field" id="mail-job-wage-input" min="5" max="50000" style="max-width:110px">
-                        <span class="muted" style="font-size:11px">Гравець побачить координати на мапі й зможе одразу влаштуватись!</span>
+                        <span class="muted" style="font-size:11px">Не можна запрошувати гравців, які вже працюють на вас!</span>
                     </div>
                 </div>
 
@@ -246,7 +277,7 @@
         <div class="page" id="page-shop">
             <div class="sub-title">🎓 Навчальний комбінат м. Ковель (3 напрямки підготовки)</div>
             <div class="muted" style="margin-bottom:4px">
-                Обирайте напрямок навчання! <b>Будь-який пройдений ІТ-курс</b> відкриває роботу в КовельКорп (дорожчий курс автоматично зараховує вимоги дешевших!). <b>Житлові</b> та <b>Промислові</b> курси збільшують прибуток, який ви приносите на роботах гравців у відповідній зоні!
+                Обирайте напрямок навчання! <b>Будь-який пройдений ІТ-курс</b> відкриває роботу в КовельКорп (дорожчий курс автоматично зараховує вимоги дешевших!). <b>Житлові</b> та <b>Промислові</b> курси збільшують чек клієнта при роботі на гравців у відповідній зоні!
             </div>
 
             <div class="work-mode-tabs">
@@ -369,8 +400,8 @@
         <div class="page" id="page-map">
             <div class="map-header-row">
                 <div>
-                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок, дохід щогодини)</div>
-                    <div class="muted">Купуйте землю, будуйте бізнес, запрошуйте гравців за координатами або подавайте резюме!</div>
+                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок, податки на землю та бізнес)</div>
+                    <div class="muted">Увага: порожня земля без будівлі не дає доходу і щогодини списує податок на землю! Будуйте бізнес та керуйте Касою.</div>
                 </div>
                 <div style="display:flex;gap:4px">
                     <button class="btn" onclick="focusBohdanHouse()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Миколайчука 100">👨‍🏭 Богдан</button>
@@ -398,34 +429,35 @@
                 <div class="map-info-row"><span class="label">Власник:</span><span class="value" id="info-owner">—</span></div>
                 <div class="map-info-row"><span class="label">Ціна землі:</span><span class="value" id="info-price">—</span></div>
                 <div class="map-info-row"><span class="label">Забудова:</span><span class="value" id="info-building">—</span></div>
-                <div class="map-info-row"><span class="label">Пасивний дохід:</span><span class="value" id="info-income">—</span></div>
-                <div class="map-info-row"><span class="label">Бонуси локації:</span><span class="value" id="info-bonus">—</span></div>
+                <div class="map-info-row"><span class="label">Податок на землю:</span><span class="value" id="info-land-tax" style="color:#800000">—</span></div>
+                <div class="map-info-row"><span class="label">Чистий баланс/год:</span><span class="value" id="info-income">—</span></div>
 
                 <div class="map-info-actions" id="info-buy-wrap">
                     <button class="btn default" id="info-buy-btn" onclick="buySelectedPlot()">Купити</button>
                 </div>
 
                 <div class="build-section" id="info-workers-section" style="display:none;">
-                    <div class="build-section-title">👷 Штат підприємства, дипломи та відомість працівників:</div>
-                    <div class="map-info-row"><span class="label">Каса зарплат (фонд):</span><span class="value" id="info-biz-funds">0 💰</span></div>
-                    <div class="map-info-row"><span class="label">Стартова ЗП (за замовлення):</span><span class="value" id="info-biz-wage">0 💰</span></div>
-                    <div class="map-info-row"><span class="label">Бонус пасивного доходу:</span><span class="value" id="info-biz-boost">+0% доходу</span></div>
+                    <!-- Наочна панель Каси та формули 1 замовлення прямо на мапі -->
+                    <div id="info-cashbox-banner"></div>
+                    <div id="info-order-formula"></div>
 
+                    <div class="build-section-title">👷 Працівники підприємства (хто скільки приносить чистими):</div>
                     <div id="info-workers-list" class="workers-roster"></div>
                     <div class="btn-row" id="info-hire-actions" style="margin-top:4px"></div>
 
                     <div id="info-owner-Controls" class="bank-op-box" style="display:none;margin-top:6px">
-                        <div class="bank-op-label">⚙️ Керування касою та запрошення працівників:</div>
+                        <div class="bank-op-label">⚙️ Налаштування зарплати та Каси підприємства:</div>
                         <div class="bank-input-wrap">
                             <span style="font-size:11px;min-width:110px">Базова ЗП/замовл.:</span>
-                            <input type="number" class="input-field" id="owner-wage-input" min="5" max="50000" style="font-size:12px;padding:4px 6px">
-                            <button class="btn" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">Зберегти</button>
-                            <button class="btn success" onclick="openJobInviteMail(selectedPlotId)" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Надіслати гравцю координати та пропозицію роботи">📍 Запросити на роботу</button>
+                            <input type="number" class="input-field" id="owner-wage-input" min="5" max="50000" oninput="previewMapOwnerWageMargin()" style="font-size:12px;padding:4px 6px;max-width:95px">
+                            <button class="btn default" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">💾 Зберегти ЗП</button>
+                            <button class="btn success" onclick="openJobInviteMail(selectedPlotId)" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Надіслати гравцю координати та пропозицію роботи">📍 Запросити</button>
                         </div>
-                        <div class="bank-input-wrap" style="margin-top:4px">
-                            <input type="number" class="input-field" id="owner-fund-input" placeholder="Сума для каси..." min="50" style="font-size:12px;padding:4px 6px">
-                            <button class="btn default" onclick="fundPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">📥 В касу</button>
-                            <button class="btn" onclick="withdrawPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">📤 З каси</button>
+                        <div id="owner-wage-preview-hint" style="font-size:11px;margin-top:2px"></div>
+                        <div class="bank-input-wrap" style="margin-top:5px">
+                            <button class="btn success" onclick="withdrawPlotTreasury(selectedPlotId, null, true)" style="min-width:auto;min-height:32px;padding:4px 10px;font-size:12px;font-weight:bold">💰 Забрати всю Касу в гаманець</button>
+                            <input type="number" class="input-field" id="owner-fund-input" placeholder="Сума..." min="10" style="font-size:12px;padding:4px 6px;max-width:90px">
+                            <button class="btn" onclick="fundPlotTreasury()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">➕ Поповнити касу</button>
                         </div>
                     </div>
                 </div>
@@ -541,8 +573,8 @@
         <div class="bohdan-chat-log" id="bohdan-chat-log"></div>
 
         <div class="bohdan-chips">
-            <button class="chip-btn" onclick="askBohdanPreset('Як тобі робота зварювальником у Чехії?')">🔥 Про Чехію і зварку</button>
-            <button class="chip-btn" onclick="askBohdanPreset('Які курси краще пройти для промзони і житлової?')">🎓 Про нові курси</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Поясни по-простому як працює Каса бізнесу і маржа з робітника?')">🏦 Про Касу і маржу</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Які податки на землю і зони у вкладці Політика?')">🏛️ Про податки та Політику</button>
             <button class="chip-btn" onclick="askBohdanPreset('Як переслати гроші або координати роботи поштою?')">📧 Про Пошту і перекази</button>
             <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">☕ Заварити кави</button>
         </div>
