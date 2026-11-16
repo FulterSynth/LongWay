@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.5.0";
+const APP_VERSION = "4.6.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -29,11 +29,23 @@ const MUNICIPAL_TASK_REWARD = 5;         // Нагорода за розчище
 
 const PRIVATE_ORDER_STAGE_LABELS = [
     "Крок 1/5: Прийняти замовлення клієнта",
-    "Крок 2/5: Підготувати товар / сировину",
-    "Крок 3/5: Перевірити якість і упакувати",
-    "Крок 4/5: Оформити чек через касу",
+    "Крок 2/5: Підготувати товар / матеріали зі складу",
+    "Крок 3/5: Перевірити якість і комплектацію",
+    "Крок 4/5: Пробити чек (із допродажем) через касу",
     "Крок 5/5: Видати готове замовлення клієнту"
 ];
+
+const INDUSTRIAL_ORDER_STAGE_LABELS = [
+    "Крок 1/5: Завантажити первинну сировину на лінію",
+    "Крок 2/5: Запустити верстати / виробничий цех",
+    "Крок 3/5: Технічний контроль якості партії",
+    "Крок 4/5: Фасування та маркування готової продукції",
+    "Крок 5/5: Відвантажити готову продукцію на склад збуту"
+];
+
+function getStageLabelsForZone(zone) {
+    return zone === "industrial" ? INDUSTRIAL_ORDER_STAGE_LABELS : PRIVATE_ORDER_STAGE_LABELS;
+}
 
 const OWNER_ASSIGNED_TITLES = [
     "Новачок",
@@ -46,11 +58,17 @@ const OWNER_ASSIGNED_TITLES = [
 
 
 
-// ===== СИСТЕМА ЗАКУПІВЛІ СИРОВИНИ / ТОВАРІВ НА СКЛАД ПІДПРИЄМСТВА (v4.4.0) =====
+// ===== МІЖЗОНАЛЬНИЙ ЛАНЦЮЖОК ПОСТАЧАННЯ ТА СКЛАД ГОТОВОЇ ПРОДУКЦІЇ (v4.6.0) =====
 const ZONE_SUPPLY_NAMES = {
-    residential: "🧱 Будматеріали і запчастини",
-    commercial:  "📦 Товари та продукти",
-    industrial:  "🔩 Сировина, метал і паливо"
+    residential: "🧱 Будматеріали і запчастини (з Промзони)",
+    commercial:  "🥐 Їжа, випічка та товари легпрому (з Промзони)",
+    industrial:  "🔩 Первинна сировина (метал, борошно, тканина)"
+};
+
+const ZONE_ROLE_DESCRIPTIONS = {
+    residential: "🏡 Рідкі клієнти, але високий чек! Курси піднімають чек за майстерність. Закуповує матеріали в Промзоні.",
+    commercial:  "🏪 Масовий потік клієнтів, менший базовий чек. Курси дають допродаж (більше товарів у чеку) + потік. Купує їжу й товари в Легкій промзоні.",
+    industrial:  "🏭 Важка і Легка пром без вуличних клієнтів! Переробляє сировину на продукцію для Житлової і Комерційної зон. Курси збільшують вихід продукції (2 ➔ 4 од.)."
 };
 
 function getSupplyUnitCost(buildingDef) {
@@ -63,24 +81,62 @@ function getSupplyMaxCapacity(zone, buildingId) {
     const zInfo = ZONE_INFO[zone];
     if (!zInfo || !buildingId) return 60;
     const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
-    const caps = [60, 110, 180, 300];
-    return caps[Math.max(0, idx)] || 60;
+    // У Комерції великий потік покупців, тому місткість складу більша; у Житловій зоні менше клієнтів, але дорогі замовлення
+    if (zone === "commercial") {
+        const comCaps = [80, 150, 240, 400];
+        return comCaps[Math.max(0, idx)] || 80;
+    }
+    if (zone === "residential") {
+        const resCaps = [45, 85, 140, 220];
+        return resCaps[Math.max(0, idx)] || 45;
+    }
+    const indCaps = [70, 130, 210, 350];
+    return indCaps[Math.max(0, idx)] || 70;
+}
+
+function getFinishedGoodsMaxCapacity(buildingId) {
+    const zInfo = ZONE_INFO.industrial;
+    if (!zInfo || !buildingId) return 120;
+    const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
+    const caps = [120, 220, 360, 600];
+    return caps[Math.max(0, idx)] || 120;
 }
 
 function getPlotSupplyState(plot, ownedData) {
     if (!plot || !ownedData || !ownedData.building) {
-        return { stock: 0, maxStock: 0, unitCost: 0, bulk25Cost: 0, bulk100Cost: 0, autoRestock: true, supplyLabel: "📦 Сировина" };
+        return {
+            stock: 0, maxStock: 0, unitCost: 0, b2bUnitCost: 0,
+            bulk25Units: 0, bulk25Cost: 0, fullUnits: 0, fullCost: 0,
+            b2bBulk25Cost: 0, b2bFullCost: 0,
+            finishedStock: 0, maxFinishedStock: 0, govUnitPrice: 0, govTotalValue: 0,
+            b2bSoldUnits: 0, b2bEarnedTotal: 0,
+            autoRestock: true, supplyLabel: "📦 Сировина"
+        };
     }
     const bld = getBuildingDef(plot.zone, ownedData.building);
     const maxStock = getSupplyMaxCapacity(plot.zone, ownedData.building);
-    // Для вже збудованих раніше об'єктів без поля supplyStock даємо стартовий запас 40 од.
     const stock = ownedData.supplyStock !== undefined ? Math.max(0, Math.floor(Number(ownedData.supplyStock) || 0)) : Math.min(40, maxStock);
     const unitCost = getSupplyUnitCost(bld);
-    // Оптова закупівля власником вручну дає знижку: -12% за 25 од., -20% за повний склад!
+    // Купівля напряму на біржі у гравців Промзони дає найбільшу знижку: -28% (вигідніше за системний опт -12%/-20%!)
+    const b2bUnitCost = Math.max(1, Math.round(unitCost * 0.72));
     const bulk25Units = Math.min(25, Math.max(0, maxStock - stock));
     const fullUnits = Math.max(0, maxStock - stock);
     const bulk25Cost = Math.max(1, Math.round(bulk25Units * unitCost * 0.88));
     const fullCost = Math.max(1, Math.round(fullUnits * unitCost * 0.80));
+    const b2bBulk25Cost = Math.max(1, bulk25Units * b2bUnitCost);
+    const b2bFullCost = Math.max(1, fullUnits * b2bUnitCost);
+
+    const isInd = plot.zone === "industrial";
+    const maxFinishedStock = isInd ? getFinishedGoodsMaxCapacity(ownedData.building) : 0;
+    const finishedStock = isInd
+        ? (ownedData.finishedStock !== undefined ? Math.max(0, Math.floor(Number(ownedData.finishedStock) || 0)) : 24)
+        : 0;
+    // Ціна здачі 1 од. готової продукції на системне Держзамовлення (страховка, якщо інші гравці офлайн)
+    const govUnitPrice = isInd ? Math.max(3, Math.round(unitCost * 0.65)) : 0;
+    const govTotalValue = finishedStock * govUnitPrice;
+    const b2bSoldUnits = Math.max(0, Math.floor(Number(ownedData.b2bSoldUnits) || 0));
+    const b2bEarnedTotal = Math.max(0, Math.floor(Number(ownedData.b2bEarnedTotal) || 0));
+
     const autoRestock = ownedData.autoRestock !== undefined ? Boolean(ownedData.autoRestock) : true;
     const supplyLabel = ZONE_SUPPLY_NAMES[plot.zone] || "📦 Сировина і товари";
 
@@ -88,13 +144,44 @@ function getPlotSupplyState(plot, ownedData) {
         stock,
         maxStock,
         unitCost,
+        b2bUnitCost,
         bulk25Units,
         bulk25Cost,
         fullUnits,
         fullCost,
+        b2bBulk25Cost,
+        b2bFullCost,
+        finishedStock,
+        maxFinishedStock,
+        govUnitPrice,
+        govTotalValue,
+        b2bSoldUnits,
+        b2bEarnedTotal,
         autoRestock,
         supplyLabel
     };
+}
+
+function getAvailableIndustrialSuppliers() {
+    const suppliers = [];
+    if (!sharedPlots) return suppliers;
+    MAP_PLOTS_BASE.forEach(p => {
+        if (p.zone !== "industrial") return;
+        const owned = getOwnedPlotData(p.id);
+        if (!owned || !owned.building) return;
+        const bld = getBuildingDef("industrial", owned.building);
+        if (!bld) return;
+        const sup = getPlotSupplyState(p, owned);
+        suppliers.push({
+            plot: p,
+            owned,
+            bld,
+            finishedStock: sup.finishedStock,
+            maxFinishedStock: sup.maxFinishedStock
+        });
+    });
+    suppliers.sort((a, b) => b.finishedStock - a.finishedStock);
+    return suppliers;
 }
 
 // ===== СИСТЕМА ПОТОКУ КЛІЄНТІВ, ПЕРМАНЕНТНОЇ ІНФРАСТРУКТУРИ ТА ТИМЧАСОВОЇ РЕКЛАМИ (v4.3.0) =====
@@ -115,13 +202,38 @@ function getBaseClientsPerHour(zone, buildingId) {
     const zInfo = ZONE_INFO[zone];
     if (!zInfo || !buildingId) return 15;
     const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
-    const tierRates = [16, 30, 52, 85];
-    return tierRates[Math.max(0, idx)] || 16;
+    // Асиметричний баланс 3 зон:
+    // 🏡 Житлова: клієнтів небагато (10..48/год), зате високий чек!
+    // 🏪 Комерційна: величезний потік покупців (28..145/год), менший базовий чек одиниці, але є допродаж!
+    // 🏭 Промислова: немає вуличних клієнтів — це потужність виробничих ліній (24..120 партій/год)!
+    if (zone === "residential") {
+        const resRates = [10, 18, 30, 48];
+        return resRates[Math.max(0, idx)] || 10;
+    }
+    if (zone === "commercial") {
+        const comRates = [28, 52, 90, 145];
+        return comRates[Math.max(0, idx)] || 28;
+    }
+    const indRates = [24, 42, 72, 120];
+    return indRates[Math.max(0, idx)] || 24;
+}
+
+function getCommercialStaffFlowBonus(ownedData) {
+    if (!ownedData || !ownedData.workers) return 0;
+    let flowAdd = 0;
+    Object.values(ownedData.workers).forEach(w => {
+        const list = Array.isArray(w?.completedCourses) ? w.completedCourses : [];
+        list.forEach(cid => {
+            const c = COURSES.find(x => x.id === cid && x.category === "commercial");
+            if (c && c.flowBonus) flowAdd += c.flowBonus;
+        });
+    });
+    return Math.min(80, flowAdd);
 }
 
 function getPlotClientsState(plot, ownedData) {
     if (!plot || !ownedData || !ownedData.building) {
-        return { current: 0, max: 0, perHour: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0 };
+        return { current: 0, max: 0, perHour: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, comStaffFlowBonus: 0 };
     }
     const basePerHour = getBaseClientsPerHour(plot.zone, ownedData.building);
     const upgMap = ownedData.upgrades || {};
@@ -129,11 +241,12 @@ function getPlotClientsState(plot, ownedData) {
     BUSINESS_UPGRADES.forEach(u => {
         if (upgMap[u.id]) upgradeBonus += u.clientBonus;
     });
+    const comStaffFlowBonus = plot.zone === "commercial" ? getCommercialStaffFlowBonus(ownedData) : 0;
 
     const now = Date.now();
     const adUntil = Number(ownedData.adUntil) || 0;
     const adMultPct = adUntil > now ? (Number(ownedData.adMultPct) || 0) : 0;
-    const rawCap = basePerHour + upgradeBonus;
+    const rawCap = basePerHour + upgradeBonus + comStaffFlowBonus;
     const perHour = Math.round(rawCap * (1 + adMultPct / 100));
     const maxClients = perHour;
 
@@ -151,6 +264,7 @@ function getPlotClientsState(plot, ownedData) {
         perHour,
         basePerHour,
         upgradeBonus,
+        comStaffFlowBonus,
         adActive: adUntil > now,
         adName: ownedData.adName || "",
         adMultPct,
@@ -181,26 +295,26 @@ const COURSES = [
     { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, desc: "Крок 5: Потрібен для звання Team Lead" },
     { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, desc: "Крок 6: Потрібен для звання Tech Lead та CTO" },
 
-    // 2. Курси Житлової зони (збалансовані % та підвищені ціни: 450 – 9 500 💰)
-    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 450, durationMs: 900000, boost: 0, zoneBoost: 5, desc: "Дає +5% до чека клієнта при роботі на об'єктах у Житловій зоні" },
-    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 1200, durationMs: 1800000, boost: 0, zoneBoost: 8, desc: "Допуск до обслуговування таунхаусів і ЖК: +8% до чека у Житловій зоні" },
-    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 2800, durationMs: 2700000, boost: 0, zoneBoost: 12, desc: "Професійний догляд за житловими кварталами: +12% до чека у Житловій зоні" },
-    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир і будинків", price: 5500, durationMs: 3600000, boost: 0, zoneBoost: 16, desc: "Комплексний ремонт та утеплення фасадів: +16% до чека у Житловій зоні" },
-    { id: "res_osbb", category: "residential", name: "Управління ОСББ та житловим фондом", price: 9500, durationMs: 5400000, boost: 0, zoneBoost: 22, desc: "Диплом головного управителя ЖК: +22% до чека замовлення у Житловій зоні" },
+    // 2. Курси Житлової зони: мало клієнтів, але кожне замовлення дороге! Курси піднімають чек за майстерність (+6%..+27%, до +78%)
+    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 450, durationMs: 900000, boost: 0, zoneBoost: 6, desc: "Якісний ремонт труб та вузлів: піднімає чек рідкісного клієнта на +6% у Житловій зоні" },
+    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 1200, durationMs: 1800000, boost: 0, zoneBoost: 10, desc: "Складна проводка та автоматика таунхаусів: +10% до чека замовлення у Житловій зоні" },
+    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 2800, durationMs: 2700000, boost: 0, zoneBoost: 15, desc: "Комплексний догляд за житловими кварталами: +15% до чека у Житловій зоні" },
+    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир під ключ", price: 5500, durationMs: 3600000, boost: 0, zoneBoost: 20, desc: "Капітальний ремонт та утеплення фасадів: +20% до чека у Житловій зоні" },
+    { id: "res_osbb", category: "residential", name: "Управління ОСББ та інженерія ЖК", price: 9500, durationMs: 5400000, boost: 0, zoneBoost: 27, desc: "Диплом головного інженера ЖК: +27% до вартості замовлення у Житловій зоні" },
 
-    // 3. Курси Комерційної зони (збалансовані % та підвищені ціни: 550 – 12 000 💰)
-    { id: "com_cashier", category: "commercial", name: "Касова справа та обслуговування", price: 550, durationMs: 900000, boost: 0, zoneBoost: 5, desc: "Швидкий розрахунок покупців: +5% до чека клієнта у Комерційній зоні" },
-    { id: "com_barista", category: "commercial", name: "Бариста і кухар піцерії", price: 1500, durationMs: 1800000, boost: 0, zoneBoost: 8, desc: "Професійна робота в кав'ярнях і піцеріях Ковеля: +8% до чека у Комерційній зоні" },
-    { id: "res_trade", category: "commercial", name: "Товарознавство та мерчандайзинг", price: 3400, durationMs: 2700000, boost: 0, zoneBoost: 12, desc: "Грамотна викладка товарів у маркетах і пасажах: +12% до чека у Комерційній зоні" },
-    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 6800, durationMs: 3600000, boost: 0, zoneBoost: 16, desc: "Залучення клієнтів і підвищення середнього чека: +16% у Комерційній зоні" },
-    { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-холу", price: 12000, durationMs: 5400000, boost: 0, zoneBoost: 22, desc: "Диплом топ-менеджера торгівлі: +22% до чека замовлення у Комерційній зоні" },
+    // 3. Курси Комерційної зони: великий потік покупців! Курси вчать продавати БІЛЬШЕ товарів в одні руки (допродаж) і притягують нових клієнтів
+    { id: "com_cashier", category: "commercial", name: "Касова справа та швидкий допродаж", price: 550, durationMs: 900000, boost: 0, zoneBoost: 6, flowBonus: 3, desc: "Пропозиція дрібниць на касі: клієнт купує на +6% більше товарів за раз, +3 клієнти/год у чергу" },
+    { id: "com_barista", category: "commercial", name: "Бариста, піцайоло та комбо-меню", price: 1500, durationMs: 1800000, boost: 0, zoneBoost: 10, flowBonus: 4, desc: "Продаж комбо-наборів (кава + випічка/піца): клієнт бере на +10% більше, +4 клієнти/год" },
+    { id: "res_trade", category: "commercial", name: "Товарознавство та гарячі полиці", price: 3400, durationMs: 2700000, boost: 0, zoneBoost: 15, flowBonus: 5, desc: "Грамотний мерчандайзинг: покупець бере на +15% більше позицій у кошик, +5 клієнтів/год" },
+    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг і Upsell-продажі", price: 6800, durationMs: 3600000, boost: 0, zoneBoost: 20, flowBonus: 6, desc: "Мистецтво переконання: продаєте на +20% більше товару в одні руки, +6 клієнтів/год" },
+    { id: "com_admin", category: "commercial", name: "Топ-менеджер ТРЦ та роздрібних мереж", price: 12000, durationMs: 5400000, boost: 0, zoneBoost: 27, flowBonus: 8, desc: "Клієнти набирають повні кошики (+27% до обсягу покупки) і +8 клієнтів/год у заклад!" },
 
-    // 4. Курси Промислової зони та Зварювання (збалансовані % та підвищені ціни: 650 – 15 000 💰)
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 650, durationMs: 900000, boost: 0, zoneBoost: 5, isWelding: true, bohdanOffer: true, desc: "Обов'язковий інструктаж для роботи в цехах і на заводах: +5% до чека" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 1800, durationMs: 1800000, boost: 0, zoneBoost: 8, isWelding: true, bohdanOffer: true, desc: "Зварювання металоконструкцій та ремонт техніки на СТО: +8% до чека" },
-    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 4200, durationMs: 2700000, boost: 0, zoneBoost: 12, isWelding: true, desc: "Робота з нержавійкою, алюмінієм і складними деталями: +12% до чека" },
-    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 8500, durationMs: 3600000, boost: 0, zoneBoost: 16, isWelding: true, desc: "Точна промислова обробка металу та автоматизація ліній: +16% до чека" },
-    { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 15000, durationMs: 5400000, boost: 0, zoneBoost: 22, isWelding: true, desc: "Вища виробнича кваліфікація для заводів і депо Ковеля: +22% до чека" }
+    // 4. Курси Промислової зони: НЕ роздувають ціну з повітря, а збільшують ВИХІД ГОТОВОЇ ПРОДУКЦІЇ з тієї ж 1 од. сировини (від 2.0 до 4.0 од.!)
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та безвідходний розкрій", price: 650, durationMs: 900000, boost: 0, zoneBoost: 10, isWelding: true, bohdanOffer: true, desc: "Менше браку в цеху: виробляєте на +10% більше одиниць готової продукції з тієї ж сировини!" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG) і штамп", price: 1800, durationMs: 1800000, boost: 0, zoneBoost: 15, isWelding: true, bohdanOffer: true, desc: "Швидкісне виготовлення деталей і партій: +15% до виходу готової продукції за зміну!" },
+    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) та лінії", price: 4200, durationMs: 2700000, boost: 0, zoneBoost: 20, isWelding: true, desc: "Точна робота на конвеєрі: +20% більше готової продукції з кожної одиниці сировини!" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК і ліній легпрому", price: 8500, durationMs: 3600000, boost: 0, zoneBoost: 25, isWelding: true, desc: "Автоматизований випуск матеріалів та їжі: +25% до виходу готової продукції за цикл!" },
+    { id: "ind_chief", category: "industrial", name: "Головний технолог заводу і комбінату", price: 15000, durationMs: 5400000, boost: 0, zoneBoost: 30, isWelding: true, desc: "Вища кваліфікація: +30% випуску продукції (разом усі 5 курсів подвоюють вихід: 4 од. замість 2!)" }
 ];
 
 const JOBS = [
@@ -215,7 +329,7 @@ const JOBS = [
     { name: "CTO", pay: 1500, xpNeeded: 0, taskClicks: 140, taskReward: 35000, creditLimit: 10000000, reqCourse: "architecture" }
 ];
 
-// ВИМОГА 4: Перероблені будівлі у Житловій, Комерційній та Промисловій зонах (по 4 рівні забудови в кожній зоні!)
+// Асиметричні будівлі 3 зон (у Промзоні поєднано Важку пром для будматеріалів і Легку/Харчову пром для товарів і їжі!)
 const ZONE_INFO = {
     residential: {
         name: "🏡 Житлова зона",
@@ -223,12 +337,12 @@ const ZONE_INFO = {
         basePrice: 15000,
         fillFree: "#2ecc71",
         borderFree: "#0b5e28",
-        desc: "Житлові квартали, таунхауси, ОСББ та сервісні служби побуту. Найнижчий податок на землю та оборот.",
+        desc: "Клієнтів небагато (10–48/год), зате кожне замовлення має високий чек! Споживає будматеріали з Промзони. Курси підвищують чек замовлення.",
         buildings: [
-            { id: "kiosk", name: "Комунальна майстерня двору (ЖЕК)", icon: "🛠️", cost: 22000, income: 240, defaultWage: 12, clickProfit: 24 },
-            { id: "house", name: "Дуплекси та Таунхаус-кооператив", icon: "🏘️", cost: 60000, income: 650, defaultWage: 24, clickProfit: 48 },
-            { id: "apartments", name: "Житловий комплекс «Турія-Парк» (ОСББ)", icon: "🏢", cost: 150000, income: 1700, defaultWage: 50, clickProfit: 98 },
-            { id: "res_elite", name: "Елітний мікрорайон «Ковель-Резиденс»", icon: "🏰", cost: 360000, income: 4200, defaultWage: 105, clickProfit: 210 }
+            { id: "kiosk", name: "Комунальна майстерня двору (ЖЕК)", icon: "🛠️", cost: 22000, income: 250, defaultWage: 15, clickProfit: 32 },
+            { id: "house", name: "Дуплекси та Таунхаус-кооператив", icon: "🏘️", cost: 60000, income: 680, defaultWage: 30, clickProfit: 68 },
+            { id: "apartments", name: "Житловий комплекс «Турія-Парк» (ОСББ)", icon: "🏢", cost: 150000, income: 1750, defaultWage: 62, clickProfit: 140 },
+            { id: "res_elite", name: "Елітний мікрорайон «Ковель-Резиденс»", icon: "🏰", cost: 360000, income: 4300, defaultWage: 130, clickProfit: 290 }
         ]
     },
     commercial: {
@@ -237,12 +351,12 @@ const ZONE_INFO = {
         basePrice: 55000,
         fillFree: "#2980ff",
         borderFree: "#003080",
-        desc: "Пекарні, ресторани, пасажі та торгово-розважальні центри. Високий потік покупців і середній податок.",
+        desc: "Базовий чек менший, але величезний потік покупців (28–145/год)! Закуповує їжу та товари у Легкої промзони. Курси дають допродаж (більше товарів у чеку).",
         buildings: [
-            { id: "cafe", name: "Пекарня та Міні-маркет «Свіжа випічка»", icon: "🥐", cost: 75000, income: 880, defaultWage: 32, clickProfit: 64 },
-            { id: "mall", name: "Ресторан-Піцерія «Класік»", icon: "🍕", cost: 210000, income: 2500, defaultWage: 75, clickProfit: 148 },
-            { id: "it_hub", name: "Гіпермаркет та Торговий Пасаж", icon: "🛒", cost: 520000, income: 6800, defaultWage: 170, clickProfit: 330 },
-            { id: "com_plaza", name: "ТРЦ «Ковель-Плаза» & Бізнес-Хол", icon: "🏬", cost: 1150000, income: 15500, defaultWage: 350, clickProfit: 680 }
+            { id: "cafe", name: "Пекарня та Міні-маркет «Свіжа випічка»", icon: "🥐", cost: 75000, income: 880, defaultWage: 24, clickProfit: 48 },
+            { id: "mall", name: "Ресторан-Піцерія «Класік»", icon: "🍕", cost: 210000, income: 2500, defaultWage: 55, clickProfit: 110 },
+            { id: "it_hub", name: "Гіпермаркет та Торговий Пасаж", icon: "🛒", cost: 520000, income: 6800, defaultWage: 125, clickProfit: 245 },
+            { id: "com_plaza", name: "ТРЦ «Ковель-Плаза» & Бізнес-Хол", icon: "🏬", cost: 1150000, income: 15500, defaultWage: 260, clickProfit: 510 }
         ]
     },
     industrial: {
@@ -251,12 +365,12 @@ const ZONE_INFO = {
         basePrice: 180000,
         fillFree: "#ff7722",
         borderFree: "#7a2200",
-        desc: "Зварювальні цехи, меблеві комбінати, залізничні термінали та важке машинобудування.",
+        desc: "Важка і Легка промисловість (без вуличних клієнтів)! Переробляє сировину на будматеріали, їжу та товари для інших зон. Курси збільшують вихід продукції (2 ➔ 4 од.).",
         buildings: [
-            { id: "auto_weld", name: "Зварювальний цех та Автосервіс (СТО)", icon: "🔧", cost: 220000, income: 2900, defaultWage: 88, clickProfit: 170 },
-            { id: "logistics", name: "Деревообробний та Меблевий комбінат", icon: "🪵", cost: 580000, income: 7800, defaultWage: 195, clickProfit: 380 },
-            { id: "factory", name: "Євро-Логістичний Термінал та Депо", icon: "🚂", cost: 1350000, income: 19500, defaultWage: 390, clickProfit: 760 },
-            { id: "ind_plant", name: "Машинобудівний завод «КовельПромМаш»", icon: "🏭", cost: 2900000, income: 44000, defaultWage: 800, clickProfit: 1550 }
+            { id: "auto_weld", name: "Зварювальний цех і Будматеріали (Важка пром)", icon: "🔧", cost: 220000, income: 2900, defaultWage: 88, clickProfit: 170, indType: "Важка пром", productOutput: "🧱 Будматеріали і металоконструкції" },
+            { id: "logistics", name: "Пекарський і Харчовий комбінат (Легка пром)", icon: "🥖", cost: 580000, income: 7800, defaultWage: 195, clickProfit: 380, indType: "Легка пром (Їжа)", productOutput: "🥐 Випічка, напівфабрикати і продукти" },
+            { id: "factory", name: "Швейна та Меблева фабрика (Легка пром)", icon: "🧵", cost: 1350000, income: 19500, defaultWage: 390, clickProfit: 760, indType: "Легка пром (Товари)", productOutput: "👕 Одяг, текстиль, меблі й товари" },
+            { id: "ind_plant", name: "Промкомбінат «КовельПромМаш» (Важка + Легка)", icon: "🏭", cost: 2900000, income: 44000, defaultWage: 800, clickProfit: 1550, indType: "Універсальний комбінат", productOutput: "📦 Оптові партії матеріалів і товарів" }
         ]
     }
 };
@@ -419,10 +533,19 @@ function getWorkerZoneSkillBonusPct(completedList, plotZone) {
 function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWage = 15, hasPreboughtStock = false) {
     const baseCheck = buildingDef ? buildingDef.clickProfit : 24;
     const skillBonusPct = getWorkerZoneSkillBonusPct(workerCourses, plotZone);
+    // У Промисловій зоні курси збільшують ВИХІД ГОТОВОЇ ПРОДУКЦІЇ (від базових 2.0 од. до 4.0 од. з 1 од. сировини!)
+    const baseOutputUnits = 2;
+    const producedUnits = plotZone === "industrial"
+        ? +(baseOutputUnits * (1 + skillBonusPct / 100)).toFixed(2)
+        : +(1 * (1 + skillBonusPct / 100)).toFixed(2);
+    const producedWholeUnits = plotZone === "industrial"
+        ? Math.max(2, Math.round(producedUnits))
+        : 1;
+    const unitProductValue = plotZone === "industrial" ? Math.max(1, Math.round(baseCheck / baseOutputUnits)) : baseCheck;
     const grossCheck = Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
     const unitSupplyCost = getSupplyUnitCost(buildingDef);
-    // Якщо власник закупив сировину на склад оптом (-20%), собівартість одиниці менша; при автозакупівлі з колеса — повна роздрібна ціна
-    const supplyCost = hasPreboughtStock ? Math.max(1, Math.round(unitSupplyCost * 0.80)) : unitSupplyCost;
+    // Якщо власник закупив товар/сировину на склад наперед, собівартість одиниці менша; при автозакупівлі з коліс — повна роздрібна ціна
+    const supplyCost = hasPreboughtStock ? Math.max(1, Math.round(unitSupplyCost * 0.75)) : unitSupplyCost;
     const { turnoverTaxPct } = getZoneTaxRates(plotZone);
     const taxAmount = Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
     const afterTaxAndSupply = Math.max(1, grossCheck - taxAmount - supplyCost);
@@ -431,6 +554,9 @@ function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWa
     return {
         baseCheck,
         skillBonusPct,
+        producedUnits,
+        producedWholeUnits,
+        unitProductValue,
         grossCheck,
         supplyCost,
         unitSupplyCost,
@@ -451,7 +577,16 @@ function renderCourseChipsHtml(completedList, targetZone = null) {
         if (!c) return "";
         const isMatched = targetZone && c.category === targetZone;
         const cls = isMatched ? "matched" : (c.category === "it" ? "it" : (c.category === "industrial" ? "ind" : ""));
-        const bonusLabel = c.zoneBoost > 0 ? ` (+${c.zoneBoost}%)` : (c.boost > 0 ? ` (+${c.boost}% IT)` : "");
+        let bonusLabel = "";
+        if (c.category === "industrial") {
+            bonusLabel = ` (+${c.zoneBoost}% вихід прод.)`;
+        } else if (c.category === "commercial") {
+            bonusLabel = ` (+${c.zoneBoost}% допродаж)`;
+        } else if (c.zoneBoost > 0) {
+            bonusLabel = ` (+${c.zoneBoost}% чек)`;
+        } else if (c.boost > 0) {
+            bonusLabel = ` (+${c.boost}% IT)`;
+        }
         return `<span class="course-chip ${cls}">🎓 ${escapeHtml(c.name)}${bonusLabel}</span>`;
     }).join(" ");
 }
@@ -1396,11 +1531,11 @@ function checkCourseCompletion() {
         if (c?.category === "it") {
             bonusDesc = `+${c.boost}% IT-XP та доступ до посад у КовельКорп!`;
         } else if (c?.category === "residential") {
-            bonusDesc = `+${c.zoneBoost}% до чека замовлення у Житловій зоні!`;
+            bonusDesc = `+${c.zoneBoost}% до вартості чека замовлення у Житловій зоні!`;
         } else if (c?.category === "commercial") {
-            bonusDesc = `+${c.zoneBoost}% до чека замовлення у Комерційній зоні!`;
+            bonusDesc = `+${c.zoneBoost}% до обсягу продажу в одні руки (допродаж) та +${c.flowBonus || 4} клієнтів/год у Комерційній зоні!`;
         } else {
-            bonusDesc = `+${c?.zoneBoost || 0}% до чека замовлення у Промисловій зоні!`;
+            bonusDesc = `+${c?.zoneBoost || 0}% до виходу готової продукції з тієї ж сировини у Промисловій зоні!`;
         }
         showDialog("Диплом отримано!", `🎓 ${c ? c.name : "Курс"}\n${bonusDesc}`, "🎓");
         saveGame();
@@ -2432,29 +2567,33 @@ async function doPrivateOrderStepWork(plotId) {
     }
 
     const cStatePre = getPlotClientsState(p, owned);
+    const isInd = p.zone === "industrial";
     if (cStatePre.current <= 0) {
         return showDialog(
-            "Клієнтів зараз немає!",
-            `Усі клієнти на підприємстві «${p.name}» вже обслужені!\nНаступний клієнт зайде приблизно через ${cStatePre.nextClientSec} сек.\n\n💡 Власник може купити Рекламу або покращити інфраструктуру (парковку, камери, пандус), щоб збільшити потік клієнтів!`,
-            "🚶"
+            isInd ? "Лінія на технічній перерві!" : "Клієнтів зараз немає!",
+            isInd
+                ? `Усі виробничі цикли цієї години на заводі «${p.name}» відпрацьовано!\nНаступний слот лінії відкриється через ${cStatePre.nextClientSec} сек.\n\n💡 Власник може встановити Покращення або запустити Кампанію збуту, щоб розширити потужність цеху!`
+                : `Усі клієнти на підприємстві «${p.name}» вже обслужені!\nНаступний клієнт зайде приблизно через ${cStatePre.nextClientSec} сек.\n\n💡 Власник може купити Рекламу або покращити інфраструктуру (парковку, камери, пандус), щоб збільшити потік клієнтів!`,
+            isInd ? "⚙️" : "🚶"
         );
     }
     const supPre = getPlotSupplyState(p, owned);
     if (supPre.stock <= 0 && !supPre.autoRestock) {
         return showDialog(
-            "На складі закінчився товар!",
-            `На складі підприємства «${p.name}» 0 од. сировини, а автозакупівлю вимкнено власником!\nВласник має закупити товар/сировину на склад у вкладці «🏦 Мій бізнес і КАСА».`,
+            "На складі закінчилася сировина / товар!",
+            `На складі підприємства «${p.name}» 0 од., а автозакупівлю вимкнено власником!\nВласник може вигідно закупити продукцію на Біржі у гравців Промзони або через системний опт у вкладці «🏦 Мій бізнес і КАСА ➔ 📦 Склад».`,
             "📦"
         );
     }
 
     const currentStep = (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) + 1;
+    const stageLabels = getStageLabelsForZone(p.zone);
     sfx.click();
 
     if (currentStep < ORDER_STEPS_REQUIRED) {
         gameState.taskProgress = currentStep;
         triggerWorkCooldown(PRIVATE_STEP_COOLDOWN_MS, "step");
-        setGameStatus(`${PRIVATE_ORDER_STAGE_LABELS[currentStep - 1]} — виконано! Наступний крок через 1.6с...`);
+        setGameStatus(`${stageLabels[currentStep - 1]} — виконано! Наступний крок через 1.6с...`);
         return;
     }
 
@@ -2505,12 +2644,25 @@ async function doPrivateOrderStepWork(plotId) {
                 : txFin.afterTaxRevenue;
 
             const availableForPay = treasury + orderCashAfterTaxAndAutoSupply;
-            if (availableForPay >= activeWage) {
+            let govOverflowBonus = 0;
+            if (p.zone === "industrial") {
+                const maxFin = getFinishedGoodsMaxCapacity(owned.building);
+                const curFin = cur.finishedStock !== undefined ? Math.max(0, Math.floor(Number(cur.finishedStock) || 0)) : 24;
+                const prodUnits = txFin.producedWholeUnits || 2;
+                const canStore = Math.min(Math.max(0, maxFin - curFin), prodUnits);
+                const overflowUnits = Math.max(0, prodUnits - canStore);
+                cur.finishedStock = curFin + canStore;
+                if (overflowUnits > 0) {
+                    govOverflowBonus = overflowUnits * supLive.govUnitPrice;
+                }
+            }
+
+            if (availableForPay + govOverflowBonus >= activeWage) {
                 paidToWorker = activeWage;
-                netOwnerTreasuryDelta = orderCashAfterTaxAndAutoSupply - activeWage;
+                netOwnerTreasuryDelta = orderCashAfterTaxAndAutoSupply + govOverflowBonus - activeWage;
                 cur.treasury = treasury + netOwnerTreasuryDelta;
             } else {
-                paidToWorker = Math.max(1, availableForPay);
+                paidToWorker = Math.max(1, availableForPay + govOverflowBonus);
                 netOwnerTreasuryDelta = -treasury;
                 cur.treasury = 0;
             }
@@ -2565,7 +2717,13 @@ async function doPrivateOrderStepWork(plotId) {
     saveGame();
 
     const marginStr = netOwnerTreasuryDelta >= 0 ? `+${netOwnerTreasuryDelta} 💰 у касу` : `${netOwnerTreasuryDelta} 💰 з каси`;
-    setGameStatus(`✅ Чек покупця: ${fin.grossCheck} 💰 | Податок (${fin.turnoverTaxPct}%): -${taxPaidThisOrder} 💰 | Ваша ЗП: +${paidToWorker} 💰 | Власнику: ${marginStr}`);
+    if (p.zone === "industrial") {
+        setGameStatus(`🏭 Вироблено: ${fin.producedUnits} од. продукції (+${fin.producedWholeUnits} од. на склад збуту) | Партія: ${fin.grossCheck} 💰 | Ваша ЗП: +${paidToWorker} 💰 | Заводу: ${marginStr}`);
+    } else if (p.zone === "commercial") {
+        setGameStatus(`🛒 Продано x${fin.producedUnits} товарів на ${fin.grossCheck} 💰 | Податок: -${taxPaidThisOrder} 💰 | Ваша ЗП: +${paidToWorker} 💰 | Власнику: ${marginStr}`);
+    } else {
+        setGameStatus(`🏡 Замовлення виконано: чек ${fin.grossCheck} 💰 | Податок: -${taxPaidThisOrder} 💰 | Ваша ЗП: +${paidToWorker} 💰 | Власнику: ${marginStr}`);
+    }
 }
 
 function doMunicipalStepWork() {
@@ -2713,6 +2871,122 @@ window.togglePlotAutoRestock = async function (plotId) {
             ? `🔄 Автозакупівлю сировини для «${p.name}» УВІМКНЕНО (якщо склад порожній, сировина купується автоматично за роздрібною ціною).`
             : `⏸️ Автозакупівлю сировини для «${p.name}» ВИМКНЕНО (закуповуйте товар вручну зі знижкою до -20%!).`);
     } catch (e) {}
+};
+
+// ===== B2B-БІРЖА МІЖ ГРАВЦЯМИ: ЗАКУПІВЛЯ ТОВАРІВ І МАТЕРІАЛІВ У ЗАВОДІВ ПРОМЗОНИ (-28%) ТА ДЕРЖЗАМОВЛЕННЯ (v4.6.0) =====
+window.buySuppliesFromFactory = async function (buyerPlotId, factoryPlotId, mode = "bulk25") {
+    if (isBankBlocked()) {
+        return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку!", "🚫");
+    }
+    const buyerPlot = MAP_PLOTS_BASE.find(x => x.id === Number(buyerPlotId));
+    const buyerOwned = getOwnedPlotData(Number(buyerPlotId));
+    const factoryPlot = MAP_PLOTS_BASE.find(x => x.id === Number(factoryPlotId));
+    const factoryOwned = getOwnedPlotData(Number(factoryPlotId));
+    if (!buyerPlot || !buyerOwned || buyerOwned.owner !== currentUser || !buyerOwned.building) return;
+    if (!factoryPlot || !factoryOwned || !factoryOwned.building) {
+        return showDialog("Завод недоступний", "Це промислове підприємство більше не працює.", "⚠️");
+    }
+
+    const supBuyer = getPlotSupplyState(buyerPlot, buyerOwned);
+    const supFactory = getPlotSupplyState(factoryPlot, factoryOwned);
+    const factoryBld = getBuildingDef("industrial", factoryOwned.building);
+
+    const neededUnits = mode === "full" ? supBuyer.fullUnits : supBuyer.bulk25Units;
+    if (neededUnits <= 0) {
+        return showDialog("Ваш склад уже повний!", `На складі «${buyerPlot.name}» вже максимум запасу (${supBuyer.stock}/${supBuyer.maxStock} од.).`, "📦");
+    }
+    if (supFactory.finishedStock <= 0) {
+        return showDialog("На заводі розкупили товар!", `На складі готової продукції «${factoryPlot.name}» зараз 0 од. Оберіть інший завод або скористайтеся резервним міським оптом нижче!`, "🏭");
+    }
+
+    const unitsToBuy = Math.min(neededUnits, supFactory.finishedStock);
+    const totalCost = Math.max(1, unitsToBuy * supBuyer.b2bUnitCost);
+
+    const buyerTreasury = Math.max(0, Number(buyerOwned.treasury) || 0);
+    if (buyerTreasury + gameState.coins < totalCost) {
+        return showDialog("Недостатньо монет", `Для купівлі ${unitsToBuy} од. у заводу потрібно ${formatNumberFull(totalCost)} 💰 (ціна B2B: ${supBuyer.b2bUnitCost} 💰/од., знижка -28%).`, "💸");
+    }
+
+    const fromTreasury = Math.min(buyerTreasury, totalCost);
+    const fromWallet = totalCost - fromTreasury;
+    // Завод отримує оплату в свою Касу (за вирахуванням податку Промзони)
+    const { turnoverTaxPct } = getZoneTaxRates("industrial");
+    const factoryTax = Math.max(1, Math.round(totalCost * (turnoverTaxPct / 100)));
+    const factoryNetGain = Math.max(1, totalCost - factoryTax);
+
+    try {
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
+        await update(ref(db, `plots/${buyerPlot.id}`), {
+            supplyStock: Math.min(supBuyer.maxStock, supBuyer.stock + unitsToBuy),
+            treasury: buyerTreasury - fromTreasury
+        });
+
+        await runTransaction(ref(db, `plots/${factoryPlot.id}`), (cur) => {
+            if (!cur) return cur;
+            const curFin = cur.finishedStock !== undefined ? Math.max(0, Math.floor(Number(cur.finishedStock) || 0)) : 24;
+            cur.finishedStock = Math.max(0, curFin - unitsToBuy);
+            cur.treasury = Math.max(0, Number(cur.treasury) || 0) + factoryNetGain;
+            cur.b2bSoldUnits = (Number(cur.b2bSoldUnits) || 0) + unitsToBuy;
+            cur.b2bEarnedTotal = (Number(cur.b2bEarnedTotal) || 0) + factoryNetGain;
+            return cur;
+        });
+
+        sfx.win();
+        renderAll();
+        if (fromWallet > 0) await saveGame();
+        setGameStatus(`🤝 Куплено +${unitsToBuy} од. у заводу «${factoryPlot.name}» (${factoryOwned.owner}) зі знижкою -28% за ${formatNumberFull(totalCost)} 💰!`);
+        showDialog(
+            "Пряма поставка з Промзони (-28%)!",
+            `Ви закупили +${unitsToBuy} од. продукції для «${buyerPlot.name}» напряму у заводу:
+🏭 ${factoryBld ? factoryBld.name : factoryPlot.name} (власник: ${factoryOwned.owner})
+
+• Ваша витрата зі знижкою -28%: ${formatNumberFull(totalCost)} 💰
+• Зараховано в Касу заводу (після податку): +${formatNumberFull(factoryNetGain)} 💰`,
+            "🚚"
+        );
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+window.sellFinishedGoodsToState = async function (factoryPlotId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(factoryPlotId));
+    const owned = getOwnedPlotData(Number(factoryPlotId));
+    if (!p || p.zone !== "industrial" || !owned || owned.owner !== currentUser || !owned.building) return;
+
+    const sup = getPlotSupplyState(p, owned);
+    if (sup.finishedStock <= 0) {
+        return showDialog("Склад готової продукції порожній", "Наразі на складі збуту 0 од. готової продукції. Коли робітники працюють на лінії, вони виготовляють нові партії з сировини!", "📦");
+    }
+
+    const unitsSold = sup.finishedStock;
+    const payout = sup.govTotalValue;
+
+    try {
+        await runTransaction(ref(db, `plots/${p.id}`), (cur) => {
+            if (!cur) return cur;
+            cur.finishedStock = 0;
+            cur.treasury = Math.max(0, Number(cur.treasury) || 0) + payout;
+            cur.b2bSoldUnits = (Number(cur.b2bSoldUnits) || 0) + unitsSold;
+            cur.b2bEarnedTotal = (Number(cur.b2bEarnedTotal) || 0) + payout;
+            return cur;
+        });
+        sfx.win();
+        renderAll();
+        setGameStatus(`🏛️ Здано ${unitsSold} од. продукції на Держзамовлення! У Касу заводу «${p.name}» зараховано +${formatNumberFull(payout)} 💰!`);
+        showDialog(
+            "Партію здано на Держзамовлення!",
+            `Ви відвантажили ${unitsSold} од. готової продукції зі складу «${p.name}» у резервний фонд Ковеля.
+
+💰 У Касу вашого заводу зараховано: +${formatNumberFull(payout)} монет!`,
+            "🏛️"
+        );
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
 };
 
 window.buyPlotUpgrade = async function (plotId, upgradeId) {
@@ -3254,7 +3528,7 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
                 </div>
 
                 <div class="receipt-pills-row" style="margin:3px 0">
-                    <span class="receipt-pill">🛒 Чек: <b>+${fin.grossCheck} 💰</b> (+${fin.skillBonusPct}%)</span>
+                    <span class="receipt-pill">${plotZone === "industrial" ? `🏭 Вихід: <b>${fin.producedUnits} од.</b> (<b>+${fin.grossCheck} 💰</b>)` : (plotZone === "commercial" ? `🛒 Допродаж x${fin.producedUnits}: <b>+${fin.grossCheck} 💰</b>` : `🏡 Чек: <b>+${fin.grossCheck} 💰</b> (+${fin.skillBonusPct}%)`)}</span>
                     <span class="receipt-pill supply">📦 Закупівля: <b>-${fin.supplyCost} 💰</b></span>
                     <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
                     <span class="receipt-pill wage">👷 ЗП: <b>-${fin.wage} 💰</b></span>
@@ -3464,28 +3738,114 @@ function renderOwnerBusinessesHub() {
             `;
         } else if (curComp === "supply") {
             const pct = Math.min(100, Math.round((sup.stock / Math.max(1, sup.maxStock)) * 100));
-            compartmentHtml = `
-                <div class="supply-box" style="margin:0">
-                    <div class="supply-top-row">
-                        <span style="font-size:12px"><b>${sup.supplyLabel}: ${sup.stock} / ${sup.maxStock} од.</b></span>
-                        <button class="btn" onclick="togglePlotAutoRestock(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">
-                            ${sup.autoRestock ? "🔄 Автозакупівля: УВІМКНЕНО" : "⏸️ Автозакупівля: ВИМКНЕНО"}
-                        </button>
+            if (plot.zone === "industrial") {
+                const finPct = Math.min(100, Math.round((sup.finishedStock / Math.max(1, sup.maxFinishedStock)) * 100));
+                compartmentHtml = `
+                    <div class="factory-output-box">
+                        <div class="supply-top-row">
+                            <span style="font-size:12px;color:#004d00"><b>📦 Склад готової продукції на продаж: ${sup.finishedStock} / ${sup.maxFinishedStock} од.</b></span>
+                            <span style="font-size:11px;color:#004080;font-weight:bold">Продано партій: ${formatNumberFull(sup.b2bSoldUnits)} од. (+${formatNumberFull(sup.b2bEarnedTotal)} 💰)</span>
+                        </div>
+                        <div style="font-size:11px;color:#333;line-height:1.4">
+                            Випускається: <b>${escapeHtml(bld.productOutput || "Матеріали та товари")}</b> (${escapeHtml(bld.indType || "Промзона")}).<br>
+                            • Робітники переробляють <b>1 од. сировини ➔ 2–4 од. готової продукції</b> (залежно від вивчених курсів Промзони).<br>
+                            • <b>Власники Житлової та Комерційної зон</b> купують вашу продукцію зі складу прямо в себе в кабінеті, а гроші капають у вашу Касу!<br>
+                            • Якщо гравці зараз офлайн — здайте партію на <b>🏛️ Міське Держзамовлення</b> в 1 клік:
+                        </div>
+                        <div class="supply-bar-wrap" style="height:16px"><div class="output-bar-fill" style="width:${finPct}%"></div></div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                            <button class="btn success" ${sup.finishedStock <= 0 ? "disabled" : ""} onclick="sellFinishedGoodsToState(${plot.id})" style="min-height:30px;padding:4px 12px;font-size:11px;font-weight:bold">
+                                🏛️ Здати всю готову продукцію (${sup.finishedStock} од.) на Держзамовлення (+${formatNumberFull(sup.govTotalValue)} 💰 у Касу)
+                            </button>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:#444">
-                        Кожне замовлення витрачає <b>1 од. сировини</b>. Роздрібна ціна автозакупівлі: <b>${sup.unitCost} 💰/од.</b> При ручній закупівлі на склад діє оптова знижка до <b>-20%</b> (лише <b>${Math.max(1, Math.round(sup.unitCost * 0.8))} 💰/од.</b>)!
+
+                    <div class="supply-box" style="margin:0">
+                        <div class="supply-top-row">
+                            <span style="font-size:12px"><b>${sup.supplyLabel}: ${sup.stock} / ${sup.maxStock} од.</b></span>
+                            <button class="btn" onclick="togglePlotAutoRestock(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">
+                                ${sup.autoRestock ? "🔄 Автозакупівля сировини: УВІМК." : "⏸️ Автозакупівля сировини: ВИМК."}
+                            </button>
+                        </div>
+                        <div style="font-size:11px;color:#444">
+                            Кожен виробничий цикл бере <b>1 од. первинної сировини</b>. Опт на склад дає знижку до <b>-20%</b> (<b>${Math.max(1, Math.round(sup.unitCost * 0.8))} 💰/од.</b> замість ${sup.unitCost} 💰):
+                        </div>
+                        <div class="supply-bar-wrap" style="height:16px"><div class="supply-bar-fill" style="width:${pct}%"></div></div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+                            <button class="btn default" ${sup.bulk25Units <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'bulk25')" style="min-height:28px;min-width:auto;padding:4px 10px;font-size:11px">
+                                🔩 Закупити +${sup.bulk25Units} од. сировини (-12%: ${formatNumberFull(sup.bulk25Cost)} 💰)
+                            </button>
+                            <button class="btn success" ${sup.fullUnits <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'full')" style="min-height:28px;min-width:auto;padding:4px 10px;font-size:11px">
+                                🚂 Заповнити склад +${sup.fullUnits} од. (-20%: ${formatNumberFull(sup.fullCost)} 💰)
+                            </button>
+                        </div>
                     </div>
-                    <div class="supply-bar-wrap" style="height:18px"><div class="supply-bar-fill" style="width:${pct}%"></div></div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-                        <button class="btn default" ${sup.bulk25Units <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'bulk25')" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:11px">
-                            📦 Закупити +${sup.bulk25Units} од. (опт -12%: ${formatNumberFull(sup.bulk25Cost)} 💰)
-                        </button>
-                        <button class="btn success" ${sup.fullUnits <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'full')" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:11px">
-                            🚚 Заповнити склад +${sup.fullUnits} од. (опт -20%: ${formatNumberFull(sup.fullCost)} 💰)
-                        </button>
+                `;
+            } else {
+                const suppliers = getAvailableIndustrialSuppliers();
+                const suppliersHtml = suppliers.length
+                    ? suppliers.map(s => {
+                        const avail = s.finishedStock;
+                        const buy25 = Math.min(sup.bulk25Units, avail);
+                        const buyFull = Math.min(sup.fullUnits, avail);
+                        const cost25 = Math.max(1, buy25 * sup.b2bUnitCost);
+                        const costFull = Math.max(1, buyFull * sup.b2bUnitCost);
+                        return `
+                            <div class="b2b-factory-row">
+                                <div>
+                                    <div style="font-weight:bold;color:#000080">${s.bld.icon} ${escapeHtml(s.bld.name)} — ${escapeHtml(s.plot.name)}</div>
+                                    <div style="color:#444">Власник: <b>${escapeHtml(s.owned.owner)}</b> • Продукція: <b>${escapeHtml(s.bld.productOutput || "Товари і матеріали")}</b> • У наявності: <b style="color:${avail > 0 ? "#006400" : "#900000"}">${avail} од.</b></div>
+                                </div>
+                                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                                    <button class="btn default" ${(avail <= 0 || sup.bulk25Units <= 0) ? "disabled" : ""} onclick="buySuppliesFromFactory(${plot.id}, ${s.plot.id}, 'bulk25')" style="min-height:26px;min-width:auto;padding:3px 8px;font-size:11px">
+                                        🤝 +${buy25 > 0 ? buy25 : 0} од. (-28%: ${buy25 > 0 ? formatNumberFull(cost25) : 0} 💰)
+                                    </button>
+                                    <button class="btn success" ${(avail <= 0 || sup.fullUnits <= 0) ? "disabled" : ""} onclick="buySuppliesFromFactory(${plot.id}, ${s.plot.id}, 'full')" style="min-height:26px;min-width:auto;padding:3px 8px;font-size:11px">
+                                        🚚 Макс. +${buyFull > 0 ? buyFull : 0} од. (${buyFull > 0 ? formatNumberFull(costFull) : 0} 💰)
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join("")
+                    : `<div class="muted" style="padding:6px;background:#fff;border:1px dashed #808080">Поки жоден гравець не відкрив завод у Промисловій зоні. Скористайтеся резервним міським оптом нижче!</div>`;
+
+                compartmentHtml = `
+                    <div class="supply-box" style="margin:0">
+                        <div class="supply-top-row">
+                            <span style="font-size:12px"><b>${sup.supplyLabel}: ${sup.stock} / ${sup.maxStock} од.</b></span>
+                            <button class="btn" onclick="togglePlotAutoRestock(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">
+                                ${sup.autoRestock ? "🔄 Автозакупівля: УВІМКНЕНО" : "⏸️ Автозакупівля: ВИМКНЕНО"}
+                            </button>
+                        </div>
+                        <div class="supply-bar-wrap" style="height:16px"><div class="supply-bar-fill" style="width:${pct}%"></div></div>
                     </div>
-                </div>
-            `;
+
+                    <div class="b2b-market-box">
+                        <div style="font-weight:bold;color:#003366;font-size:12px">
+                            🏭 Пряма закупівля у заводів Промислової зони гравців (Найвигідніше: знижка -28%, по ${sup.b2bUnitCost} 💰/од.!):
+                        </div>
+                        <div style="color:#333">
+                            Купуйте ${plot.zone === "commercial" ? "їжу, випічку й товари легкої промисловості" : "будматеріали та комплектуючі"} напряму в гравців Промзони — ви економите <b>28%</b>, а власник заводу отримує живий виторг у свою Касу:
+                        </div>
+                        ${suppliersHtml}
+                    </div>
+
+                    <div class="supply-box" style="margin:0;background:#f7f7f7">
+                        <div style="font-weight:bold;color:#444">🏛️ Резервний міський опт (Страховка, якщо заводи гравців офлайн або порожні):</div>
+                        <div style="font-size:11px;color:#555">
+                            Роздрібна автозакупівля: <b>${sup.unitCost} 💰/од.</b> Резервний опт від міста дає знижку <b>-12%</b> або <b>-20%</b>:
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+                            <button class="btn" ${sup.bulk25Units <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'bulk25')" style="min-height:28px;min-width:auto;padding:4px 10px;font-size:11px">
+                                📦 Міський опт +${sup.bulk25Units} од. (-12%: ${formatNumberFull(sup.bulk25Cost)} 💰)
+                            </button>
+                            <button class="btn default" ${sup.fullUnits <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'full')" style="min-height:28px;min-width:auto;padding:4px 10px;font-size:11px">
+                                🚚 Міський опт +${sup.fullUnits} од. (-20%: ${formatNumberFull(sup.fullCost)} 💰)
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
         } else if (curComp === "upgrades") {
             const upgCardsHtml = BUSINESS_UPGRADES.map(u => {
                 const isOwned = Boolean(upgs[u.id]);
@@ -3548,11 +3908,22 @@ function renderOwnerBusinessesHub() {
             `;
         }
 
+        const isInd = plot.zone === "industrial";
+        const secondKpiLabel = isInd ? "⚙️ Лінії цеху (змін)" : (plot.zone === "commercial" ? "🚶 Потік покупців" : "🚶 Клієнти (рідкі)");
+        const thirdKpiLabel = isInd ? "🔩 Сировина / 📦 Товар" : (plot.zone === "commercial" ? "🥐 Склад їжі й товару" : "🧱 Склад матеріалів");
+        const thirdKpiVal = isInd
+            ? `${sup.stock} сир. ➔ ${sup.finishedStock} гот.`
+            : `${sup.stock} / ${sup.maxStock} од.`;
+
         return `
             <div class="biz-card-shell">
                 <div class="biz-card-header">
                     <div class="biz-card-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px;color:#444">(${escapeHtml(zInfo.shortName)})</span></div>
                     <button class="btn" onclick="focusPlotFromMail(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 8px;font-size:11px">🗺️ На мапі</button>
+                </div>
+
+                <div class="zone-role-banner ${plot.zone}">
+                    <span>${ZONE_ROLE_DESCRIPTIONS[plot.zone] || ""}</span>
                 </div>
 
                 <!-- 4 головні показники підприємства в один погляд -->
@@ -3562,15 +3933,15 @@ function renderOwnerBusinessesHub() {
                         <span class="kpi-val" style="color:#006400">${formatNumberFull(treasury)} 💰</span>
                     </div>
                     <div class="biz-kpi-box">
-                        <span class="kpi-label">🚶 Клієнти в черзі</span>
+                        <span class="kpi-label">${secondKpiLabel}</span>
                         <span class="kpi-val">${cs.current} / ${cs.max} <span style="font-size:10px;font-weight:normal">(${cs.perHour}/год)</span></span>
                     </div>
                     <div class="biz-kpi-box">
-                        <span class="kpi-label">📦 Склад сировини</span>
-                        <span class="kpi-val" style="color:${sup.stock > 0 ? "#7a3d00" : "#900000"}">${sup.stock} / ${sup.maxStock} од.</span>
+                        <span class="kpi-label">${thirdKpiLabel}</span>
+                        <span class="kpi-val" style="color:${sup.stock > 0 ? "#7a3d00" : "#900000"}">${thirdKpiVal}</span>
                     </div>
                     <div class="biz-kpi-box">
-                        <span class="kpi-label">📈 Маржа / Замовл.</span>
+                        <span class="kpi-label">📈 Маржа / Цикл</span>
                         <span class="kpi-val" style="color:${isOrderProfitable ? "#006400" : "#900000"}">${isOrderProfitable ? "+" : ""}${fin.ownerNetMargin} 💰</span>
                     </div>
                 </div>
@@ -3751,9 +4122,9 @@ function renderStats() {
     const resBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
     const comBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "commercial");
     const indBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-    if ($("stat-res-boost")) $("stat-res-boost").textContent = "+" + resBoost + "%";
-    if ($("stat-com-boost")) $("stat-com-boost").textContent = "+" + comBoost + "%";
-    if ($("stat-ind-boost")) $("stat-ind-boost").textContent = "+" + indBoost + "%";
+    if ($("stat-res-boost")) $("stat-res-boost").textContent = "+" + resBoost + "% чек";
+    if ($("stat-com-boost")) $("stat-com-boost").textContent = "+" + comBoost + "% обсяг";
+    if ($("stat-ind-boost")) $("stat-ind-boost").textContent = (2 * (1 + indBoost / 100)).toFixed(1) + " од./цикл";
 
     const incPerHour = getTotalPassiveIncomePerHour();
     const totalTreasury = getTotalOwnerTreasury();
@@ -3844,7 +4215,13 @@ function renderTask() {
             $("task-text").textContent = `Етап замовлення: ${step} / ${ORDER_STEPS_REQUIRED}`;
         }
         const cs = p && owned ? getPlotClientsState(p, owned) : { current: 0, max: 0, nextClientSec: 0 };
-        $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Клієнтів у черзі: ${cs.current}/${cs.max} | Чек: ${fin.grossCheck} 💰 (податок -${fin.taxAmount})`;
+        if (p && p.zone === "industrial") {
+            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Лінія: ${cs.current}/${cs.max} | Вихід з вашими курсами: ${fin.producedUnits} од. продукції (${fin.grossCheck} 💰)`;
+        } else if (p && p.zone === "commercial") {
+            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Покупців у черзі: ${cs.current}/${cs.max} | Допродаж x${fin.producedUnits}: чек ${fin.grossCheck} 💰`;
+        } else {
+            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Клієнтів (рідкі, дорогі): ${cs.current}/${cs.max} | Чек: ${fin.grossCheck} 💰`;
+        }
         $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — Посада: ${wRec.role}`;
     } else {
         const step = Math.floor(gameState.taskProgress);
@@ -3943,8 +4320,10 @@ function updateWorkButtonState() {
         } else {
             btn.disabled = false;
             btn.classList.remove("cooldown-active");
-            if (emoji) emoji.textContent = step === ORDER_STEPS_REQUIRED - 1 ? "✅" : "🛒";
-            label.textContent = PRIVATE_ORDER_STAGE_LABELS[step];
+            const pZone = MAP_PLOTS_BASE.find(x => x.id === pid)?.zone || "residential";
+            const stageArr = getStageLabelsForZone(pZone);
+            if (emoji) emoji.textContent = step === ORDER_STEPS_REQUIRED - 1 ? "✅" : (pZone === "industrial" ? "🏭" : "🛒");
+            label.textContent = stageArr[step];
             if (sub) sub.textContent = `Після 5 кроків ви отримаєте +${formatNumberFull(wRec.personalWage)} 💰 зарплати` + debtNote;
         }
     } else {
@@ -4025,13 +4404,14 @@ function renderShop() {
             bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Вивчаються <b>строго по черзі</b> — від «Основи програмування» (800 💰) до «Архітектура високих навантажень» (90 000 💰).`;
         } else if (activeCourseCategory === "residential") {
             const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
-            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (450 – 9 500 💰):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
+            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (450 – 9 500 💰):</b> У житлових кварталах клієнтів небагато, але кожне замовлення дороге! Ці курси підвищують <b>середній чек замовлення за якість майстерності</b>. Ваш бонус чека: <span style="color:#006400">+${myRes}%</span>.`;
         } else if (activeCourseCategory === "commercial") {
             const myCom = getWorkerZoneSkillBonusPct(gameState.completedCourses, "commercial");
-            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (550 – 12 000 💰):</b> Збільшують чек клієнта при роботі в пекарнях, піцеріях і ТРЦ Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
+            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (550 – 12 000 💰):</b> У комерції базовий чек менший, зате великий потік людей! Ці курси вчать <b>продавати більше товарів в одні руки (допродаж x${(1 + myCom / 100).toFixed(2)})</b> і додатково прискорюють притік покупців у магазин!`;
         } else {
             const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (650 – 15 000 💰):</b> Промислові та зварювальні спеціальності для цехів, комбінатів, депо й заводів Ковеля. Підвищують чек кожного замовлення у Промзоні — ваш поточний бонус: <span style="color:#006400">+${myInd}%</span>.`;
+            const outUnits = (2 * (1 + myInd / 100)).toFixed(1);
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (650 – 15 000 💰):</b> На заводах немає вуличних клієнтів — ви виробляєте продукцію з сировини! Курси Промзони <b>збільшують кількість виготовленої продукції за зміну</b>: зараз ви робите <span style="color:#006400"><b>${outUnits} од. продукції</b></span> (базово 2.0 од., максимум 4.0 од.) з 1 од. сировини!`;
         }
     }
 
@@ -4047,11 +4427,11 @@ function renderShop() {
         if (c.category === "it") {
             badgeLabel = `+${c.boost}% IT-XP`;
         } else if (c.category === "residential") {
-            badgeLabel = `+${c.zoneBoost}% Житлова зона`;
+            badgeLabel = `+${c.zoneBoost}% до чека (Жила)`;
         } else if (c.category === "commercial") {
-            badgeLabel = `+${c.zoneBoost}% Комерційна зона`;
+            badgeLabel = `+${c.zoneBoost}% допродаж, +${c.flowBonus || 4} клієнтів/год`;
         } else {
-            badgeLabel = `+${c.zoneBoost}% Промислова зона`;
+            badgeLabel = `+${c.zoneBoost}% вихід продукції (Пром)`;
         }
 
         const durMin = Math.round(c.durationMs / 60000);
@@ -4457,6 +4837,7 @@ window.buildOnSelectedPlot = async function (buildingId) {
             wage: bld.defaultWage,
             treasury: currentTreasury,
             supplyStock: 40,
+            finishedStock: p.zone === "industrial" ? 24 : 0,
             autoRestock: true
         });
         const fin = calcOrderFinancials(p.zone, bld, [], bld.defaultWage);
