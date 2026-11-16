@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.0.0";
+const APP_VERSION = "4.1.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -11,6 +11,10 @@ const LEADERBOARD_LIMIT = 100;
 // Депозит у банку (1% в годину) та погодинний облік землі й будівель (3 600 000 мс)
 const HOUR_MS = 3600000;
 const DEPOSIT_RATE_PER_HOUR = 0.01; // +1% на годину
+
+// Пауза 24 години після купівлі курсу зварювання зі знижкою -10% у Богдана Поліщука
+const BOHDAN_DISCOUNT_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 години
+const BOHDAN_DISCOUNT_MULT = 0.90; // на 10% дешевше
 
 // Налаштування кулдаунів та покрокових замовлень для робіт гравців і підробітку
 const ORDER_STEPS_REQUIRED = 5;
@@ -37,7 +41,6 @@ const OWNER_ASSIGNED_TITLES = [
     "Права рука власника"
 ];
 
-// Базові податкові ставки м. Ковель (вкладка «🏛️ Політика»)
 const DEFAULT_CITY_TAX_POLICY = {
     residential: { turnoverTaxPct: 8,  landTaxPct: 0.4 },
     commercial:  { turnoverTaxPct: 12, landTaxPct: 0.5 },
@@ -49,37 +52,37 @@ const DEFAULT_CITY_TAX_POLICY = {
 let cityTaxPolicy = JSON.parse(JSON.stringify(DEFAULT_CITY_TAX_POLICY));
 let policyListener = null;
 
-// ВИМОГА: Курси розділені на 4 окремі спеціалізації (IT, Житлова, Комерційна, Промислова),
-// причому ВСІ курси Житлової, Комерційної та Промислової зон є дешевшими за IT!
+// ВИМОГА 1: ІТ-курси повернуто точно як було раніше (800, 3500, 9000, 22000, 45000, 90000),
+// а курси Житлової, Комерційної та Промислової зон розділені й усі дешевші за ІТ (< 800 💰)!
 const COURSES = [
-    // 1. ІТ-курси (КовельКорп — найдорожча елітна гілка: від 2 500 до 120 000 💰)
-    { id: "basics", category: "it", name: "Основи програмування", price: 2500, durationMs: 3600000, boost: 10, zoneBoost: 0, desc: "Базовий ІТ-диплом для вступу в КовельКорп (дорожчий ІТ-курс автоматично зараховує всі дешевші!)" },
-    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 6000, durationMs: 7200000, boost: 15, zoneBoost: 0, desc: "Потрібен для звання Junior QA та Junior Developer у КовельКорп" },
-    { id: "cleancode", category: "it", name: "Clean Code та архітектура коду", price: 14000, durationMs: 10800000, boost: 20, zoneBoost: 0, desc: "Потрібен для звання Middle Developer у КовельКорп" },
-    { id: "sysdesign", category: "it", name: "Системний дизайн (System Design)", price: 30000, durationMs: 18000000, boost: 25, zoneBoost: 0, desc: "Потрібен для звання Senior Developer у КовельКорп" },
-    { id: "leadership", category: "it", name: "Лідерство і тех-менеджмент", price: 60000, durationMs: 28800000, boost: 30, zoneBoost: 0, desc: "Потрібен для звання Team Lead у КовельКорп" },
-    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 120000, durationMs: 43200000, boost: 40, zoneBoost: 0, desc: "Вищий диплом для Tech Lead та CTO (відкриває абсолютно всі посади в КовельКорп)" },
+    // 1. ІТ-курси (КовельКорп — як було раніше)
+    { id: "basics", category: "it", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, zoneBoost: 0, desc: "Базовий курс для вступу в КовельКорп (або будь-який дорожчий ІТ-курс!)" },
+    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15, zoneBoost: 0, desc: "Потрібен для звання Junior QA та Junior Developer (зараховує і нижчі курси)" },
+    { id: "cleancode", category: "it", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20, zoneBoost: 0, desc: "Потрібен для звання Middle Developer (зараховує і нижчі ІТ-курси)" },
+    { id: "sysdesign", category: "it", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25, zoneBoost: 0, desc: "Потрібен для звання Senior Developer" },
+    { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, desc: "Потрібен для звання Team Lead" },
+    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, desc: "Потрібен для звання Tech Lead та CTO (відкриває всі ІТ-звання)" },
 
-    // 2. Курси Житлової зони (усі дешевші за IT: від 250 до 1 900 💰)
-    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 250, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Дає +15% до чека клієнта при роботі на підприємствах у Житловій зоні" },
-    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 500, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Допуск до обслуговування котеджів і ЖК: +25% до чека у Житловій зоні" },
-    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 850, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Професійний догляд за житловими кварталами: +35% до чека у Житловій зоні" },
-    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир і котеджів", price: 1300, durationMs: 3600000, boost: 0, zoneBoost: 45, desc: "Комплексний ремонт і сервіс будинків: +45% до чека у Житловій зоні" },
-    { id: "res_osbb", category: "residential", name: "Управління ОСББ та житловим фондом", price: 1900, durationMs: 5400000, boost: 0, zoneBoost: 65, desc: "Диплом головного управителя ЖК: +65% до чека замовлення у Житловій зоні" },
+    // 2. Курси Житлової зони (усі дешевші за IT: 150 – 720 💰)
+    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 150, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Дає +15% до чека клієнта при роботі на об'єктах у Житловій зоні" },
+    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 280, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Допуск до обслуговування таунхаусів і ЖК: +25% до чека у Житловій зоні" },
+    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 420, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Професійний догляд за житловими кварталами: +35% до чека у Житловій зоні" },
+    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир і будинків", price: 560, durationMs: 3600000, boost: 0, zoneBoost: 45, desc: "Комплексний ремонт та утеплення фасадів: +45% до чека у Житловій зоні" },
+    { id: "res_osbb", category: "residential", name: "Управління ОСББ та житловим фондом", price: 720, durationMs: 5400000, boost: 0, zoneBoost: 65, desc: "Диплом головного управителя ЖК: +65% до чека замовлення у Житловій зоні" },
 
-    // 3. Курси Комерційної зони (усі дешевші за IT: від 300 до 2 100 💰)
-    { id: "com_cashier", category: "commercial", name: "Касова справа та обслуговування", price: 300, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Швидкий розрахунок покупців: +15% до чека клієнта у Комерційній зоні" },
-    { id: "com_barista", category: "commercial", name: "Бариста і кухар піцерії", price: 650, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Професійна робота в кав'ярнях і піцеріях Ковеля: +25% до чека у Комерційній зоні" },
-    { id: "res_trade", category: "commercial", name: "Товарознавство та мерчандайзинг", price: 1050, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Грамотна викладка товарів у магазинах і ТРЦ: +35% до чека у Комерційній зоні" },
-    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 1550, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Залучення клієнтів і підвищення середнього чека: +50% у Комерційній зоні" },
-    { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-центру", price: 2100, durationMs: 5400000, boost: 0, zoneBoost: 70, desc: "Диплом топ-менеджера торгівлі: +70% до чека замовлення у Комерційній зоні" },
+    // 3. Курси Комерційної зони (усі дешевші за IT: 180 – 750 💰)
+    { id: "com_cashier", category: "commercial", name: "Касова справа та обслуговування", price: 180, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Швидкий розрахунок покупців: +15% до чека клієнта у Комерційній зоні" },
+    { id: "com_barista", category: "commercial", name: "Бариста і кухар піцерії", price: 320, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Професійна робота в кав'ярнях і піцеріях Ковеля: +25% до чека у Комерційній зоні" },
+    { id: "res_trade", category: "commercial", name: "Товарознавство та мерчандайзинг", price: 460, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Грамотна викладка товарів у маркетах і пасажах: +35% до чека у Комерційній зоні" },
+    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 600, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Залучення клієнтів і підвищення середнього чека: +50% у Комерційній зоні" },
+    { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-холу", price: 750, durationMs: 5400000, boost: 0, zoneBoost: 70, desc: "Диплом топ-менеджера торгівлі: +70% до чека замовлення у Комерційній зоні" },
 
-    // 4. Курси Промислової зони (усі дешевші за IT: від 350 до 2 300 💰)
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 350, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Базовий промисловий допуск: +15% до чека замовлення у Промисловій зоні" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 750, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Курс зварювальника (школа Богдана Поліщука): +25% до чека у Промисловій зоні" },
-    { id: "ind_forklift", category: "industrial", name: "Водій навантажувача і складська логістика", price: 1200, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Робота на терміналах, елеваторах та складах: +35% до чека у Промисловій зоні" },
-    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та механіка", price: 1750, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Налаштування заводських ліній та депо: +50% до чека у Промисловій зоні" },
-    { id: "ind_chief", category: "industrial", name: "Головний інженер виробництва", price: 2300, durationMs: 5400000, boost: 0, zoneBoost: 75, desc: "Вища інженерна кваліфікація для заводів Ковеля: +75% до чека у Промисловій зоні" }
+    // 4. Курси Промислової зони та Зварювання (усі дешевші за IT: 200 – 780 💰; у Богдана Поліщука курси зварювання на 10% дешевше!)
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 200, durationMs: 900000, boost: 0, zoneBoost: 15, isWelding: false, desc: "Базовий промисловий допуск: +15% до чека замовлення у Промисловій зоні" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 350, durationMs: 1800000, boost: 0, zoneBoost: 25, isWelding: true, desc: "Базове зварювання металоконструкцій (+25% у Промзоні). У Богдана Поліщука — на 10% дешевше!" },
+    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 500, durationMs: 2700000, boost: 0, zoneBoost: 35, isWelding: true, desc: "Тонке зварювання нержавійки й алюмінію (+35% у Промзоні). У Богдана Поліщука — на 10% дешевше!" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 640, durationMs: 3600000, boost: 0, zoneBoost: 50, isWelding: true, desc: "Промислове зварювання та ЧПК-обробка (+50% у Промзоні). У Богдана Поліщука — на 10% дешевше!" },
+    { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 780, durationMs: 5400000, boost: 0, zoneBoost: 75, isWelding: true, desc: "Вища кваліфікація зварювального виробництва (+75% у Промзоні). У Богдана Поліщука — на 10% дешевше!" }
 ];
 
 const JOBS = [
@@ -94,7 +97,7 @@ const JOBS = [
     { name: "CTO", pay: 1500, xpNeeded: 0, taskClicks: 140, taskReward: 35000, creditLimit: 10000000, reqCourse: "architecture" }
 ];
 
-// Усі суми income нараховуються ЗА ГОДИНУ (/год)!
+// ВИМОГА 4: Перероблені будівлі у Житловій, Комерційній та Промисловій зонах (по 4 рівні забудови в кожній зоні!)
 const ZONE_INFO = {
     residential: {
         name: "🏡 Житлова зона",
@@ -102,11 +105,12 @@ const ZONE_INFO = {
         basePrice: 15000,
         fillFree: "#2ecc71",
         borderFree: "#0b5e28",
-        desc: "Спальні квартали, ОСББ та магазини біля дому. Найменший податок на землю та оборот.",
+        desc: "Житлові квартали, таунхауси, ОСББ та сервісні служби побуту. Найнижчий податок на землю та оборот.",
         buildings: [
-            { id: "kiosk", name: "Магазинчик біля дому", icon: "🏪", cost: 25000, income: 220, defaultWage: 11, clickProfit: 22 },
-            { id: "house", name: "Приватний котедж", icon: "🏡", cost: 65000, income: 620, defaultWage: 22, clickProfit: 45 },
-            { id: "apartments", name: "Житлова забудова (ЖК)", icon: "🏢", cost: 160000, income: 1650, defaultWage: 48, clickProfit: 95 }
+            { id: "kiosk", name: "Комунальна майстерня двору (ЖЕК)", icon: "🛠️", cost: 22000, income: 240, defaultWage: 12, clickProfit: 24 },
+            { id: "house", name: "Дуплекси та Таунхаус-кооператив", icon: "🏘️", cost: 60000, income: 650, defaultWage: 24, clickProfit: 48 },
+            { id: "apartments", name: "Житловий комплекс «Турія-Парк» (ОСББ)", icon: "🏢", cost: 150000, income: 1700, defaultWage: 50, clickProfit: 98 },
+            { id: "res_elite", name: "Елітний мікрорайон «Ковель-Резиденс»", icon: "🏰", cost: 360000, income: 4200, defaultWage: 105, clickProfit: 210 }
         ]
     },
     commercial: {
@@ -115,11 +119,12 @@ const ZONE_INFO = {
         basePrice: 55000,
         fillFree: "#2980ff",
         borderFree: "#003080",
-        desc: "Центральні вулиці, ринки, заклади харчування та ТРЦ. Середній податок і високий потік клієнтів.",
+        desc: "Пекарні, ресторани, пасажі та торгово-розважальні центри. Високий потік покупців і середній податок.",
         buildings: [
-            { id: "cafe", name: "Піцерія / Кав'ярня", icon: "🍕", cost: 85000, income: 850, defaultWage: 32, clickProfit: 62 },
-            { id: "mall", name: "Торговий центр (ТРЦ)", icon: "🛍️", cost: 240000, income: 2600, defaultWage: 75, clickProfit: 145 },
-            { id: "it_hub", name: "IT-Бізнес Центр", icon: "💻", cost: 600000, income: 7200, defaultWage: 165, clickProfit: 320 }
+            { id: "cafe", name: "Пекарня та Міні-маркет «Свіжа випічка»", icon: "🥐", cost: 75000, income: 880, defaultWage: 32, clickProfit: 64 },
+            { id: "mall", name: "Ресторан-Піцерія «Класік»", icon: "🍕", cost: 210000, income: 2500, defaultWage: 75, clickProfit: 148 },
+            { id: "it_hub", name: "Гіпермаркет та Торговий Пасаж", icon: "🛒", cost: 520000, income: 6800, defaultWage: 170, clickProfit: 330 },
+            { id: "com_plaza", name: "ТРЦ «Ковель-Плаза» & Бізнес-Хол", icon: "🏬", cost: 1150000, income: 15500, defaultWage: 350, clickProfit: 680 }
         ]
     },
     industrial: {
@@ -128,14 +133,40 @@ const ZONE_INFO = {
         basePrice: 180000,
         fillFree: "#ff7722",
         borderFree: "#7a2200",
-        desc: "Заводи, депо, СТО та логістичні термінали. Високий податок на землю, але найбільші чеки замовлень.",
+        desc: "Зварювальні цехи, меблеві комбінати, залізничні термінали та важке машинобудування.",
         buildings: [
-            { id: "auto_weld", name: "Зварювальний цех і СТО", icon: "🔧", cost: 250000, income: 2800, defaultWage: 85, clickProfit: 165 },
-            { id: "logistics", name: "Логістичний термінал", icon: "🚛", cost: 650000, income: 8200, defaultWage: 195, clickProfit: 380 },
-            { id: "factory", name: "Завод КовельПром", icon: "🏭", cost: 1500000, income: 22000, defaultWage: 420, clickProfit: 820 }
+            { id: "auto_weld", name: "Зварювальний цех та Автосервіс (СТО)", icon: "🔧", cost: 220000, income: 2900, defaultWage: 88, clickProfit: 170 },
+            { id: "logistics", name: "Деревообробний та Меблевий комбінат", icon: "🪵", cost: 580000, income: 7800, defaultWage: 195, clickProfit: 380 },
+            { id: "factory", name: "Євро-Логістичний Термінал та Депо", icon: "🚂", cost: 1350000, income: 19500, defaultWage: 390, clickProfit: 760 },
+            { id: "ind_plant", name: "Машинобудівний завод «КовельПромМаш»", icon: "🏭", cost: 2900000, income: 44000, defaultWage: 800, clickProfit: 1550 }
         ]
     }
 };
+
+// Меню кафе "DOBRE" (вул. Косачів, 4а)
+const DOBRE_MENU = [
+    {
+        id: "espresso",
+        name: "☕ Еспресо «DOBRE»",
+        price: 25,
+        desc: "Миттєво знімає перерву (кулдаун) на роботі — одразу беріть наступне замовлення!",
+        effect: "reset_cooldown"
+    },
+    {
+        id: "croissant",
+        name: "🥐 Капучино + Французький круасан",
+        price: 120,
+        desc: "Знімає кулдаун роботи та скорочує час навчання на поточному курсі на 10 хвилин!",
+        effect: "boost_course_10m"
+    },
+    {
+        id: "lunch",
+        name: "🍲 Фірмовий ланч «DOBRE на Косачів, 4а»",
+        price: 340,
+        desc: "Повний заряд бадьорості: знімає кулдаун роботи та скорочує час поточного курсу на 35 хвилин!",
+        effect: "boost_course_35m"
+    }
+];
 
 const KOVEL_CENTER = [51.2135, 24.7060];
 const KOVEL_BOUNDS = [
@@ -143,10 +174,12 @@ const KOVEL_BOUNDS = [
     [51.2420, 24.7620]
 ];
 
+// ВИМОГА 5: Вулиця Косачів, 4а — там знаходиться кафе "DOBRE", так само як дім Поліщука (видно на макс. зумі!)
 const MAP_BUILDINGS = [
-    { id: "bank", name: "КовельБанк 98", icon: "🏦", cls: "bank", lat: 51.2121, lng: 24.7102, sub: "Кредити та Депозити" },
-    { id: "corp", name: "КовельКорп", icon: "🏢", cls: "corp", lat: 51.2208, lng: 24.7120, sub: "IT-Корпорація" },
-    { id: "bohdan", name: "Дім Богдана Поліщука", icon: "👨‍🏭", cls: "bohdan", lat: 51.2226, lng: 24.7392, sub: "Миколайчука, 100" }
+    { id: "bank", name: "КовельБанк 98", icon: "🏦", cls: "bank", lat: 51.2121, lng: 24.7102, sub: "Кредити та Депозити", secretZoom: false },
+    { id: "corp", name: "КовельКорп", icon: "🏢", cls: "corp", lat: 51.2208, lng: 24.7120, sub: "IT-Корпорація", secretZoom: false },
+    { id: "bohdan", name: "Дім Богдана Поліщука", icon: "👨‍🏭", cls: "bohdan", lat: 51.2226, lng: 24.7392, sub: "вул. Миколайчука, 100", secretZoom: true },
+    { id: "dobre", name: 'Кафе "DOBRE"', icon: "☕", cls: "dobre", lat: 51.2149, lng: 24.7114, sub: "вул. Косачів, 4а", secretZoom: true }
 ];
 
 const MAP_PLOTS_BASE = [
@@ -223,7 +256,6 @@ function getZoneTaxRates(zone) {
     };
 }
 
-// Перевірка, чи гравець targetUser ВЖЕ працює на власника ownerUser
 function getExistingEmploymentForOwner(targetUser, ownerUser = currentUser) {
     if (!targetUser || !ownerUser) return null;
     const tClean = String(targetUser).trim().toLowerCase();
@@ -246,7 +278,6 @@ function getExistingEmploymentForOwner(targetUser, ownerUser = currentUser) {
     return null;
 }
 
-// ВИМОГА: Курси поділені строго між Житловою (residential), Комерційною (commercial) та Промисловою (industrial) зонами!
 function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     if (!Array.isArray(completedList) || !completedList.length) return 0;
     let totalPct = 0;
@@ -260,9 +291,8 @@ function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     return totalPct;
 }
 
-// Прозора формула розрахунку 1 замовлення (Чек клієнта -> Податок зони -> ЗП робітнику -> Чиста маржа власника)
 function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWage = 15) {
-    const baseCheck = buildingDef ? buildingDef.clickProfit : 22;
+    const baseCheck = buildingDef ? buildingDef.clickProfit : 24;
     const skillBonusPct = getWorkerZoneSkillBonusPct(workerCourses, plotZone);
     const grossCheck = Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
     const { turnoverTaxPct } = getZoneTaxRates(plotZone);
@@ -305,7 +335,7 @@ function geoDistMeters(lat1, lng1, lat2, lng2) {
 function getBuildingProximityBonus(plot) {
     let bonus = 0;
     MAP_BUILDINGS.forEach(b => {
-        if (b.id === "bohdan") return;
+        if (b.secretZoom) return;
         const d = geoDistMeters(plot.lat, plot.lng, b.lat, b.lng);
         if (d < 450) bonus += 35;
         else if (d < 850) bonus += 15;
@@ -478,7 +508,6 @@ let workCooldownReason = "";
 let cooldownIntervalId = null;
 let isProcessingWorkClick = false;
 
-// Захист від перезапису локально змінених монет застарілим snapshot-ом із Firebase
 let lastLocalCoinChangeAt = 0;
 let pendingSaveRequested = false;
 
@@ -497,6 +526,9 @@ let gameState = {
     taskActive: false,
     activeCourseId: null,
     courseStartTime: 0,
+    coursePaused: false,
+    courseRemainingMs: 0,
+    bohdanDiscountUsedAt: 0,
     completedCourses: [],
     xpBoost: 0,
     lastRentAt: 0,
@@ -658,7 +690,6 @@ window.switchWorkSubtab = function (sub) {
     if (sub === "mybiz") renderOwnerBusinessesHub();
 };
 
-// Перемикання між 4 категоріями курсів: it, residential, commercial, industrial
 window.switchCourseCategory = function (cat) {
     activeCourseCategory = cat;
     ["it", "residential", "commercial", "industrial"].forEach(c => {
@@ -715,7 +746,9 @@ window.handleAuth = async function () {
                     coins: 0, jobIndex: 0, xp: 0,
                     privateJobIndex: 0, privateXp: 0, employer: "none",
                     taskProgress: 0, taskActive: false,
-                    activeCourseId: null, courseStartTime: 0, completedCourses: [], xpBoost: 0,
+                    activeCourseId: null, courseStartTime: 0, coursePaused: false, courseRemainingMs: 0,
+                    bohdanDiscountUsedAt: 0,
+                    completedCourses: [], xpBoost: 0,
                     lastRentAt: Date.now(),
                     credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 },
                     deposit: { amount: 0, lastInterestAt: Date.now(), totalEarned: 0 }
@@ -850,6 +883,9 @@ window.executeAdminGlobalWipe = async function () {
                 taskActive: false,
                 activeCourseId: null,
                 courseStartTime: 0,
+                coursePaused: false,
+                courseRemainingMs: 0,
+                bohdanDiscountUsedAt: 0,
                 completedCourses: [],
                 xpBoost: 0,
                 lastRentAt: now,
@@ -884,6 +920,9 @@ window.executeAdminGlobalWipe = async function () {
             taskActive: false,
             activeCourseId: null,
             courseStartTime: 0,
+            coursePaused: false,
+            courseRemainingMs: 0,
+            bohdanDiscountUsedAt: 0,
             completedCourses: [],
             xpBoost: 0,
             lastRentAt: Date.now(),
@@ -938,6 +977,9 @@ async function loadGame() {
                 taskActive: Boolean(d.taskActive),
                 activeCourseId: d.activeCourseId || null,
                 courseStartTime: Number(d.courseStartTime) || 0,
+                coursePaused: Boolean(d.coursePaused),
+                courseRemainingMs: Number(d.courseRemainingMs) || 0,
+                bohdanDiscountUsedAt: Number(d.bohdanDiscountUsedAt) || 0,
                 completedCourses: completed,
                 xpBoost: Number(d.xpBoost) || 0,
                 lastRentAt: Number(d.lastRentAt) || Date.now(),
@@ -954,7 +996,6 @@ function startLiveSync() {
     dataListener = onValue(ref(db, `users/${currentUser}/clicker`), snap => {
         if (!snap.exists()) return;
         const d = snap.val();
-        // Захист: якщо ми щойно змінили монети локально (переказ поштою, покупка тощо), не перезаписуємо їх старим snapshot-ом
         if (!isSaving && (Date.now() - lastLocalCoinChangeAt > 2500)) {
             gameState.coins = Number(d.coins) || 0;
         }
@@ -969,6 +1010,9 @@ function startLiveSync() {
         }
         gameState.activeCourseId = d.activeCourseId || null;
         gameState.courseStartTime = Number(d.courseStartTime) || 0;
+        gameState.coursePaused = Boolean(d.coursePaused);
+        gameState.courseRemainingMs = Number(d.courseRemainingMs) || 0;
+        gameState.bohdanDiscountUsedAt = Number(d.bohdanDiscountUsedAt) || 0;
         gameState.xpBoost = Number(d.xpBoost) || 0;
         gameState.lastRentAt = Number(d.lastRentAt) || gameState.lastRentAt || Date.now();
         gameState.credit = d.credit || { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 };
@@ -1003,7 +1047,6 @@ function startMapSync() {
     });
 }
 
-// Погодинний облік землі та будівель
 async function checkPassiveRentIncome() {
     if (!currentUser || !sharedPlots) return;
     const now = Date.now();
@@ -1078,7 +1121,6 @@ function recalculateBoost() {
     gameState.xpBoost = b;
 }
 
-// Гарантоване збереження без втрати викликів (черга pendingSaveRequested)
 async function saveGame() {
     if (!currentUser) return;
     if (isSaving) {
@@ -1100,6 +1142,9 @@ async function saveGame() {
                 taskActive: gameState.taskActive,
                 activeCourseId: gameState.activeCourseId,
                 courseStartTime: gameState.courseStartTime,
+                coursePaused: Boolean(gameState.coursePaused),
+                courseRemainingMs: Number(gameState.courseRemainingMs) || 0,
+                bohdanDiscountUsedAt: Number(gameState.bohdanDiscountUsedAt) || 0,
                 completedCourses: gameState.completedCourses,
                 xpBoost: gameState.xpBoost,
                 lastRentAt: gameState.lastRentAt || Date.now(),
@@ -1127,15 +1172,60 @@ function getActiveEmployerPlotId() {
     return Number(gameState.employer.split(":")[1]);
 }
 
-function isCourseRunning() { return !!gameState.activeCourseId; }
+// ===== ВИМОГА 3: КУРС МОЖНА СТАВИТИ НА ПАУЗУ І ПРАЦЮВАТИ! =====
+function hasActiveOrPausedCourse() {
+    return Boolean(gameState.activeCourseId);
+}
+
+// Робота блокується ТІЛЬКИ тоді, коли курс іде активно і НЕ стоїть на паузі!
+function isCourseRunning() {
+    return Boolean(gameState.activeCourseId && !gameState.coursePaused);
+}
+
 function getRemainingCourseMs() {
     if (!gameState.activeCourseId) return 0;
     const c = COURSES.find(x => x.id === gameState.activeCourseId);
     if (!c) return 0;
-    return Math.max(0, c.durationMs - (Date.now() - gameState.courseStartTime));
+    const baseDur = Number(gameState.courseRemainingMs) > 0 ? Number(gameState.courseRemainingMs) : c.durationMs;
+    if (gameState.coursePaused) {
+        return Math.max(0, baseDur);
+    }
+    return Math.max(0, baseDur - (Date.now() - (Number(gameState.courseStartTime) || Date.now())));
 }
-function checkCourseCompletion() {
+
+window.toggleCoursePause = async function () {
     if (!gameState.activeCourseId) return;
+    const c = COURSES.find(x => x.id === gameState.activeCourseId);
+    sfx.click();
+
+    if (!gameState.coursePaused) {
+        // Ставимо курс на паузу: зберігаємо точний залишок часу і відкриваємо роботу!
+        const rem = getRemainingCourseMs();
+        gameState.courseRemainingMs = Math.max(1000, rem);
+        gameState.coursePaused = true;
+        gameState.courseStartTime = 0;
+        renderAll();
+        await saveGame();
+        setGameStatus(`⏸️ Курс «${c ? c.name : ""}» поставлено на паузу (залишилось ${formatDuration(gameState.courseRemainingMs)}). Тепер ви можете працювати!`);
+    } else {
+        // Знімаємо курс із паузи: продовжуємо навчання з тієї ж секунди!
+        miniGames.stop();
+        gameState.taskActive = false;
+        gameState.taskProgress = 0;
+        if (!gameState.courseRemainingMs || gameState.courseRemainingMs <= 0) {
+            gameState.courseRemainingMs = c ? c.durationMs : 900000;
+        }
+        gameState.coursePaused = false;
+        gameState.courseStartTime = Date.now();
+        renderAll();
+        startCourseTimer();
+        await saveGame();
+        setGameStatus(`▶️ Навчання на курсі «${c ? c.name : ""}» продовжено!`);
+    }
+};
+
+function checkCourseCompletion() {
+    if (!gameState.activeCourseId || gameState.coursePaused) return;
     if (getRemainingCourseMs() <= 0) {
         const c = COURSES.find(x => x.id === gameState.activeCourseId);
         if (c && !gameState.completedCourses.includes(c.id)) {
@@ -1144,6 +1234,8 @@ function checkCourseCompletion() {
         }
         gameState.activeCourseId = null;
         gameState.courseStartTime = 0;
+        gameState.coursePaused = false;
+        gameState.courseRemainingMs = 0;
         setGameStatus("Курс завершено!");
         let bonusDesc = "";
         if (c?.category === "it") {
@@ -1183,7 +1275,7 @@ window.joinKovelCorp = async function () {
     setGameStatus("Ви влаштувались у КовельКорп!");
 };
 
-// ===== ПОШТА OUTLOOK EXPRESS 98: РЕЗЮМЕ, ПЕРЕКАЗ МОНЕТ, ПРОПОЗИЦІЇ РОБОТИ З КООРДИНАТАМИ ТА ІСТОРІЯ ПЕРЕПИСКИ =====
+// ===== ПОШТА OUTLOOK EXPRESS 98 (ІЗ ВИДАЛЕННЯМ ПОВІДОМЛЕНЬ ДЛЯ ДВОХ СТОРІН!) =====
 
 window.openResumeModal = function (plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
@@ -1460,7 +1552,6 @@ async function populatePlayersSelectForMail() {
     } catch (e) {}
 }
 
-// ВИПРАВЛЕНО: Атомарне списання монет з гаманця відправника разом із записом у sentMail (без конфлікту з onValue!)
 window.sendPersonalMail = async function () {
     const to = ($("mail-to-input").value || "").trim();
     const subj = ($("mail-subj-input").value || "").trim() || "Повідомлення";
@@ -1549,7 +1640,6 @@ window.sendPersonalMail = async function () {
             }
         }
 
-        // Миттєво списуємо монети локально і блокуємо відкат від onValue
         if (attachedCoins > 0) {
             gameState.coins = Math.max(0, gameState.coins - attachedCoins);
             markLocalCoinsChanged();
@@ -1571,13 +1661,11 @@ window.sendPersonalMail = async function () {
             createdAt: Date.now()
         };
 
-        // 1. Спочатку атомарно оновлюємо баланс відправника та його sentMail в одному запиті до users/${currentUser}/clicker!
         await update(ref(db, `users/${currentUser}/clicker`), {
             coins: gameState.coins,
             [`sentMail/${newRef.key}`]: msgData
         });
 
-        // 2. Доставляємо лист отримувачу
         await set(newRef, msgData);
 
         $("mail-subj-input").value = "";
@@ -1599,7 +1687,6 @@ window.sendPersonalMail = async function () {
     }
 };
 
-// Отримання прикріпленого грошового переказу з листа
 window.claimMailCoins = async function (mailId) {
     const mail = userInboxMail[mailId];
     if (!mail || !mail.attachedCoins || mail.coinsClaimed) return;
@@ -1633,7 +1720,6 @@ window.claimMailCoins = async function (mailId) {
     }
 };
 
-// Перехід на мапу за координатами з листа
 window.focusPlotFromMail = function (plotId) {
     const pid = Number(plotId);
     const p = MAP_PLOTS_BASE.find(x => x.id === pid);
@@ -1650,7 +1736,6 @@ window.focusPlotFromMail = function (plotId) {
     }, 100);
 };
 
-// Прийняття пропозиції роботи за координатами прямо з листа
 window.acceptJobOfferFromMail = async function (mailId) {
     const mail = userInboxMail[mailId];
     if (!mail || !mail.jobOffer) return;
@@ -1845,7 +1930,10 @@ function renderMailHistoryView() {
             <div class="history-bubble ${isOut ? "outgoing" : "incoming"}">
                 <div class="history-meta">
                     <b>${escapeHtml(senderLabel)}</b>
-                    <span>${formatTimeAgo(m.createdAt)}</span>
+                    <span style="display:flex;align-items:center;gap:6px">
+                        <span>${formatTimeAgo(m.createdAt)}</span>
+                        <button class="btn danger" onclick="deleteMailItem('${m.id}', ${isOut}, '${escapeHtml(activeHistoryContact)}')" style="min-height:18px;min-width:auto;padding:0 5px;font-size:10px" title="Видалити повідомлення для обох сторін">🗑️</button>
+                    </span>
                 </div>
                 <div style="font-weight:bold;margin-bottom:2px">${escapeHtml(m.subject || "")}</div>
                 <div style="white-space:pre-line">${escapeHtml(m.body || "")}</div>
@@ -1966,14 +2054,38 @@ window.rejectResume = async function (mailId) {
     }
 };
 
-window.deleteMailItem = async function (mailId, isSent = false) {
+// ВИМОГА 2: Видалення повідомлень на Пошті ОДРАЗУ ДЛЯ ДВОХ СТОРІН (і у відправника, і в отримувача)!
+window.deleteMailItem = async function (mailId, isSent = false, otherUserHint = "") {
+    if (!mailId || !currentUser) return;
+    const msgObj = userInboxMail[mailId] || userSentMail[mailId] || null;
+    const fromUser = msgObj?.from || (isSent ? currentUser : otherUserHint);
+    const toUser = msgObj?.to || (isSent ? otherUserHint : currentUser);
+
+    const tasks = [
+        set(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), null).catch(() => {}),
+        set(ref(db, `users/${currentUser}/clicker/sentMail/${mailId}`), null).catch(() => {})
+    ];
+
+    if (fromUser && fromUser !== currentUser) {
+        tasks.push(set(ref(db, `users/${fromUser}/clicker/sentMail/${mailId}`), null).catch(() => {}));
+        tasks.push(set(ref(db, `users/${fromUser}/clicker/mail/${mailId}`), null).catch(() => {}));
+    }
+    if (toUser && toUser !== currentUser) {
+        tasks.push(set(ref(db, `users/${toUser}/clicker/mail/${mailId}`), null).catch(() => {}));
+        tasks.push(set(ref(db, `users/${toUser}/clicker/sentMail/${mailId}`), null).catch(() => {}));
+    }
+    if (msgObj?.type === "resume" && msgObj.plotId !== undefined && fromUser) {
+        tasks.push(set(ref(db, `plots/${msgObj.plotId}/applicants/${fromUser}`), null).catch(() => {}));
+    }
+
     try {
-        if (isSent) {
-            await set(ref(db, `users/${currentUser}/clicker/sentMail/${mailId}`), null);
-        } else {
-            await set(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), null);
-        }
+        await Promise.all(tasks);
+        delete userInboxMail[mailId];
+        delete userSentMail[mailId];
         sfx.click();
+        updateMailBadges();
+        if (currentPage === "mail") renderMailPage();
+        setGameStatus("🗑️ Повідомлення видалено для обох сторін!");
     } catch (e) {}
 };
 
@@ -2015,7 +2127,7 @@ function renderMailPage() {
                 ${m.jobOffer ? `<div style="font-size:11px;color:#000080">📍 Прикріплено координати: ${escapeHtml(m.jobOffer.plotName)} (${escapeHtml(m.jobOffer.coords)})</div>` : ""}
                 <div class="btn-row" style="margin-top:2px">
                     <button class="btn" onclick="openConversationHistory('${escapeHtml(m.to || "")}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">💬 Історія переписки</button>
-                    <button class="btn danger" onclick="deleteMailItem('${m.id}', true)" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">🗑️ Видалити</button>
+                    <button class="btn danger" onclick="deleteMailItem('${m.id}', true, '${escapeHtml(m.to || "")}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">🗑️ Видалити у всіх</button>
                 </div>
             </div>
         `).join("");
@@ -2128,7 +2240,7 @@ function renderMailPage() {
                 <div class="btn-row" style="margin-top:2px">
                     <button class="btn" onclick="openConversationHistory('${escapeHtml(m.from)}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">💬 Історія переписки</button>
                     <button class="btn default" onclick="openComposeMail('${escapeHtml(m.from)}', 'Re: ${escapeHtml(m.subject || "")}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">↩️ Відповісти / Переказ</button>
-                    <button class="btn danger" onclick="deleteMailItem('${m.id}', false)" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">🗑️ Видалити</button>
+                    <button class="btn danger" onclick="deleteMailItem('${m.id}', false, '${escapeHtml(m.from || "")}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px">🗑️ Видалити у всіх</button>
                 </div>
             </div>
         `;
@@ -2153,7 +2265,6 @@ window.resignCurrentJob = async function () {
     showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете подати резюме в бізнес іншого гравця або піти в КовельКорп.", "🚪");
 };
 
-// Прозора економіка замовлення (Чек клієнта -> Податок -> ЗП робітнику -> Чиста маржа власника в Касу)
 async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
@@ -2648,6 +2759,7 @@ function startCreditTimer() {
         checkDepositInterest();
         checkPassiveRentIncome();
         if (currentPage === "bank") renderBank();
+        if ($("bohdan-overlay")?.classList.contains("active")) renderBohdanWeldingSchool();
     }, 1000);
 }
 
@@ -2663,6 +2775,7 @@ function renderAll() {
     renderBank();
     if (currentPage === "mail") renderMailPage();
     if (currentPage === "politics") renderPoliticsPage();
+    if ($("bohdan-overlay")?.classList.contains("active")) renderBohdanWeldingSchool();
     updateWorkButtonState();
 }
 
@@ -2924,7 +3037,7 @@ function renderOwnerBusinessesHub() {
     }
 
     if (!myOwnedPlots.length) {
-        hubEl.innerHTML = `<div class="muted" style="padding:14px;text-align:center">У вас поки немає куплених ділянок чи підприємств.<br>Перейдіть у вкладку <b>«🗺️ Мапа»</b>, купіть ділянку та збудуйте магазин, піцерію чи завод!</div>`;
+        hubEl.innerHTML = `<div class="muted" style="padding:14px;text-align:center">У вас поки немає куплених ділянок чи підприємств.<br>Перейдіть у вкладку <b>«🗺️ Мапа»</b>, купіть ділянку та збудуйте підприємство!</div>`;
         return;
     }
 
@@ -3005,7 +3118,7 @@ function renderOwnerBusinessesHub() {
     }).join("");
 }
 
-// ===== ВКЛАДКА «🏛️ ПОЛІТИКА» (ПОДАТКИ НА ЗЕМЛЮ ТА ЗОНИ) =====
+// ===== ВКЛАДКА «🏛️ ПОЛІТИКА» =====
 window.saveAdminTaxPolicy = async function () {
     if (!isAdminUser()) return;
     const resTurn = Math.max(0, Math.min(50, Number($("pol_res_turn")?.value) || 8));
@@ -3274,24 +3387,49 @@ function renderTask() {
     }
 }
 
+// ВИМОГА 3: Кнопка паузи курсу прямо на банері навчання; коли курс на паузі — кнопка роботи ВІДКРИТА!
 function updateWorkButtonState() {
-    const btn = $("big-click"), label = $("big-click-label"), sub = $("big-click-sub"), emoji = $("big-click-emoji"), blocker = $("course-blocker");
+    const btn = $("big-click"), label = $("big-click-label"), sub = $("big-click-sub"), emoji = $("big-click-emoji");
+    const blocker = $("course-blocker"), blockerMsg = $("course-blocker-msg"), pauseBtn = $("course-pause-btn");
     if (!btn) return;
 
-    if (isCourseRunning()) {
-        miniGames.stop();
-        btn.style.display = "flex";
-        btn.disabled = true;
-        btn.classList.remove("cooldown-active");
-        if (emoji) emoji.textContent = "📚";
-        label.textContent = "ТРИВАЄ НАВЧАННЯ";
-        if (sub) sub.textContent = "Дочекайтесь завершення курсу";
+    if (hasActiveOrPausedCourse()) {
+        const c = COURSES.find(x => x.id === gameState.activeCourseId);
+        const cName = c ? c.name : "Курс";
+        const remStr = formatDuration(getRemainingCourseMs());
         blocker.classList.add("show");
-        $("course-blocker-timer").textContent = "Залишилось: " + formatDuration(getRemainingCourseMs());
-        return;
+
+        if (gameState.coursePaused) {
+            blocker.classList.add("paused-mode");
+            if (blockerMsg) blockerMsg.innerHTML = `⏸️ Курс <b>«${escapeHtml(cName)}»</b> стоїть на ПАУЗІ. Ви можете вільно працювати!`;
+            $("course-blocker-timer").textContent = "Залишилось довчити: " + remStr;
+            if (pauseBtn) {
+                pauseBtn.textContent = "▶️ Продовжити навчання з паузи";
+                pauseBtn.className = "btn success";
+            }
+        } else {
+            blocker.classList.remove("paused-mode");
+            if (blockerMsg) blockerMsg.innerHTML = `📚 Зараз ви проходите курс <b>«${escapeHtml(cName)}»</b>. Щоб попрацювати — натисніть «Поставити на паузу»!`;
+            $("course-blocker-timer").textContent = "Залишилось: " + remStr;
+            if (pauseBtn) {
+                pauseBtn.textContent = "⏸️ Поставити на паузу (піти працювати)";
+                pauseBtn.className = "btn default";
+            }
+
+            miniGames.stop();
+            btn.style.display = "flex";
+            btn.disabled = true;
+            btn.classList.remove("cooldown-active");
+            if (emoji) emoji.textContent = "📚";
+            label.textContent = "ТРИВАЄ НАВЧАННЯ";
+            if (sub) sub.textContent = "Натисніть «Поставити на паузу» вище, якщо хочете працювати";
+            return;
+        }
+    } else {
+        blocker.classList.remove("show");
+        blocker.classList.remove("paused-mode");
     }
 
-    blocker.classList.remove("show");
     const now = Date.now();
     const remMs = Math.max(0, workCooldownUntil - now);
     const debtNote = isBankBlocked() ? " • ⚠️ Працюйте, щоб погасити прострочений кредит!" : "";
@@ -3398,7 +3536,7 @@ function renderJobsList() {
     $("jobs-list").innerHTML = html;
 }
 
-// Відображення 4 категорій курсів (IT, Житлова, Комерційна, Промислова)
+// Магазин курсів із підтримкою ПАУЗИ курсу
 function renderShop() {
     const bannerEl = $("course-cat-banner");
     const overdueBlocked = isBankBlocked();
@@ -3406,16 +3544,16 @@ function renderShop() {
         if (overdueBlocked) {
             bannerEl.innerHTML = `🚫 <span style="color:#800000">У вас прострочений кредит! Купівля курсів тимчасово заблокована — заробляйте монети на роботі та погасіть борг у вкладці «🏦 Банк».</span>`;
         } else if (activeCourseCategory === "it") {
-            bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Елітні курси (від 2 500 💰). Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп, а дорожчий курс автоматично зараховує вимоги всіх дешевших!`;
+            bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Класичні ІТ-курси (від 800 💰). Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп, а дорожчий курс автоматично зараховує вимоги всіх дешевших!`;
         } else if (activeCourseCategory === "residential") {
             const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
-            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (250 – 1 900 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
+            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (150 – 720 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
         } else if (activeCourseCategory === "commercial") {
             const myCom = getWorkerZoneSkillBonusPct(gameState.completedCourses, "commercial");
-            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (300 – 2 100 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі в піцеріях, ТРЦ та бізнес-центрах Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
+            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (180 – 750 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі в пекарнях, піцеріях і ТРЦ Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
         } else {
             const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (350 – 2 300 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на заводах, СТО та терміналах Промзони! Ваш поточний бонус у Промзоні: <span style="color:#006400">+${myInd}%</span>.`;
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (200 – 780 💰, усі дешевші за IT):</b> Збільшують чек клієнта у Промзоні (+${myInd}%)! 💡 <i>Порада: у гаражі Богдана Поліщука курси зварювання можна купити на 10% дешевше раз на 24 години!</i>`;
         }
     }
 
@@ -3445,7 +3583,18 @@ function renderShop() {
         if (done) {
             status = `<span style="color:#006400;font-weight:bold">✓ Диплом отримано (${badgeLabel})</span>`;
         } else if (active) {
-            status = `<span class="course-timer">⏳ Навчання: ${formatDuration(getRemainingCourseMs())}</span>`;
+            const remStr = formatDuration(getRemainingCourseMs());
+            if (gameState.coursePaused) {
+                status = `
+                    <span class="course-timer" style="color:#004080;margin-right:6px">⏸️ На паузі (залишилось: ${remStr})</span>
+                    <button class="btn success" onclick="toggleCoursePause()" style="min-height:28px;padding:3px 10px;font-size:11px">▶️ Продовжити</button>
+                `;
+            } else {
+                status = `
+                    <span class="course-timer" style="margin-right:6px">⏳ Навчання: ${remStr}</span>
+                    <button class="btn" onclick="toggleCoursePause()" style="min-height:28px;padding:3px 10px;font-size:11px">⏸️ Пауза</button>
+                `;
+            }
         } else {
             const extraNote = coveredByHigher ? `<span style="font-size:11px;color:#006400;margin-right:6px">✓ Вимогу вже перекрито вищим дипломом</span>` : "";
             const btnText = overdueBlocked ? `🚫 Борг у банку` : `Вивчити (${formatNumberFull(c.price)} 💰)`;
@@ -3485,7 +3634,6 @@ function initKovelMap() {
     leafletPlotLayer = L.layerGroup().addTo(leafletMap);
     leafletBldLayer = L.layerGroup().addTo(leafletMap);
 
-    // ВИМОГА: Перемальовуємо мапу при зміні масштабу, щоб Богдана Поліщука можна було знайти лише на максимальному приближенні!
     leafletMap.on("zoomend", () => {
         renderMap();
     });
@@ -3512,10 +3660,7 @@ window.setZoneFilter = function (zone) {
     renderMap();
 };
 
-// ВИМОГА:
-// 1. Придбана земля зберігає колір своєї спеціалізації (житлова — зелена #2ecc71, комерція — синя #2980ff, промзона — помаранчева #ff7722).
-// 2. Нік власника показується в рамочці ЗВЕРХУ ВСЕРЕДИНІ квадрата землі.
-// 3. Богдана Поліщука можна знайти на мапі лише тоді, коли максимально приблизити камеру (zoom >= 17).
+// Мапа: колір зони зберігається, нік зверху всередині квадрата, Богдан та кафе «DOBRE» (Косачів, 4а) з'являються лише на макс. зумі!
 function renderMap() {
     if (!leafletMap) initKovelMap();
     if (!leafletMap || !leafletPlotLayer || !leafletBldLayer) return;
@@ -3535,7 +3680,6 @@ function renderMap() {
         const canAfford = gameState.coins >= price && !owned && !isBankBlocked();
         const isSelected = selectedPlotId === p.id;
 
-        // Земля ЗАВЖДИ має колір своєї спеціалізації (зелена / синя / помаранчева)
         const fillColor = zInfo.fillFree;
         const borderColor = isSelected ? "#ffff00" : zInfo.borderFree;
         const bld = owned ? getBuildingDef(p.zone, owned.building) : null;
@@ -3558,7 +3702,6 @@ function renderMap() {
         const zoneBadge = p.zone === "industrial" ? "🏭" : (p.zone === "commercial" ? "🏪" : "🏡");
 
         if (owned) {
-            // Рамочка з ніком власника — ЗВЕРХУ ВСЕРЕДИНІ квадрата землі!
             const topInsideLat = p.lat + (p.dLat / 2) - (p.dLat * 0.05);
             const isSelf = owned.owner === currentUser;
             const frameCls = `plot-owner-top-frame${isSelf ? " self-owner" : ""}${isSelected ? " selected" : ""}`;
@@ -3571,7 +3714,6 @@ function renderMap() {
             }).addTo(leafletPlotLayer);
             topNameMarker.on("click", () => selectPlot(p.id));
 
-            // Якщо є збудована будівля — компактний значок будівлі по центру квадрата нижче рамочки ніка
             if (bld) {
                 const workersCount = owned.workers ? Object.keys(owned.workers).length : 0;
                 const workerTag = workersCount > 0 ? ` 👷${workersCount}` : "";
@@ -3585,7 +3727,6 @@ function renderMap() {
                 centerMarker.on("click", () => selectPlot(p.id));
             }
         } else {
-            // Вільна ділянка — ціна по центру
             const labelCls = `win95-map-label zone-${p.zone}${isSelected ? " selected" : ""}`;
             const labelMarker = L.marker([p.lat, p.lng], {
                 icon: L.divIcon({
@@ -3599,8 +3740,8 @@ function renderMap() {
     });
 
     MAP_BUILDINGS.forEach(b => {
-        // Богдана Поліщука видно лише при максимальному наближенні камери!
-        if (b.id === "bohdan" && curZoom < maxZoom) return;
+        // ВИМОГА 5: І дім Богдана Поліщука, і кафе «DOBRE» (вул. Косачів, 4а) видно лише на максимальному зумі!
+        if (b.secretZoom && curZoom < maxZoom) return;
 
         const marker = L.marker([b.lat, b.lng], {
             pane: "kovelBuildingsPane",
@@ -3855,6 +3996,7 @@ window.buildOnSelectedPlot = async function (buildingId) {
 window.clickBuilding = function (id) {
     if (id === "bank") switchPage("bank");
     else if (id === "bohdan") openBohdanModal();
+    else if (id === "dobre") openDobreModal();
     else if (id === "corp") {
         if (!hasCourse("basics")) {
             showDialog("КовельКорп", "Для вступу в ІТ-корпорацію «КовельКорп» потрібен сертифікат курсу «Основи програмування» або будь-якого дорожчого ІТ-курсу (у вкладці «🎓 Курси»).", "🏢");
@@ -3865,6 +4007,191 @@ window.clickBuilding = function (id) {
     }
 };
 
+// ===== ВИМОГА 5: КАФЕ "DOBRE" (ВУЛ. КОСАЧІВ, 4А) =====
+window.openDobreModal = function () {
+    sfx.click();
+    renderDobreMenu();
+    $("dobre-overlay").classList.add("active");
+};
+
+window.closeDobreModal = function () {
+    $("dobre-overlay").classList.remove("active");
+};
+
+function renderDobreMenu() {
+    const grid = $("dobre-menu-grid");
+    if (!grid) return;
+    const overdueBlocked = isBankBlocked();
+
+    grid.innerHTML = DOBRE_MENU.map(item => {
+        const canBuy = !overdueBlocked && gameState.coins >= item.price;
+        return `
+            <div class="dobre-item-card">
+                <div>
+                    <div style="font-weight:bold;color:#4a2311">${escapeHtml(item.name)}</div>
+                    <div style="font-size:11px;color:#444">${escapeHtml(item.desc)}</div>
+                </div>
+                <button class="btn default" ${canBuy ? "" : "disabled"} onclick="buyDobreItem('${item.id}')" style="min-height:30px;min-width:95px;padding:4px 8px;font-size:11px">
+                    ${overdueBlocked ? "🚫 Борг" : `Замовити (${item.price} 💰)`}
+                </button>
+            </div>
+        `;
+    }).join("");
+}
+
+window.buyDobreItem = async function (itemId) {
+    if (isBankBlocked()) {
+        return showDialog("Покупки заблоковано!", "Спочатку погасіть прострочений кредит у КовельБанку!", "🚫");
+    }
+    const item = DOBRE_MENU.find(x => x.id === itemId);
+    if (!item) return;
+    if (gameState.coins < item.price) {
+        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(item.price)} 💰.`, "💸");
+    }
+
+    gameState.coins -= item.price;
+    markLocalCoinsChanged();
+
+    // Знімаємо кулдаун роботи
+    if (cooldownIntervalId) {
+        clearInterval(cooldownIntervalId);
+        cooldownIntervalId = null;
+    }
+    workCooldownUntil = 0;
+    workCooldownReason = "";
+
+    let bonusMsg = "Перерву між клієнтами на роботі миттєво знято!";
+    if (gameState.activeCourseId) {
+        const reduceMs = item.effect === "boost_course_35m" ? 35 * 60 * 1000 : (item.effect === "boost_course_10m" ? 10 * 60 * 1000 : 0);
+        if (reduceMs > 0) {
+            const curRem = getRemainingCourseMs();
+            const nextRem = Math.max(1000, curRem - reduceMs);
+            gameState.courseRemainingMs = nextRem;
+            if (!gameState.coursePaused) {
+                gameState.courseStartTime = Date.now();
+            }
+            checkCourseCompletion();
+            bonusMsg = `Час навчання на поточному курсі скорочено на ${Math.round(reduceMs / 60000)} хв, а кулдаун роботи знято!`;
+        }
+    }
+
+    sfx.win();
+    renderAll();
+    renderDobreMenu();
+    if ($("dobre-status-msg")) {
+        $("dobre-status-msg").innerHTML = `✅ <b>Смачного у «DOBRE» (вул. Косачів, 4а)!</b> Ви замовили «${escapeHtml(item.name)}». ${bonusMsg}`;
+    }
+    await saveGame();
+    setGameStatus(`☕ Кафе «DOBRE» (Косачів, 4а): ${item.name} — ${bonusMsg}`);
+};
+
+// ===== ВИМОГА 6: БОГДАН ПОЛІЩУК ПРОДАЄ КУРСИ ЗВАРЮВАННЯ НА 10% ДЕШЕВШЕ РАЗ В 24 ГОДИНИ! =====
+function getBohdanDiscountRemainingCooldownMs() {
+    const usedAt = Number(gameState.bohdanDiscountUsedAt) || 0;
+    if (!usedAt) return 0;
+    return Math.max(0, BOHDAN_DISCOUNT_COOLDOWN_MS - (Date.now() - usedAt));
+}
+
+function renderBohdanWeldingSchool() {
+    const box = $("bohdan-welding-box");
+    if (!box) return;
+
+    const remCooldown = getBohdanDiscountRemainingCooldownMs();
+    const onCooldown = remCooldown > 0;
+    const overdueBlocked = isBankBlocked();
+    const weldingCourses = COURSES.filter(c => c.isWelding);
+
+    const statusBadge = onCooldown
+        ? `<span style="color:#900000;font-weight:bold">⏳ Пауза 24 год (ще ${formatDuration(remCooldown)})</span>`
+        : `<span style="color:#006400;font-weight:bold">✅ Знижка -10% доступна зараз!</span>`;
+
+    const coursesRows = weldingCourses.map(c => {
+        const done = gameState.completedCourses.includes(c.id);
+        const active = gameState.activeCourseId === c.id;
+        const discountedPrice = Math.max(1, Math.floor(c.price * BOHDAN_DISCOUNT_MULT));
+        const canBuyHere = !done && !active && !gameState.activeCourseId && !onCooldown && !overdueBlocked && gameState.coins >= discountedPrice;
+
+        let actionHtml = "";
+        if (done) {
+            actionHtml = `<span style="color:#006400;font-weight:bold">✓ Вивчено (+${c.zoneBoost}%)</span>`;
+        } else if (active) {
+            actionHtml = `<span style="color:#000080;font-weight:bold">${gameState.coursePaused ? "⏸️ На паузі" : "⏳ Вивчається"}</span>`;
+        } else if (onCooldown) {
+            actionHtml = `<button class="btn" disabled style="min-height:24px;min-width:auto;padding:2px 7px;font-size:10px">⏳ Пауза ${formatDuration(remCooldown)}</button>`;
+        } else {
+            actionHtml = `<button class="btn success" ${canBuyHere ? "" : "disabled"} onclick="buyCourseFromBohdan('${c.id}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px;font-weight:bold">🔥 Купити за ${discountedPrice} 💰 (-10%)</button>`;
+        }
+
+        return `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;background:#ffffff;border:1px solid #a0a0a0;padding:4px 6px;margin-top:3px">
+                <div>
+                    <b>🔧 ${escapeHtml(c.name)}</b> <span style="color:#006400;font-weight:bold">(+${c.zoneBoost}% у Промзоні)</span><br>
+                    <span style="color:#666">Звичайна ціна: <s>${c.price} 💰</s> ➔ Ціна у Богдана (-10%): <b style="color:#802000">${discountedPrice} 💰</b></span>
+                </div>
+                <div>${actionHtml}</div>
+            </div>
+        `;
+    }).join("");
+
+    box.innerHTML = `
+        <div class="bohdan-welding-title">
+            <span>🔥 Гаражна школа зварювання Богдана Поліщука (-10% раз на 24 год):</span>
+            ${statusBadge}
+        </div>
+        <div style="color:#333;margin-bottom:3px">
+            Купуйте курси зварювання особисто у Богдана на <b>10% дешевше</b>! Після покупки Богдан робить перерву на <b>24 години</b>, а потім знову відкриває набір зі знижкою.
+        </div>
+        ${coursesRows}
+    `;
+}
+
+window.buyCourseFromBohdan = async function (courseId) {
+    if (isBankBlocked()) {
+        return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку. Спочатку погасіть борг!", "🚫");
+    }
+    const remCooldown = getBohdanDiscountRemainingCooldownMs();
+    if (remCooldown > 0) {
+        return showDialog(
+            "Пауза 24 години!",
+            `Богдан Поліщук продає курси зварювання зі знижкою -10% один раз на 24 години.\nНаступний курс у Богдана стане доступним через: ${formatDuration(remCooldown)}.`,
+            "⏳"
+        );
+    }
+    if (gameState.activeCourseId) {
+        return showDialog("Курс уже триває", "Спочатку завершіть поточний курс (у вкладці «🎓 Курси»)!", "⚠️");
+    }
+    const c = COURSES.find(x => x.id === courseId && x.isWelding);
+    if (!c || gameState.completedCourses.includes(courseId)) return;
+
+    const discountedPrice = Math.max(1, Math.floor(c.price * BOHDAN_DISCOUNT_MULT));
+    if (gameState.coins < discountedPrice) {
+        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(discountedPrice)} 💰 (зі знижкою -10% від Богдана).`, "💸");
+    }
+
+    miniGames.stop();
+    gameState.coins -= discountedPrice;
+    markLocalCoinsChanged();
+    gameState.activeCourseId = c.id;
+    gameState.courseStartTime = Date.now();
+    gameState.coursePaused = false;
+    gameState.courseRemainingMs = c.durationMs;
+    gameState.bohdanDiscountUsedAt = Date.now();
+    gameState.taskActive = false;
+    gameState.taskProgress = 0;
+
+    sfx.win();
+    renderAll();
+    renderBohdanWeldingSchool();
+    startCourseTimer();
+    await saveGame();
+    setGameStatus(`🔥 Ви купили курс «${c.name}» у Богдана Поліщука зі знижкою -10% за ${discountedPrice} 💰! (Пауза Богдана: 24 год)`);
+    showDialog(
+        "Курс зварювання зі знижкою -10%!",
+        `Богдан Поліщук розпочав ваше навчання:\n🔧 «${c.name}»\n\nЦіна зі знижкою -10%: ${discountedPrice} 💰 (замість ${c.price} 💰).\nНаступний курс зі знижкою у Богдана буде доступний через 24 години!\n💡 Ви можете будь-коли поставити курс на паузу, щоб попрацювати.`,
+        "👨‍🏭"
+    );
+};
+
 let bohdanHistory = [];
 
 function initBohdanChatIfEmpty() {
@@ -3873,7 +4200,7 @@ function initBohdanChatIfEmpty() {
     appendBohdanMsg(
         "bohdan",
         "Богдан Поліщук",
-        "Ого, знайшов-таки мою хату на Миколайчука, 100 на максимальному зумі! Молодець, козаче! Тепер у вкладці «🎓 Курси» 4 окремі гілки (IT, Житлова, Комерційна і Промислова), причому всі робітничі курси значно дешевші за IT!"
+        "Здоров, козаче! Заходь у мою гаражну майстерню на Миколайчука, 100! Я тепер навчаю зварюванню на 10% дешевше, ніж у комбінаті — але беру одного учня раз на 24 години, бо потім треба 24 години відпочити й підварити свої замовлення!"
     );
 }
 
@@ -3890,6 +4217,7 @@ function appendBohdanMsg(role, sender, text) {
 window.openBohdanModal = function () {
     sfx.click();
     initBohdanChatIfEmpty();
+    renderBohdanWeldingSchool();
     try {
         const savedKey = localStorage.getItem("w95_openrouter_key") || "";
         $("bohdan-api-key").value = savedKey;
@@ -3925,21 +4253,20 @@ window.askBohdanPreset = function (text) {
 function generateSmartBohdanReply(userText) {
     const q = userText.toLowerCase();
     const coins = formatNumberFull(gameState.coins);
-    const cashbox = formatNumberFull(getTotalOwnerTreasury());
+    const rem = getBohdanDiscountRemainingCooldownMs();
 
-    if (q.includes("курс") || q.includes("комерц") || q.includes("житл") || q.includes("пром")) {
-        return "Тепер у «🎓 Курсах» є 4 окремі вкладки: IT (від 2 500 💰 для КовельКорп), Житлова зона (250–1 900 💰), Комерційна зона (300–2 100 💰) і Промислова зона (350–2 300 💰). Усі робітничі курси значно дешевші за IT і напряму збільшують чек клієнта у своїй зоні!";
+    if (q.includes("звар") || q.includes("10%") || q.includes("знижк")) {
+        return rem > 0
+            ? `Я продаю курси зварювання на 10% дешевше, але раз на 24 години! Зараз у мене перерва ще на ${formatDuration(rem)}, а потім знову зможеш взяти курс зі знижкою!`
+            : "У моєму гаражі курси зварювання (MIG/MAG, аргон TIG, ЧПК-плазморіз і Головний інженер) коштують на 10% дешевше! Обирай курс у списку вище — після покупки буде пауза на 24 години.";
     }
-    if (q.includes("кас") || q.includes("марж") || q.includes("робітник") || q.includes("бізнес")) {
-        return `Дивись по-простому: коли твій робітник закриває замовлення (5 дій), клієнт платить Чек (плюс бонус від дипломів робітника). З цього чека автоматично віднімається Податок зони та Зарплата робітнику, а вся чиста маржа лягає у твою «🏦 Касу»! Натисни на кнопку «🏦 Каса: ${cashbox}» зверху екрана і забери гроші в гаманець!`;
+    if (q.includes("пауз") || q.includes("курс")) {
+        return "Тепер будь-який запущений курс можна поставити на паузу кнопкою «⏸️ Поставити на паузу» прямо на вкладці Роботи або в Курсах! Попрацював, заробив монет — і натиснув «▶️ Продовжити» з тієї ж секунди!";
     }
-    if (q.includes("подат") || q.includes("політик") || q.includes("земл")) {
-        const rRes = getZoneTaxRates("residential");
-        const rCom = getZoneTaxRates("commercial");
-        const rInd = getZoneTaxRates("industrial");
-        return `У вкладці «🏛️ Політика» діють ставки: Житлова зона — ${rRes.turnoverTaxPct}% з обороту і ${rRes.landTaxPct}%/год за землю; Комерція — ${rCom.turnoverTaxPct}% і ${rCom.landTaxPct}%/год; Промзона — ${rInd.turnoverTaxPct}% і ${rInd.landTaxPct}%/год. І пам'ятай: пуста земля без будівлі дає 0 доходу, а податок на землю жере щогодини!`;
+    if (q.includes("dobre") || q.includes("добре") || q.includes("косач") || q.includes("кафе")) {
+        return "Кафе «DOBRE» знаходиться у Ковелі на вулиці Косачів, 4а! Так само як і мій дім, знайти його на мапі можна, якщо максимально наблизити камеру (зум на максимум). Там варять класну каву, яка знімає кулдаун роботи і пришвидшує навчання!";
     }
-    return `У твоєму гаманці зараз ${coins} 💰, а в Касах твоїх бізнесів — ${cashbox} 💰. Відкривай «🏦 Мій бізнес і КАСА» або «🏛️ Політика», там уся бухгалтерія як на долоні!`;
+    return `У тебе в гаманці ${coins} 💰. Заглядай у мою школу зварювання (-10% раз на 24 години), або заскоч на каву в «DOBRE» на Косачів, 4а!`;
 }
 
 window.sendBohdanMessage = async function () {
@@ -3958,7 +4285,7 @@ window.sendBohdanMessage = async function () {
 
     if (apiKey) {
         try {
-            const sysPrompt = `Ти — Богдан Поліщук із міста Ковель (живеш на вул. Миколайчука, 100). Раніше працював зварювальником у Чехії, повернувся додому в Ковель. Розмовляєш живою, дружньою українською мовою з ковельським колоритом. Гравець ${currentUser} зараз у тебе в гостях у грі Win98 SE Work (гаманець: ${gameState.coins} монет, у касі бізнесів: ${getTotalOwnerTreasury()} монет). Відповідай лаконічно (2-3 речення).`;
+            const sysPrompt = `Ти — Богдан Поліщук із міста Ковель (живеш на вул. Миколайчука, 100). Раніше працював зварювальником у Чехії, повернувся додому в Ковель і тепер раз на 24 години продаєш курси зварювання зі знижкою 10%. Знаєш про кафе "DOBRE" на вул. Косачів, 4а. Відповідай живою українською мовою лаконічно (2-3 речення).`;
             const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -4123,7 +4450,9 @@ window.buyCourse = async function (id) {
     if (isBankBlocked()) {
         return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку. Працюйте та спочатку погасіть борг у вкладці «🏦 Банк», щоб купувати курси!", "🚫");
     }
-    if (isCourseRunning()) return showDialog("Неможливо", "Спочатку закінчіть поточний курс!", "⚠️");
+    if (hasActiveOrPausedCourse()) {
+        return showDialog("Курс уже розпочато", "Спочатку закінчіть поточний курс (якщо він на паузі — натисніть «▶️ Продовжити» або дочекайтесь завершення)!", "⚠️");
+    }
     const c = COURSES.find(x => x.id === id);
     if (!c || gameState.completedCourses.includes(id)) return;
     if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price) + " 💰", "💸");
@@ -4132,9 +4461,11 @@ window.buyCourse = async function (id) {
     markLocalCoinsChanged();
     gameState.activeCourseId = c.id;
     gameState.courseStartTime = Date.now();
+    gameState.coursePaused = false;
+    gameState.courseRemainingMs = c.durationMs;
     gameState.taskActive = false; gameState.taskProgress = 0;
     renderAll(); startCourseTimer();
-    try { await saveGame(); setGameStatus("Курс розпочато: " + c.name); showDialog("Курс розпочато!", c.name, "📚"); }
+    try { await saveGame(); setGameStatus("Курс розпочато: " + c.name + " (можна ставити на паузу!)"); showDialog("Курс розпочато!", `${c.name}\n\n💡 Ви можете в будь-який момент поставити навчання на паузу, щоб попрацювати на роботі!`, "📚"); }
     catch (e) { showDialog("Помилка", "Не вдалося зберегти", "⚠️"); }
 };
 
@@ -4142,8 +4473,14 @@ function startCourseTimer() {
     if (courseTimerInterval) clearInterval(courseTimerInterval);
     courseTimerInterval = setInterval(() => {
         checkCourseCompletion();
-        if (isCourseRunning()) { updateWorkButtonState(); if (currentPage === "shop") renderShop(); }
-        else { clearInterval(courseTimerInterval); courseTimerInterval = null; renderAll(); }
+        if (hasActiveOrPausedCourse()) {
+            updateWorkButtonState();
+            if (currentPage === "shop") renderShop();
+        } else {
+            clearInterval(courseTimerInterval);
+            courseTimerInterval = null;
+            renderAll();
+        }
     }, 1000);
 }
 
@@ -4260,7 +4597,9 @@ window.logout = async function () {
         coins: 0, jobIndex: 0, xp: 0,
         privateJobIndex: 0, privateXp: 0, employer: "none",
         taskProgress: 0, taskActive: false,
-        activeCourseId: null, courseStartTime: 0, completedCourses: [], xpBoost: 0,
+        activeCourseId: null, courseStartTime: 0, coursePaused: false, courseRemainingMs: 0,
+        bohdanDiscountUsedAt: 0,
+        completedCourses: [], xpBoost: 0,
         lastRentAt: 0,
         credit: { amount: 0, takenAt: 0, dueAt: 0, overdue: false, lastPenaltyAt: 0 },
         deposit: { amount: 0, lastInterestAt: 0, totalEarned: 0 }
@@ -4286,6 +4625,9 @@ window.addEventListener("beforeunload", () => {
                 taskActive: gameState.taskActive,
                 activeCourseId: gameState.activeCourseId,
                 courseStartTime: gameState.courseStartTime,
+                coursePaused: Boolean(gameState.coursePaused),
+                courseRemainingMs: Number(gameState.courseRemainingMs) || 0,
+                bohdanDiscountUsedAt: Number(gameState.bohdanDiscountUsedAt) || 0,
                 completedCourses: gameState.completedCourses,
                 xpBoost: gameState.xpBoost,
                 lastRentAt: gameState.lastRentAt || Date.now(),
