@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.1.1";
+const APP_VERSION = "4.2.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -10,10 +10,13 @@ const LEADERBOARD_LIMIT = 100;
 
 // Депозит у банку (1% в годину) та погодинний облік землі й будівель (3 600 000 мс)
 const HOUR_MS = 3600000;
-const DEPOSIT_RATE_PER_HOUR = 0.01; // +1% на годину
+const DEPOSIT_RATE_PER_HOUR = 0.003; // +0.3% на годину
 
-// Пауза 24 години після купівлі курсу зварювання зі знижкою -10% у Богдана Поліщука
-const BOHDAN_DISCOUNT_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 години
+// Глобальний цикл Богдана Поліщука ДЛЯ ВСІХ: 24 год продає перші 2 пром. курси (-10%), 24 год відпочиває (хмари, кола, Clash Royale)
+const BOHDAN_ACTIVE_MS = 24 * 60 * 60 * 1000;
+const BOHDAN_REST_MS = 24 * 60 * 60 * 1000;
+const BOHDAN_CYCLE_MS = BOHDAN_ACTIVE_MS + BOHDAN_REST_MS;
+const BOHDAN_CYCLE_EPOCH = Date.UTC(2026, 10, 16, 0, 0, 0);
 const BOHDAN_DISCOUNT_MULT = 0.90; // на 10% дешевше
 
 // Налаштування кулдаунів та покрокових замовлень для робіт гравців і підробітку
@@ -22,7 +25,7 @@ const PRIVATE_STEP_COOLDOWN_MS = 1600;   // 1.6 сек між діями одн�
 const PRIVATE_ORDER_COOLDOWN_MS = 7000;  // 7 сек перерва після виконаного замовлення
 const MUNICIPAL_STEP_COOLDOWN_MS = 1200; // 1.2 сек між діями на муніципальному підробітку
 const MUNICIPAL_ORDER_COOLDOWN_MS = 4500;// 4.5 сек перерва після муніципального завдання
-const MUNICIPAL_TASK_REWARD = 15;        // Нагорода за 5 дій муніципального підробітку
+const MUNICIPAL_TASK_REWARD = 5;         // Нагорода за розчищення ділянки двірником
 
 const PRIVATE_ORDER_STAGE_LABELS = [
     "Крок 1/5: Прийняти замовлення клієнта",
@@ -78,8 +81,8 @@ const COURSES = [
     { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-холу", price: 750, durationMs: 5400000, boost: 0, zoneBoost: 70, desc: "Диплом топ-менеджера торгівлі: +70% до чека замовлення у Комерційній зоні" },
 
     // 4. Курси Промислової зони та Зварювання (усі дешевші за IT: 200 – 780 💰)
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 200, durationMs: 900000, boost: 0, zoneBoost: 15, isWelding: false, desc: "Обов'язковий інструктаж для роботи в цехах і на заводах: +15% до чека" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 350, durationMs: 1800000, boost: 0, zoneBoost: 25, isWelding: true, desc: "Зварювання металоконструкцій та ремонт техніки на СТО: +25% до чека" },
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 200, durationMs: 900000, boost: 0, zoneBoost: 15, isWelding: true, bohdanOffer: true, desc: "Обов'язковий інструктаж для роботи в цехах і на заводах: +15% до чека" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 350, durationMs: 1800000, boost: 0, zoneBoost: 25, isWelding: true, bohdanOffer: true, desc: "Зварювання металоконструкцій та ремонт техніки на СТО: +25% до чека" },
     { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 500, durationMs: 2700000, boost: 0, zoneBoost: 35, isWelding: true, desc: "Робота з нержавійкою, алюмінієм і складними деталями: +35% до чека" },
     { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 640, durationMs: 3600000, boost: 0, zoneBoost: 50, isWelding: true, desc: "Точна промислова обробка металу та автоматизація ліній: +50% до чека" },
     { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 780, durationMs: 5400000, boost: 0, zoneBoost: 75, isWelding: true, desc: "Вища виробнича кваліфікація для заводів і депо Ковеля: +75% до чека" }
@@ -145,6 +148,13 @@ const ZONE_INFO = {
 
 // Меню кафе "DOBRE" (вул. Косачів, 4а)
 const DOBRE_MENU = [
+    {
+        id: "pepperoni",
+        name: "🍕 Піца Пепероні",
+        price: 20,
+        desc: "Гаряча піца з пепероні просто для душі! Особливих бонусів не дає — чисто прікольчік.",
+        effect: "fun_only"
+    },
     {
         id: "espresso",
         name: "☕ Еспресо «DOBRE»",
@@ -549,10 +559,14 @@ const miniGames = new MiniGameManager(
     { window: "mg-window", icon: "mg-icon", title: "mg-title", badge: "mg-badge", body: "mg-body" },
     {
         onStep: (fraction) => {
-            const job = getCurrentCorpJob();
-            const xpGain = Math.max(1, job.taskClicks * fraction) * (1 + gameState.xpBoost / 100);
-            gameState.xp += xpGain;
-            gameState.taskProgress = Math.min(job.taskClicks, gameState.taskProgress + job.taskClicks * fraction);
+            if (gameState.employer === "corp") {
+                const job = getCurrentCorpJob();
+                const xpGain = Math.max(1, job.taskClicks * fraction) * (1 + gameState.xpBoost / 100);
+                gameState.xp += xpGain;
+                gameState.taskProgress = Math.min(job.taskClicks, gameState.taskProgress + job.taskClicks * fraction);
+            } else {
+                gameState.taskProgress = Math.min(6, gameState.taskProgress + 1);
+            }
             renderStats();
             renderTask();
         },
@@ -2382,23 +2396,25 @@ async function doPrivateOrderStepWork(plotId) {
 
 function doMunicipalStepWork() {
     if (Date.now() < workCooldownUntil) return;
-    const currentStep = (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) + 1;
+    if (miniGames.isRunning()) return;
     sfx.click();
-
-    if (currentStep < ORDER_STEPS_REQUIRED) {
-        gameState.taskProgress = currentStep;
-        triggerWorkCooldown(MUNICIPAL_STEP_COOLDOWN_MS, "step");
-        setGameStatus(`Прибирання вулиці (${currentStep}/${ORDER_STEPS_REQUIRED})... Наступна дія через 1.2с`);
-    } else {
-        sfx.good();
+    gameState.taskActive = true;
+    gameState.taskProgress = 0;
+    renderTask();
+    miniGames.startJanitorClean(() => {
         gameState.coins += MUNICIPAL_TASK_REWARD;
         markLocalCoinsChanged();
+        gameState.taskActive = false;
         gameState.taskProgress = 0;
         triggerWorkCooldown(MUNICIPAL_ORDER_COOLDOWN_MS, "order");
         renderStats();
+        renderTask();
+        updateWorkButtonState();
         saveGame();
-        setGameStatus(`✅ Ділянку прибрано! Отримано +${MUNICIPAL_TASK_REWARD} 💰 від міськради. Перерва 4.5с.`);
-    }
+        setGameStatus(`✅ Ділянку розчищено! Отримано +${MUNICIPAL_TASK_REWARD} 💰 від міськради. Перерва 4.5с.`);
+    });
+    updateWorkButtonState();
+    setGameStatus("🧹 Розчищаємо сміття на вулицях Ковеля...");
 }
 
 window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
@@ -2602,7 +2618,7 @@ window.depositMoney = function () {
     $("dep-amount-input").value = "";
     sfx.good();
     renderAll(); saveGame();
-    setGameStatus(`Покладено на депозит: +${formatNumberFull(val)} 💰 (ставка +1%/год)`);
+    setGameStatus(`Покладено на депозит: +${formatNumberFull(val)} 💰 (ставка +0.3%/год)`);
 };
 
 window.withdrawDeposit = function (all = false) {
@@ -2645,7 +2661,7 @@ function checkDepositInterest() {
         renderStats();
         if (currentPage === "bank") renderBank();
         saveGame();
-        setGameStatus(`🏦 Депозит КовельБанку (+1%/год): нараховано +${formatNumberFull(earnedTotal)} 💰 відсотків`);
+        setGameStatus(`🏦 Депозит КовельБанку (+0.3%/год): нараховано +${formatNumberFull(earnedTotal)} 💰 відсотків`);
     }
 }
 
@@ -3382,7 +3398,7 @@ function renderTask() {
         $("task-reward").textContent = `Чек клієнта: ${fin.grossCheck} 💰 ➔ Податок: -${fin.taxAmount} 💰 ➔ Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰`;
         $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — Посада: ${wRec.role}`;
     } else {
-        const step = Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED;
+        const step = Math.floor(gameState.taskProgress);
         if (onCooldown && workCooldownReason === "order") {
             if (barEl) barEl.classList.add("cooldown-bar");
             const pct = Math.min(100, ((workCooldownTotalMs - remMs) / workCooldownTotalMs) * 100);
@@ -3390,11 +3406,12 @@ function renderTask() {
             $("task-text").textContent = `⏳ Перепочинок: ${(remMs / 1000).toFixed(1)}с`;
         } else {
             if (barEl) barEl.classList.remove("cooldown-bar");
-            $("task-bar").style.width = ((step / ORDER_STEPS_REQUIRED) * 100) + "%";
-            $("task-text").textContent = `Прибирання: ${step} / ${ORDER_STEPS_REQUIRED} дій`;
+            const progPct = gameState.taskActive ? Math.min(100, (step / 6) * 100) : 0;
+            $("task-bar").style.width = progPct + "%";
+            $("task-text").textContent = gameState.taskActive ? `Розчищено: ${step} / 6` : "Готово до прибирання";
         }
-        $("task-reward").textContent = `Оплата за 5 дій: +${MUNICIPAL_TASK_REWARD} 💰 (подайте резюме у бізнес гравця або вивчіть ІТ-курс!)`;
-        $("task-title").textContent = "Муніципальний підробіток м. Ковель";
+        $("task-reward").textContent = `Оплата двірника: +${MUNICIPAL_TASK_REWARD} 💰 за ділянку (міні-гра розчищення)`;
+        $("task-title").textContent = "Муніципальний підробіток — Двірник м. Ковель";
     }
 }
 
@@ -3482,22 +3499,23 @@ function updateWorkButtonState() {
             if (sub) sub.textContent = `Після 5 кроків ви отримаєте +${formatNumberFull(wRec.personalWage)} 💰 зарплати` + debtNote;
         }
     } else {
-        miniGames.stop();
-        btn.style.display = "flex";
-        const step = Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED;
-
-        if (remMs > 0) {
-            btn.disabled = true;
-            btn.classList.add("cooldown-active");
-            if (emoji) emoji.textContent = "⏳";
-            label.textContent = `ОЧІКУВАННЯ (${(remMs / 1000).toFixed(1)}с)`;
-            if (sub) sub.textContent = workCooldownReason === "order" ? "Наступне завдання готується..." : `Крок ${step} із ${ORDER_STEPS_REQUIRED} виконано`;
+        if (miniGames.isRunning()) {
+            btn.style.display = "none";
         } else {
-            btn.disabled = false;
-            btn.classList.remove("cooldown-active");
-            if (emoji) emoji.textContent = "🧹";
-            label.textContent = `ПІДРОБІТОК: ДІЯ ${step + 1} ІЗ ${ORDER_STEPS_REQUIRED}`;
-            if (sub) sub.textContent = `Винагорода за 5 дій: +${MUNICIPAL_TASK_REWARD} 💰 (кулдаун 1.2с)` + debtNote;
+            btn.style.display = "flex";
+            if (remMs > 0) {
+                btn.disabled = true;
+                btn.classList.add("cooldown-active");
+                if (emoji) emoji.textContent = "⏳";
+                label.textContent = `ПЕРЕПОЧИНОК ДВІРНИКА (${(remMs / 1000).toFixed(1)}с)`;
+                if (sub) sub.textContent = "Готуємо наступну ділянку для прибирання...";
+            } else {
+                btn.disabled = false;
+                btn.classList.remove("cooldown-active");
+                if (emoji) emoji.textContent = "🧹";
+                label.textContent = "ДВІРНИК: РОЗЧИСТИТИ ВУЛИЦЮ (МІНІ-ГРА)";
+                if (sub) sub.textContent = `Приберіть сміття на ділянці • Оплата: +${MUNICIPAL_TASK_REWARD} 💰` + debtNote;
+            }
         }
     }
 }
@@ -3890,15 +3908,15 @@ function showMapInfo(plotId) {
         buyWrap.style.display = "none";
         buildSec.style.display = "flex";
         let bHtml = "";
-        zInfo.buildings.forEach((b, idx) => {
-            const curIdx = zInfo.buildings.findIndex(x => x.id === owned.building);
+        const hasAnyBuilding = Boolean(owned.building);
+        zInfo.buildings.forEach((b) => {
             const isCurrent = owned.building === b.id;
-            const isLower = curIdx >= idx;
-            const canBuild = !isLower && !overdueBlocked && gameState.coins >= b.cost;
+            const lockedByChoice = hasAnyBuilding && !isCurrent;
+            const canBuild = !hasAnyBuilding && !overdueBlocked && gameState.coins >= b.cost;
             const bFin = calcOrderFinancials(p.zone, b, [], b.defaultWage);
             const btnLabel = isCurrent
                 ? "✓ Збудовано"
-                : (isLower ? "✓ Пройдено" : (overdueBlocked ? "🚫 Борг у банку" : `Збудувати (${formatNumber(b.cost)})`));
+                : (lockedByChoice ? "🔒 Обрано іншу будівлю" : (overdueBlocked ? "🚫 Борг у банку" : `Збудувати (${formatNumber(b.cost)})`));
             bHtml += `<div class="build-card${isCurrent ? " current-bld" : ""}">
                 <div class="build-card-info">
                     <span class="build-card-name">${b.icon} ${b.name}</span>
@@ -4064,16 +4082,23 @@ window.buyDobreItem = async function (itemId) {
     gameState.coins -= item.price;
     markLocalCoinsChanged();
 
-    // Знімаємо кулдаун роботи
-    if (cooldownIntervalId) {
-        clearInterval(cooldownIntervalId);
-        cooldownIntervalId = null;
-    }
-    workCooldownUntil = 0;
-    workCooldownReason = "";
-
-    let bonusMsg = "Перерву між клієнтами на роботі миттєво знято!";
-    if (gameState.activeCourseId) {
+    let bonusMsg = "";
+    if (item.effect === "fun_only") {
+        const jokes = [
+            "Смакота! Сир тягнеться, пепероні хрумтить — настрій на 100%!",
+            "З'їли шматочок піци Пепероні за 20 💰. Користі нуль, зате як смачно!",
+            "Піца Пепероні зайшла на ура! Можна далі підкорювати Ковель."
+        ];
+        bonusMsg = jokes[Math.floor(Math.random() * jokes.length)];
+    } else {
+        if (cooldownIntervalId) {
+            clearInterval(cooldownIntervalId);
+            cooldownIntervalId = null;
+        }
+        workCooldownUntil = 0;
+        workCooldownReason = "";
+        bonusMsg = "Перерву між клієнтами на роботі миттєво знято!";
+        if (gameState.activeCourseId) {
         const reduceMs = item.effect === "boost_course_35m" ? 35 * 60 * 1000 : (item.effect === "boost_course_10m" ? 10 * 60 * 1000 : 0);
         if (reduceMs > 0) {
             const curRem = getRemainingCourseMs();
@@ -4086,6 +4111,7 @@ window.buyDobreItem = async function (itemId) {
             bonusMsg = `Час навчання на поточному курсі скорочено на ${Math.round(reduceMs / 60000)} хв, а кулдаун роботи знято!`;
         }
     }
+    }
 
     sfx.win();
     renderAll();
@@ -4097,39 +4123,43 @@ window.buyDobreItem = async function (itemId) {
     setGameStatus(`☕ Кафе «DOBRE» (Косачів, 4а): ${item.name} — ${bonusMsg}`);
 };
 
-// ===== ВИМОГА 6: БОГДАН ПОЛІЩУК ПРОДАЄ КУРСИ ЗВАРЮВАННЯ НА 10% ДЕШЕВШЕ РАЗ В 24 ГОДИНИ! =====
-function getBohdanDiscountRemainingCooldownMs() {
-    const usedAt = Number(gameState.bohdanDiscountUsedAt) || 0;
-    if (!usedAt) return 0;
-    return Math.max(0, BOHDAN_DISCOUNT_COOLDOWN_MS - (Date.now() - usedAt));
+// ===== БОГДАН ПОЛІЩУК: ГЛОБАЛЬНИЙ ЦИКЛ 24/24 ДЛЯ ВСІХ ГРАВЦІВ (ПЕРШІ 2 ПРОМ. КУРСИ -10%) =====
+function getBohdanGlobalSchedule() {
+    const pos = ((Date.now() - BOHDAN_CYCLE_EPOCH) % BOHDAN_CYCLE_MS + BOHDAN_CYCLE_MS) % BOHDAN_CYCLE_MS;
+    const isWorking = pos < BOHDAN_ACTIVE_MS;
+    const remainingMs = isWorking ? (BOHDAN_ACTIVE_MS - pos) : (BOHDAN_CYCLE_MS - pos);
+    return { isWorking, remainingMs };
 }
 
 function renderBohdanWeldingSchool() {
     const box = $("bohdan-welding-box");
     if (!box) return;
 
-    const remCooldown = getBohdanDiscountRemainingCooldownMs();
-    const onCooldown = remCooldown > 0;
+    const sched = getBohdanGlobalSchedule();
     const overdueBlocked = isBankBlocked();
-    const weldingCourses = COURSES.filter(c => c.isWelding);
+    const bohdanCourses = COURSES.filter(c => c.bohdanOffer);
 
-    const statusBadge = onCooldown
-        ? `<span style="color:#900000;font-weight:bold">⏳ Пауза 24 год (ще ${formatDuration(remCooldown)})</span>`
-        : `<span style="color:#006400;font-weight:bold">✅ Знижка -10% доступна зараз!</span>`;
+    const statusBadge = sched.isWorking
+        ? `<span style="color:#006400;font-weight:bold">✅ Працює для всіх ще ${formatDuration(sched.remainingMs)}</span>`
+        : `<span style="color:#900000;font-weight:bold">☁️ Відпочиває ще ${formatDuration(sched.remainingMs)}</span>`;
 
-    const coursesRows = weldingCourses.map(c => {
+    const descHtml = sched.isWorking
+        ? `Богдан зараз у майстерні й продає <b>перші два пром. курси на 10% дешевше</b>! Через ${formatDuration(sched.remainingMs)} він піде відпочивати на 24 години.`
+        : `☁️ Богдан зараз відпочиває: <b>дивиться на хмари, п'є колу та грає в Clash Royale</b>! Наступний набір на курси відкриється для всіх через <b>${formatDuration(sched.remainingMs)}</b>.`;
+
+    const coursesRows = bohdanCourses.map(c => {
         const done = gameState.completedCourses.includes(c.id);
         const active = gameState.activeCourseId === c.id;
         const discountedPrice = Math.max(1, Math.floor(c.price * BOHDAN_DISCOUNT_MULT));
-        const canBuyHere = !done && !active && !gameState.activeCourseId && !onCooldown && !overdueBlocked && gameState.coins >= discountedPrice;
+        const canBuyHere = sched.isWorking && !done && !active && !gameState.activeCourseId && !overdueBlocked && gameState.coins >= discountedPrice;
 
         let actionHtml = "";
         if (done) {
             actionHtml = `<span style="color:#006400;font-weight:bold">✓ Вивчено (+${c.zoneBoost}%)</span>`;
         } else if (active) {
             actionHtml = `<span style="color:#000080;font-weight:bold">${gameState.coursePaused ? "⏸️ На паузі" : "⏳ Вивчається"}</span>`;
-        } else if (onCooldown) {
-            actionHtml = `<button class="btn" disabled style="min-height:24px;min-width:auto;padding:2px 7px;font-size:10px">⏳ Пауза ${formatDuration(remCooldown)}</button>`;
+        } else if (!sched.isWorking) {
+            actionHtml = `<button class="btn" disabled style="min-height:24px;min-width:auto;padding:2px 7px;font-size:10px">👑 Грає в Clash Royale (${formatDuration(sched.remainingMs)})</button>`;
         } else {
             actionHtml = `<button class="btn success" ${canBuyHere ? "" : "disabled"} onclick="buyCourseFromBohdan('${c.id}')" style="min-height:26px;min-width:auto;padding:2px 8px;font-size:11px;font-weight:bold">🔥 Купити за ${discountedPrice} 💰 (-10%)</button>`;
         }
@@ -4138,7 +4168,7 @@ function renderBohdanWeldingSchool() {
             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;background:#ffffff;border:1px solid #a0a0a0;padding:4px 6px;margin-top:3px">
                 <div>
                     <b>🔧 ${escapeHtml(c.name)}</b> <span style="color:#006400;font-weight:bold">(+${c.zoneBoost}% у Промзоні)</span><br>
-                    <span style="color:#666">Звичайна ціна: <s>${c.price} 💰</s> ➔ Ціна у Богдана (-10%): <b style="color:#802000">${discountedPrice} 💰</b></span>
+                    <span style="color:#666">У комбінаті: <s>${c.price} 💰</s> ➔ У Богдана (-10%): <b style="color:#802000">${discountedPrice} 💰</b></span>
                 </div>
                 <div>${actionHtml}</div>
             </div>
@@ -4147,12 +4177,10 @@ function renderBohdanWeldingSchool() {
 
     box.innerHTML = `
         <div class="bohdan-welding-title">
-            <span>🔥 Гаражна школа зварювання Богдана Поліщука (-10% раз на 24 год):</span>
+            <span>🔥 Гаражна школа Богдана (24 год робота / 24 год відпочинок):</span>
             ${statusBadge}
         </div>
-        <div style="color:#333;margin-bottom:3px">
-            Купуйте курси зварювання особисто у Богдана на <b>10% дешевше</b>! Після покупки Богдан робить перерву на <b>24 години</b>, а потім знову відкриває набір зі знижкою.
-        </div>
+        <div style="color:#333;margin-bottom:3px">${descHtml}</div>
         ${coursesRows}
     `;
 }
@@ -4161,18 +4189,18 @@ window.buyCourseFromBohdan = async function (courseId) {
     if (isBankBlocked()) {
         return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку. Спочатку погасіть борг!", "🚫");
     }
-    const remCooldown = getBohdanDiscountRemainingCooldownMs();
-    if (remCooldown > 0) {
+    const sched = getBohdanGlobalSchedule();
+    if (!sched.isWorking) {
         return showDialog(
-            "Пауза 24 години!",
-            `Богдан Поліщук продає курси зварювання зі знижкою -10% один раз на 24 години.\nНаступний курс у Богдана стане доступним через: ${formatDuration(remCooldown)}.`,
-            "⏳"
+            "Богдан відпочиває!",
+            `Зараз у Богдана 24-годинний відпочинок: він дивиться на хмари, п'є колу та грає в Clash Royale!\nПродаж курсів відновиться для всіх через: ${formatDuration(sched.remainingMs)}.`,
+            "☁️"
         );
     }
     if (gameState.activeCourseId) {
         return showDialog("Курс уже триває", "Спочатку завершіть поточний курс (у вкладці «🎓 Курси»)!", "⚠️");
     }
-    const c = COURSES.find(x => x.id === courseId && x.isWelding);
+    const c = COURSES.find(x => x.id === courseId && x.bohdanOffer);
     if (!c || gameState.completedCourses.includes(courseId)) return;
 
     const discountedPrice = Math.max(1, Math.floor(c.price * BOHDAN_DISCOUNT_MULT));
@@ -4187,7 +4215,6 @@ window.buyCourseFromBohdan = async function (courseId) {
     gameState.courseStartTime = Date.now();
     gameState.coursePaused = false;
     gameState.courseRemainingMs = c.durationMs;
-    gameState.bohdanDiscountUsedAt = Date.now();
     gameState.taskActive = false;
     gameState.taskProgress = 0;
 
@@ -4196,10 +4223,10 @@ window.buyCourseFromBohdan = async function (courseId) {
     renderBohdanWeldingSchool();
     startCourseTimer();
     await saveGame();
-    setGameStatus(`🔥 Ви купили курс «${c.name}» у Богдана Поліщука зі знижкою -10% за ${discountedPrice} 💰! (Пауза Богдана: 24 год)`);
+    setGameStatus(`🔥 Ви купили курс «${c.name}» у Богдана Поліщука зі знижкою -10% за ${discountedPrice} 💰!`);
     showDialog(
-        "Курс зварювання зі знижкою -10%!",
-        `Богдан Поліщук розпочав ваше навчання:\n🔧 «${c.name}»\n\nЦіна зі знижкою -10%: ${discountedPrice} 💰 (замість ${c.price} 💰).\nНаступний курс зі знижкою у Богдана буде доступний через 24 години!\n💡 Ви можете будь-коли поставити курс на паузу, щоб попрацювати.`,
+        "Курс зі знижкою -10%!",
+        `Богдан Поліщук розпочав ваше навчання:\n🔧 «${c.name}»\n\nЦіна зі знижкою -10%: ${discountedPrice} 💰 (замість ${c.price} 💰).\n💡 Ви можете будь-коли поставити курс на паузу, щоб попрацювати.`,
         "👨‍🏭"
     );
 };
@@ -4265,12 +4292,12 @@ window.askBohdanPreset = function (text) {
 function generateSmartBohdanReply(userText) {
     const q = userText.toLowerCase();
     const coins = formatNumberFull(gameState.coins);
-    const rem = getBohdanDiscountRemainingCooldownMs();
+    const sched = getBohdanGlobalSchedule();
 
-    if (q.includes("звар") || q.includes("10%") || q.includes("знижк")) {
-        return rem > 0
-            ? `Я продаю курси зварювання на 10% дешевше, але раз на 24 години! Зараз у мене перерва ще на ${formatDuration(rem)}, а потім знову зможеш взяти курс зі знижкою!`
-            : "У моєму гаражі курси зварювання (MIG/MAG, аргон TIG, ЧПК-плазморіз і Головний інженер) коштують на 10% дешевше! Обирай курс у списку вище — після покупки буде пауза на 24 години.";
+    if (q.includes("звар") || q.includes("10%") || q.includes("знижк") || q.includes("розклад")) {
+        return sched.isWorking
+            ? `Зараз я працюю! Продаю перші два пром. курси («Охорона праці» та «MIG/MAG зварювання») на 10% дешевше. Залишилось ${formatDuration(sched.remainingMs)}, а потім я на 24 години піду пити колу, дивитися на хмари й грати в Clash Royale!`
+            : `Зараз я відпочиваю: дивлюся на хмари, п'ю холодну колу й пушу кубки в Clash Royale! Через ${formatDuration(sched.remainingMs)} знову відкрию набір на перші два курси зі знижкою -10% для всіх!`;
     }
     if (q.includes("пауз") || q.includes("курс")) {
         return "Тепер будь-який запущений курс можна поставити на паузу кнопкою «⏸️ Поставити на паузу» прямо на вкладці Роботи або в Курсах! Попрацював, заробив монет — і натиснув «▶️ Продовжити» з тієї ж секунди!";
