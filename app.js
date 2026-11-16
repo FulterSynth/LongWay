@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.2.0";
+const APP_VERSION = "4.3.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -44,6 +44,69 @@ const OWNER_ASSIGNED_TITLES = [
     "Права рука власника"
 ];
 
+
+// ===== СИСТЕМА ПОТОКУ КЛІЄНТІВ, ПЕРМАНЕНТНОЇ ІНФРАСТРУКТУРИ ТА ТИМЧАСОВОЇ РЕКЛАМИ (v4.3.0) =====
+const BUSINESS_UPGRADES = [
+    { id: "parking",  name: "🅿️ Власна парковка",          cost: 12000, clientBonus: 15, desc: "+15 макс. клієнтів/год назавжди" },
+    { id: "ramp",     name: "♿ Пандус і доступність",     cost: 15000, clientBonus: 15, desc: "+15 макс. клієнтів/год назавжди" },
+    { id: "cameras",  name: "📹 Камери безпеки і Wi-Fi",   cost: 24000, clientBonus: 20, desc: "+20 макс. клієнтів/год назавжди" },
+    { id: "climate",  name: "❄️ Кондиціонер і лаунж-зона", cost: 38000, clientBonus: 25, desc: "+25 макс. клієнтів/год назавжди" }
+];
+
+const BUSINESS_ADS = [
+    { id: "flyers", name: "📢 Листівки біля ЦУМу",       cost: 1500,  durationMs: 3600000,  multPct: 35,  instantClients: 18, desc: "+35% до потоку на 1 год і +18 клієнтів одразу" },
+    { id: "radio",  name: "📻 Реклама на Радіо Ковель",  cost: 4200,  durationMs: 7200000,  multPct: 65,  instantClients: 40, desc: "+65% до потоку на 2 год і +40 клієнтів одразу" },
+    { id: "social", name: "📱 Таргет у соцмережах",      cost: 9500,  durationMs: 10800000, multPct: 100, instantClients: 75, desc: "+100% до потоку (x2) на 3 год і +75 клієнтів одразу" }
+];
+
+function getBaseClientsPerHour(zone, buildingId) {
+    const zInfo = ZONE_INFO[zone];
+    if (!zInfo || !buildingId) return 15;
+    const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
+    const tierRates = [16, 30, 52, 85];
+    return tierRates[Math.max(0, idx)] || 16;
+}
+
+function getPlotClientsState(plot, ownedData) {
+    if (!plot || !ownedData || !ownedData.building) {
+        return { current: 0, max: 0, perHour: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0 };
+    }
+    const basePerHour = getBaseClientsPerHour(plot.zone, ownedData.building);
+    const upgMap = ownedData.upgrades || {};
+    let upgradeBonus = 0;
+    BUSINESS_UPGRADES.forEach(u => {
+        if (upgMap[u.id]) upgradeBonus += u.clientBonus;
+    });
+
+    const now = Date.now();
+    const adUntil = Number(ownedData.adUntil) || 0;
+    const adMultPct = adUntil > now ? (Number(ownedData.adMultPct) || 0) : 0;
+    const rawCap = basePerHour + upgradeBonus;
+    const perHour = Math.round(rawCap * (1 + adMultPct / 100));
+    const maxClients = perHour;
+
+    const lastRefill = Number(ownedData.clientsLastRefillAt) || Number(ownedData.builtAt) || now;
+    const storedClients = ownedData.clientsRemaining !== undefined ? Number(ownedData.clientsRemaining) : maxClients;
+    const elapsedMs = Math.max(0, now - lastRefill);
+    const msPerClient = HOUR_MS / Math.max(1, perHour);
+    const regenerated = Math.floor(elapsedMs / msPerClient);
+    const current = Math.min(maxClients, Math.max(0, storedClients + regenerated));
+    const remToNextMs = current >= maxClients ? 0 : Math.max(1000, msPerClient - (elapsedMs % msPerClient));
+
+    return {
+        current,
+        max: maxClients,
+        perHour,
+        basePerHour,
+        upgradeBonus,
+        adActive: adUntil > now,
+        adName: ownedData.adName || "",
+        adMultPct,
+        adRemainingMs: Math.max(0, adUntil - now),
+        nextClientSec: Math.ceil(remToNextMs / 1000)
+    };
+}
+
 const DEFAULT_CITY_TAX_POLICY = {
     residential: { turnoverTaxPct: 8,  landTaxPct: 0.4 },
     commercial:  { turnoverTaxPct: 12, landTaxPct: 0.5 },
@@ -66,26 +129,26 @@ const COURSES = [
     { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, desc: "Крок 5: Потрібен для звання Team Lead" },
     { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, desc: "Крок 6: Потрібен для звання Tech Lead та CTO" },
 
-    // 2. Курси Житлової зони (усі дешевші за IT: 150 – 720 💰)
-    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 150, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Дає +15% до чека клієнта при роботі на об'єктах у Житловій зоні" },
-    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 280, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Допуск до обслуговування таунхаусів і ЖК: +25% до чека у Житловій зоні" },
-    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 420, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Професійний догляд за житловими кварталами: +35% до чека у Житловій зоні" },
-    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир і будинків", price: 560, durationMs: 3600000, boost: 0, zoneBoost: 45, desc: "Комплексний ремонт та утеплення фасадів: +45% до чека у Житловій зоні" },
-    { id: "res_osbb", category: "residential", name: "Управління ОСББ та житловим фондом", price: 720, durationMs: 5400000, boost: 0, zoneBoost: 65, desc: "Диплом головного управителя ЖК: +65% до чека замовлення у Житловій зоні" },
+    // 2. Курси Житлової зони (збалансовані % та підвищені ціни: 450 – 9 500 💰)
+    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 450, durationMs: 900000, boost: 0, zoneBoost: 5, desc: "Дає +5% до чека клієнта при роботі на об'єктах у Житловій зоні" },
+    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 1200, durationMs: 1800000, boost: 0, zoneBoost: 8, desc: "Допуск до обслуговування таунхаусів і ЖК: +8% до чека у Житловій зоні" },
+    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 2800, durationMs: 2700000, boost: 0, zoneBoost: 12, desc: "Професійний догляд за житловими кварталами: +12% до чека у Житловій зоні" },
+    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир і будинків", price: 5500, durationMs: 3600000, boost: 0, zoneBoost: 16, desc: "Комплексний ремонт та утеплення фасадів: +16% до чека у Житловій зоні" },
+    { id: "res_osbb", category: "residential", name: "Управління ОСББ та житловим фондом", price: 9500, durationMs: 5400000, boost: 0, zoneBoost: 22, desc: "Диплом головного управителя ЖК: +22% до чека замовлення у Житловій зоні" },
 
-    // 3. Курси Комерційної зони (усі дешевші за IT: 180 – 750 💰)
-    { id: "com_cashier", category: "commercial", name: "Касова справа та обслуговування", price: 180, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Швидкий розрахунок покупців: +15% до чека клієнта у Комерційній зоні" },
-    { id: "com_barista", category: "commercial", name: "Бариста і кухар піцерії", price: 320, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Професійна робота в кав'ярнях і піцеріях Ковеля: +25% до чека у Комерційній зоні" },
-    { id: "res_trade", category: "commercial", name: "Товарознавство та мерчандайзинг", price: 460, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Грамотна викладка товарів у маркетах і пасажах: +35% до чека у Комерційній зоні" },
-    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 600, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Залучення клієнтів і підвищення середнього чека: +50% у Комерційній зоні" },
-    { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-холу", price: 750, durationMs: 5400000, boost: 0, zoneBoost: 70, desc: "Диплом топ-менеджера торгівлі: +70% до чека замовлення у Комерційній зоні" },
+    // 3. Курси Комерційної зони (збалансовані % та підвищені ціни: 550 – 12 000 💰)
+    { id: "com_cashier", category: "commercial", name: "Касова справа та обслуговування", price: 550, durationMs: 900000, boost: 0, zoneBoost: 5, desc: "Швидкий розрахунок покупців: +5% до чека клієнта у Комерційній зоні" },
+    { id: "com_barista", category: "commercial", name: "Бариста і кухар піцерії", price: 1500, durationMs: 1800000, boost: 0, zoneBoost: 8, desc: "Професійна робота в кав'ярнях і піцеріях Ковеля: +8% до чека у Комерційній зоні" },
+    { id: "res_trade", category: "commercial", name: "Товарознавство та мерчандайзинг", price: 3400, durationMs: 2700000, boost: 0, zoneBoost: 12, desc: "Грамотна викладка товарів у маркетах і пасажах: +12% до чека у Комерційній зоні" },
+    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 6800, durationMs: 3600000, boost: 0, zoneBoost: 16, desc: "Залучення клієнтів і підвищення середнього чека: +16% у Комерційній зоні" },
+    { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-холу", price: 12000, durationMs: 5400000, boost: 0, zoneBoost: 22, desc: "Диплом топ-менеджера торгівлі: +22% до чека замовлення у Комерційній зоні" },
 
-    // 4. Курси Промислової зони та Зварювання (усі дешевші за IT: 200 – 780 💰)
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 200, durationMs: 900000, boost: 0, zoneBoost: 15, isWelding: true, bohdanOffer: true, desc: "Обов'язковий інструктаж для роботи в цехах і на заводах: +15% до чека" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 350, durationMs: 1800000, boost: 0, zoneBoost: 25, isWelding: true, bohdanOffer: true, desc: "Зварювання металоконструкцій та ремонт техніки на СТО: +25% до чека" },
-    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 500, durationMs: 2700000, boost: 0, zoneBoost: 35, isWelding: true, desc: "Робота з нержавійкою, алюмінієм і складними деталями: +35% до чека" },
-    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 640, durationMs: 3600000, boost: 0, zoneBoost: 50, isWelding: true, desc: "Точна промислова обробка металу та автоматизація ліній: +50% до чека" },
-    { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 780, durationMs: 5400000, boost: 0, zoneBoost: 75, isWelding: true, desc: "Вища виробнича кваліфікація для заводів і депо Ковеля: +75% до чека" }
+    // 4. Курси Промислової зони та Зварювання (збалансовані % та підвищені ціни: 650 – 15 000 💰)
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 650, durationMs: 900000, boost: 0, zoneBoost: 5, isWelding: true, bohdanOffer: true, desc: "Обов'язковий інструктаж для роботи в цехах і на заводах: +5% до чека" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 1800, durationMs: 1800000, boost: 0, zoneBoost: 8, isWelding: true, bohdanOffer: true, desc: "Зварювання металоконструкцій та ремонт техніки на СТО: +8% до чека" },
+    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 4200, durationMs: 2700000, boost: 0, zoneBoost: 12, isWelding: true, desc: "Робота з нержавійкою, алюмінієм і складними деталями: +12% до чека" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 8500, durationMs: 3600000, boost: 0, zoneBoost: 16, isWelding: true, desc: "Точна промислова обробка металу та автоматизація ліній: +16% до чека" },
+    { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 15000, durationMs: 5400000, boost: 0, zoneBoost: 22, isWelding: true, desc: "Вища виробнича кваліфікація для заводів і депо Ковеля: +22% до чека" }
 ];
 
 const JOBS = [
@@ -2301,6 +2364,15 @@ async function doPrivateOrderStepWork(plotId) {
         return;
     }
 
+    const cStatePre = getPlotClientsState(p, owned);
+    if (cStatePre.current <= 0) {
+        return showDialog(
+            "Клієнтів зараз немає!",
+            `Усі клієнти на підприємстві «${p.name}» вже обслужені!\nНаступний клієнт зайде приблизно через ${cStatePre.nextClientSec} сек.\n\n💡 Власник може купити Рекламу або покращити інфраструктуру (парковку, камери, пандус), щоб збільшити потік клієнтів!`,
+            "🚶"
+        );
+    }
+
     const currentStep = (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) + 1;
     sfx.click();
 
@@ -2315,37 +2387,40 @@ async function doPrivateOrderStepWork(plotId) {
     const bld = getBuildingDef(p.zone, owned.building);
     const wRec = getWorkerRecordOnPlot(plotId, currentUser);
     const fin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, wRec.personalWage);
-    const isSelfOwner = owned.owner === currentUser;
 
     let paidToWorker = 0;
     let netOwnerTreasuryDelta = 0;
     let taxPaidThisOrder = fin.taxAmount;
+    let noClientsLeft = false;
 
     try {
-        await runTransaction(ref(db, `plots/${plotId}`), (cur) => {
+        const txRes = await runTransaction(ref(db, `plots/${plotId}`), (cur) => {
             if (!cur) return cur;
+            const cLive = getPlotClientsState(p, cur);
+            if (cLive.current <= 0) {
+                noClientsLeft = true;
+                return; // перериваємо транзакцію, бо клієнти скінчились
+            }
+            cur.clientsRemaining = Math.max(0, cLive.current - 1);
+            cur.clientsLastRefillAt = Date.now();
+
             const treasury = Math.max(0, Number(cur.treasury) || 0);
             const curWorker = (cur.workers && cur.workers[currentUser]) ? cur.workers[currentUser] : {};
             const baseWage = Number(cur.wage) > 0 ? Number(cur.wage) : (bld ? bld.defaultWage : 15);
+            // ВИМОГА 1: Зарплата строго дорівнює тій, яку призначив власник (без жодного множення на бонуси курсів!)
             const activeWage = Number(curWorker.personalWage) > 0 ? Number(curWorker.personalWage) : baseWage;
             const txFin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, activeWage);
             taxPaidThisOrder = txFin.taxAmount;
 
-            if (isSelfOwner) {
-                paidToWorker = Math.max(1, Math.floor(txFin.afterTaxRevenue * 0.5));
-                netOwnerTreasuryDelta = Math.max(1, txFin.afterTaxRevenue - paidToWorker);
+            const availableForPay = treasury + txFin.afterTaxRevenue;
+            if (availableForPay >= activeWage) {
+                paidToWorker = activeWage;
+                netOwnerTreasuryDelta = txFin.afterTaxRevenue - activeWage;
                 cur.treasury = treasury + netOwnerTreasuryDelta;
             } else {
-                const availableForPay = treasury + txFin.afterTaxRevenue;
-                if (availableForPay >= activeWage) {
-                    paidToWorker = activeWage;
-                    netOwnerTreasuryDelta = txFin.afterTaxRevenue - activeWage;
-                    cur.treasury = treasury + netOwnerTreasuryDelta;
-                } else {
-                    paidToWorker = Math.max(1, availableForPay);
-                    netOwnerTreasuryDelta = -treasury;
-                    cur.treasury = 0;
-                }
+                paidToWorker = Math.max(1, availableForPay);
+                netOwnerTreasuryDelta = -treasury;
+                cur.treasury = 0;
             }
 
             if (!cur.workers) cur.workers = {};
@@ -2374,10 +2449,17 @@ async function doPrivateOrderStepWork(plotId) {
             return cur;
         });
     } catch (e) {
-        paidToWorker = Math.max(1, Math.min(fin.wage, fin.afterTaxRevenue));
+        paidToWorker = fin.wage;
         netOwnerTreasuryDelta = fin.afterTaxRevenue - paidToWorker;
     } finally {
         isProcessingWorkClick = false;
+    }
+
+    if (noClientsLeft) {
+        gameState.taskProgress = 0;
+        renderTask();
+        updateWorkButtonState();
+        return showDialog("Клієнта вже обслужено", "Останнього клієнта щойно обслужив інший працівник! Зачекайте на наступного покупця.", "🚶");
     }
 
     sfx.good();
@@ -2481,7 +2563,72 @@ window.fireWorkerFromPlot = async function (plotId, workerName) {
     }
 };
 
-window.savePlotWage = async function (customPlotId = null, customInputId = null) {
+
+window.buyPlotUpgrade = async function (plotId, upgradeId) {
+    if (isBankBlocked()) {
+        return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку!", "🚫");
+    }
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    const owned = getOwnedPlotData(Number(plotId));
+    const upg = BUSINESS_UPGRADES.find(u => u.id === upgradeId);
+    if (!p || !owned || owned.owner !== currentUser || !owned.building || !upg) return;
+    if (owned.upgrades && owned.upgrades[upgradeId]) return;
+    if (gameState.coins < upg.cost) {
+        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(upg.cost)} 💰.`, "💸");
+    }
+
+    try {
+        gameState.coins -= upg.cost;
+        markLocalCoinsChanged();
+        const cState = getPlotClientsState(p, owned);
+        await update(ref(db, `plots/${p.id}`), {
+            [`upgrades/${upgradeId}`]: true,
+            clientsRemaining: cState.current + upg.clientBonus,
+            clientsLastRefillAt: Date.now()
+        });
+        sfx.win();
+        renderAll();
+        await saveGame();
+        setGameStatus(`✅ Встановлено «${upg.name}»! Потік клієнтів збільшено на +${upg.clientBonus}/год назавжди!`);
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+window.buyPlotAd = async function (plotId, adId) {
+    if (isBankBlocked()) {
+        return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку!", "🚫");
+    }
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    const owned = getOwnedPlotData(Number(plotId));
+    const ad = BUSINESS_ADS.find(a => a.id === adId);
+    if (!p || !owned || owned.owner !== currentUser || !owned.building || !ad) return;
+    if (gameState.coins < ad.cost) {
+        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(ad.cost)} 💰.`, "💸");
+    }
+
+    try {
+        gameState.coins -= ad.cost;
+        markLocalCoinsChanged();
+        const cState = getPlotClientsState(p, owned);
+        const now = Date.now();
+        await update(ref(db, `plots/${p.id}`), {
+            adUntil: now + ad.durationMs,
+            adMultPct: ad.multPct,
+            adName: ad.name,
+            clientsRemaining: cState.current + ad.instantClients,
+            clientsLastRefillAt: now
+        });
+        sfx.win();
+        renderAll();
+        await saveGame();
+        setGameStatus(`📢 Запущено «${ad.name}»! +${ad.instantClients} клієнтів прийшли одразу, потік +${ad.multPct}%!`);
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+window.savePlotWage = async function (customPlotId = null, customInputId = null, applyToAll = false) {
     const pid = customPlotId !== null ? customPlotId : selectedPlotId;
     if (pid === null) return;
     const owned = getOwnedPlotData(pid);
@@ -2489,9 +2636,17 @@ window.savePlotWage = async function (customPlotId = null, customInputId = null)
     const inpEl = customInputId ? $(customInputId) : $("owner-wage-input");
     const val = Math.max(5, Math.min(50000, Math.floor(Number(inpEl?.value) || 0)));
     try {
-        await update(ref(db, `plots/${pid}`), { wage: val });
+        const updates = { wage: val };
+        if (applyToAll && owned.workers) {
+            Object.keys(owned.workers).forEach(wName => {
+                updates[`workers/${wName}/personalWage`] = val;
+            });
+        }
+        await update(ref(db, `plots/${pid}`), updates);
         sfx.good();
-        setGameStatus(`Встановлено базову ЗП для нових працівників: ${formatNumberFull(val)} 💰/замовлення`);
+        setGameStatus(applyToAll
+            ? `✅ Всім працівникам підприємства встановлено ЗП: ${formatNumberFull(val)} 💰/замовлення!`
+            : `💾 Базову ЗП для нових працівників встановлено: ${formatNumberFull(val)} 💰/замовлення`);
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
 };
 
@@ -3129,11 +3284,42 @@ function renderOwnerBusinessesHub() {
                     </div>
                 </div>
 
+                <!-- БЛОК ПОТОКУ КЛІЄНТІВ, ІНФРАСТРУКТУРИ ТА РЕКЛАМИ -->
+                ${(() => {
+                    const cs = getPlotClientsState(plot, owned);
+                    const upgs = owned.upgrades || {};
+                    const upgHtml = BUSINESS_UPGRADES.map(u => {
+                        const isOwned = Boolean(upgs[u.id]);
+                        return `<div class="infra-card${isOwned ? " owned" : ""}">
+                            <div><b>${u.name}</b><br><span style="color:#444">${u.desc}</span></div>
+                            ${isOwned
+                                ? `<span style="color:#006400;font-weight:bold">✓ Встановлено</span>`
+                                : `<button class="btn default" onclick="buyPlotUpgrade(${plot.id}, '${u.id}')" style="min-height:24px;min-width:auto;padding:2px 6px;font-size:10px">Купити (${formatNumberFull(u.cost)} 💰)</button>`
+                            }
+                        </div>`;
+                    }).join("");
+                    const adsHtml = BUSINESS_ADS.map(a => `
+                        <button class="btn" onclick="buyPlotAd(${plot.id}, '${a.id}')" style="min-height:26px;min-width:auto;padding:3px 7px;font-size:10px" title="${a.desc}">${a.name} (${formatNumberFull(a.cost)} 💰)</button>
+                    `).join("");
+                    return `
+                        <div class="clients-status-bar">
+                            <span>🚶 <b>Клієнти на підприємстві: ${cs.current} / ${cs.max}</b> (потік: <b>${cs.perHour}/год</b>${cs.current < cs.max ? `, наступний через ${cs.nextClientSec}с` : ""})</span>
+                            ${cs.adActive ? `<span class="ad-active-pill">📢 ${escapeHtml(cs.adName)} (+${cs.adMultPct}%, ще ${formatDuration(cs.adRemainingMs)})</span>` : ""}
+                        </div>
+                        <div style="margin-bottom:6px">
+                            <div style="font-size:11px;font-weight:bold;color:#000080;margin-bottom:3px">🏗️ Покращення потоку клієнтів (назавжди) та 📢 Реклама (тимчасово):</div>
+                            <div class="infra-ads-grid">${upgHtml}</div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${adsHtml}</div>
+                        </div>
+                    `;
+                })()}
+
                 <div class="bank-input-wrap" style="margin-bottom:6px">
-                    <span style="font-size:11px;font-weight:bold">Базова ЗП для нових робітників:</span>
+                    <span style="font-size:11px;font-weight:bold">ЗП за замовлення:</span>
                     <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" oninput="previewHubBaseWageMargin(${plot.id})" style="max-width:85px;padding:3px 6px;font-size:12px">
-                    <button class="btn default" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}')" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px">💾 Зберегти ЗП</button>
-                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px" title="Надіслати гравцю координати цього місця для роботи">📍 Запросити людину на роботу</button>
+                    <button class="btn default" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', false)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">💾 Для нових</button>
+                    <button class="btn" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', true)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px" title="Застосувати цю ЗП до всіх поточних працівників">👥 Застосувати всім</button>
+                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px" title="Надіслати гравцю координати цього місця для роботи">📍 Запросити</button>
                 </div>
                 <div id="hub_wage_hint_${plot.id}" style="font-size:11px;margin-bottom:6px;color:#004000"></div>
 
@@ -3395,7 +3581,8 @@ function renderTask() {
             $("task-bar").style.width = ((step / ORDER_STEPS_REQUIRED) * 100) + "%";
             $("task-text").textContent = `Етап замовлення: ${step} / ${ORDER_STEPS_REQUIRED}`;
         }
-        $("task-reward").textContent = `Чек клієнта: ${fin.grossCheck} 💰 ➔ Податок: -${fin.taxAmount} 💰 ➔ Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰`;
+        const cs = p && owned ? getPlotClientsState(p, owned) : { current: 0, max: 0, nextClientSec: 0 };
+        $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Клієнтів у черзі: ${cs.current}/${cs.max} | Чек: ${fin.grossCheck} 💰 (податок -${fin.taxAmount})`;
         $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — Посада: ${wRec.role}`;
     } else {
         const step = Math.floor(gameState.taskProgress);
@@ -3576,13 +3763,13 @@ function renderShop() {
             bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Вивчаються <b>строго по черзі</b> — від «Основи програмування» (800 💰) до «Архітектура високих навантажень» (90 000 💰).`;
         } else if (activeCourseCategory === "residential") {
             const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
-            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (150 – 720 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
+            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (450 – 9 500 💰):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
         } else if (activeCourseCategory === "commercial") {
             const myCom = getWorkerZoneSkillBonusPct(gameState.completedCourses, "commercial");
-            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (180 – 750 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі в пекарнях, піцеріях і ТРЦ Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
+            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (550 – 12 000 💰):</b> Збільшують чек клієнта при роботі в пекарнях, піцеріях і ТРЦ Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
         } else {
             const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (200 – 780 💰):</b> Промислові та зварювальні спеціальності для цехів, комбінатів, депо й заводів Ковеля. Підвищують чек кожного замовлення у Промзоні — ваш поточний бонус: <span style="color:#006400">+${myInd}%</span>.`;
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (650 – 15 000 💰):</b> Промислові та зварювальні спеціальності для цехів, комбінатів, депо й заводів Ковеля. Підвищують чек кожного замовлення у Промзоні — ваш поточний бонус: <span style="color:#006400">+${myInd}%</span>.`;
         }
     }
 
