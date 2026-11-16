@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "3.9.0";
+const APP_VERSION = "4.0.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -38,8 +38,6 @@ const OWNER_ASSIGNED_TITLES = [
 ];
 
 // Базові податкові ставки м. Ковель (вкладка «🏛️ Політика»)
-// turnoverTaxPct — % податку з кожного чека замовлення та з погодинного обороту будівлі
-// landTaxPct — % податку на саму землю щогодини від ринкової ціни ділянки
 const DEFAULT_CITY_TAX_POLICY = {
     residential: { turnoverTaxPct: 8,  landTaxPct: 0.4 },
     commercial:  { turnoverTaxPct: 12, landTaxPct: 0.5 },
@@ -51,28 +49,37 @@ const DEFAULT_CITY_TAX_POLICY = {
 let cityTaxPolicy = JSON.parse(JSON.stringify(DEFAULT_CITY_TAX_POLICY));
 let policyListener = null;
 
+// ВИМОГА: Курси розділені на 4 окремі спеціалізації (IT, Житлова, Комерційна, Промислова),
+// причому ВСІ курси Житлової, Комерційної та Промислової зон є дешевшими за IT!
 const COURSES = [
-    // 1. ІТ-курси (КовельКорп)
-    { id: "basics", category: "it", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, zoneBoost: 0, commercialBoost: 5, desc: "Базовий курс для вступу в КовельКорп (або будь-який дорожчий ІТ-курс!)" },
-    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15, zoneBoost: 0, commercialBoost: 10, desc: "Потрібен для звання Junior QA та Junior Developer (зараховує і нижчі курси)" },
-    { id: "cleancode", category: "it", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20, zoneBoost: 0, commercialBoost: 15, desc: "Потрібен для звання Middle Developer (зараховує і нижчі ІТ-курси)" },
-    { id: "sysdesign", category: "it", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25, zoneBoost: 0, commercialBoost: 20, desc: "Потрібен для звання Senior Developer" },
-    { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, commercialBoost: 25, desc: "Потрібен для звання Team Lead" },
-    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, commercialBoost: 35, desc: "Потрібен для звання Tech Lead та CTO (відкриває всі ІТ-звання)" },
+    // 1. ІТ-курси (КовельКорп — найдорожча елітна гілка: від 2 500 до 120 000 💰)
+    { id: "basics", category: "it", name: "Основи програмування", price: 2500, durationMs: 3600000, boost: 10, zoneBoost: 0, desc: "Базовий ІТ-диплом для вступу в КовельКорп (дорожчий ІТ-курс автоматично зараховує всі дешевші!)" },
+    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 6000, durationMs: 7200000, boost: 15, zoneBoost: 0, desc: "Потрібен для звання Junior QA та Junior Developer у КовельКорп" },
+    { id: "cleancode", category: "it", name: "Clean Code та архітектура коду", price: 14000, durationMs: 10800000, boost: 20, zoneBoost: 0, desc: "Потрібен для звання Middle Developer у КовельКорп" },
+    { id: "sysdesign", category: "it", name: "Системний дизайн (System Design)", price: 30000, durationMs: 18000000, boost: 25, zoneBoost: 0, desc: "Потрібен для звання Senior Developer у КовельКорп" },
+    { id: "leadership", category: "it", name: "Лідерство і тех-менеджмент", price: 60000, durationMs: 28800000, boost: 30, zoneBoost: 0, desc: "Потрібен для звання Team Lead у КовельКорп" },
+    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 120000, durationMs: 43200000, boost: 40, zoneBoost: 0, desc: "Вищий диплом для Tech Lead та CTO (відкриває абсолютно всі посади в КовельКорп)" },
 
-    // 2. Курси Житлової та Сервісної зони
-    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 900, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 8, desc: "Дає +15% до чека замовлення при роботі у Житловій зоні (+8% у Комерції)" },
-    { id: "res_electric", category: "residential", name: "Електромонтаж і побутові мережі", price: 3200, durationMs: 7200000, boost: 0, zoneBoost: 25, commercialBoost: 12, desc: "Допуск до обслуговування котеджів і ЖК: +25% до чека в Житловій зоні (+12% у Комерції)" },
-    { id: "res_landscape", category: "residential", name: "Благоустрій території та дизайн", price: 8500, durationMs: 14400000, boost: 0, zoneBoost: 35, commercialBoost: 18, desc: "Професійний догляд за житловими кварталами: +35% до чека в Житловій зоні (+18% у Комерції)" },
-    { id: "res_trade", category: "residential", name: "Товарознавство та касовий сервіс", price: 20000, durationMs: 21600000, boost: 0, zoneBoost: 45, commercialBoost: 35, desc: "Організація магазинів біля дому та піцерій: +45% у Житловій зоні та +35% у Комерції" },
-    { id: "res_osbb", category: "residential", name: "Управління ЖКГ та нерухомістю", price: 48000, durationMs: 36000000, boost: 0, zoneBoost: 65, commercialBoost: 45, desc: "Диплом головного управителя ЖК та ТРЦ: +65% до чека у Житловій зоні (+45% у Комерції)" },
+    // 2. Курси Житлової зони (усі дешевші за IT: від 250 до 1 900 💰)
+    { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 250, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Дає +15% до чека клієнта при роботі на підприємствах у Житловій зоні" },
+    { id: "res_electric", category: "residential", name: "Електромонтаж побутових мереж", price: 500, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Допуск до обслуговування котеджів і ЖК: +25% до чека у Житловій зоні" },
+    { id: "res_landscape", category: "residential", name: "Благоустрій двору та озеленення", price: 850, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Професійний догляд за житловими кварталами: +35% до чека у Житловій зоні" },
+    { id: "res_repair", category: "residential", name: "Майстер ремонту квартир і котеджів", price: 1300, durationMs: 3600000, boost: 0, zoneBoost: 45, desc: "Комплексний ремонт і сервіс будинків: +45% до чека у Житловій зоні" },
+    { id: "res_osbb", category: "residential", name: "Управління ОСББ та житловим фондом", price: 1900, durationMs: 5400000, boost: 0, zoneBoost: 65, desc: "Диплом головного управителя ЖК: +65% до чека замовлення у Житловій зоні" },
 
-    // 3. Курси Промислової зони
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 1200, durationMs: 3600000, boost: 0, zoneBoost: 15, commercialBoost: 5, desc: "Базовий промисловий допуск: +15% до чека замовлення у Промисловій зоні" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 4800, durationMs: 10800000, boost: 0, zoneBoost: 25, commercialBoost: 8, desc: "Курс зварювальника (школа Богдана Поліщука): +25% до чека у Промисловій зоні" },
-    { id: "ind_forklift", category: "industrial", name: "Водій навантажувача і складська логістика", price: 12000, durationMs: 18000000, boost: 0, zoneBoost: 35, commercialBoost: 15, desc: "Робота на терміналах, елеваторах та складах: +35% до чека у Промисловій зоні" },
-    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та механіка", price: 28000, durationMs: 28800000, boost: 0, zoneBoost: 50, commercialBoost: 15, desc: "Налаштування заводських ліній та депо: +50% до чека у Промисловій зоні" },
-    { id: "ind_chief", category: "industrial", name: "Головний інженер виробництва", price: 65000, durationMs: 43200000, boost: 0, zoneBoost: 75, commercialBoost: 25, desc: "Вища інженерна кваліфікація для заводів Ковеля: +75% до чека у Промисловій зоні" }
+    // 3. Курси Комерційної зони (усі дешевші за IT: від 300 до 2 100 💰)
+    { id: "com_cashier", category: "commercial", name: "Касова справа та обслуговування", price: 300, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Швидкий розрахунок покупців: +15% до чека клієнта у Комерційній зоні" },
+    { id: "com_barista", category: "commercial", name: "Бариста і кухар піцерії", price: 650, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Професійна робота в кав'ярнях і піцеріях Ковеля: +25% до чека у Комерційній зоні" },
+    { id: "res_trade", category: "commercial", name: "Товарознавство та мерчандайзинг", price: 1050, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Грамотна викладка товарів у магазинах і ТРЦ: +35% до чека у Комерційній зоні" },
+    { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 1550, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Залучення клієнтів і підвищення середнього чека: +50% у Комерційній зоні" },
+    { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-центру", price: 2100, durationMs: 5400000, boost: 0, zoneBoost: 70, desc: "Диплом топ-менеджера торгівлі: +70% до чека замовлення у Комерційній зоні" },
+
+    // 4. Курси Промислової зони (усі дешевші за IT: від 350 до 2 300 💰)
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 350, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Базовий промисловий допуск: +15% до чека замовлення у Промисловій зоні" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 750, durationMs: 1800000, boost: 0, zoneBoost: 25, desc: "Курс зварювальника (школа Богдана Поліщука): +25% до чека у Промисловій зоні" },
+    { id: "ind_forklift", category: "industrial", name: "Водій навантажувача і складська логістика", price: 1200, durationMs: 2700000, boost: 0, zoneBoost: 35, desc: "Робота на терміналах, елеваторах та складах: +35% до чека у Промисловій зоні" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та механіка", price: 1750, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Налаштування заводських ліній та депо: +50% до чека у Промисловій зоні" },
+    { id: "ind_chief", category: "industrial", name: "Головний інженер виробництва", price: 2300, durationMs: 5400000, boost: 0, zoneBoost: 75, desc: "Вища інженерна кваліфікація для заводів Ковеля: +75% до чека у Промисловій зоні" }
 ];
 
 const JOBS = [
@@ -88,7 +95,6 @@ const JOBS = [
 ];
 
 // Усі суми income нараховуються ЗА ГОДИНУ (/год)!
-// clickProfit — це базовий ЧЕК КЛІЄНТА за 1 виконане замовлення (5 дій).
 const ZONE_INFO = {
     residential: {
         name: "🏡 Житлова зона",
@@ -209,7 +215,6 @@ function formatPlotCoords(plot) {
     return `${plot.lat.toFixed(4)}°N, ${plot.lng.toFixed(4)}°E`;
 }
 
-// Отримання діючих податкових ставок для зони
 function getZoneTaxRates(zone) {
     const z = cityTaxPolicy && cityTaxPolicy[zone] ? cityTaxPolicy[zone] : DEFAULT_CITY_TAX_POLICY[zone] || DEFAULT_CITY_TAX_POLICY.residential;
     return {
@@ -218,7 +223,7 @@ function getZoneTaxRates(zone) {
     };
 }
 
-// ВИМОГА 1: Перевірка, чи гравець targetUser ВЖЕ працює на власника ownerUser (на будь-якому його бізнесі або на конкретній ділянці)
+// Перевірка, чи гравець targetUser ВЖЕ працює на власника ownerUser
 function getExistingEmploymentForOwner(targetUser, ownerUser = currentUser) {
     if (!targetUser || !ownerUser) return null;
     const tClean = String(targetUser).trim().toLowerCase();
@@ -241,24 +246,21 @@ function getExistingEmploymentForOwner(targetUser, ownerUser = currentUser) {
     return null;
 }
 
+// ВИМОГА: Курси поділені строго між Житловою (residential), Комерційною (commercial) та Промисловою (industrial) зонами!
 function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     if (!Array.isArray(completedList) || !completedList.length) return 0;
     let totalPct = 0;
     completedList.forEach(cid => {
         const c = COURSES.find(x => x.id === cid);
         if (!c) return;
-        if (plotZone === "residential" && c.category === "residential") {
-            totalPct += (c.zoneBoost || 0);
-        } else if (plotZone === "industrial" && c.category === "industrial") {
-            totalPct += (c.zoneBoost || 0);
-        } else if (plotZone === "commercial") {
-            totalPct += (c.commercialBoost || 0);
+        if (c.category === plotZone) {
+            totalPct += (Number(c.zoneBoost) || 0);
         }
     });
     return totalPct;
 }
 
-// ВИМОГА 2, 3, 5: Прозора формула розрахунку 1 замовлення (Чек клієнта -> Податок зони -> ЗП робітнику -> Чиста маржа власника)
+// Прозора формула розрахунку 1 замовлення (Чек клієнта -> Податок зони -> ЗП робітнику -> Чиста маржа власника)
 function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWage = 15) {
     const baseCheck = buildingDef ? buildingDef.clickProfit : 22;
     const skillBonusPct = getWorkerZoneSkillBonusPct(workerCourses, plotZone);
@@ -267,7 +269,7 @@ function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWa
     const taxAmount = Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
     const afterTaxRevenue = Math.max(1, grossCheck - taxAmount);
     const wage = Math.max(1, Math.floor(Number(workerWage) || (buildingDef ? buildingDef.defaultWage : 12)));
-    const ownerNetMargin = afterTaxRevenue - wage; // може бути > 0 (плюс у касу) або < 0 (збиток із каси!)
+    const ownerNetMargin = afterTaxRevenue - wage;
     return {
         baseCheck,
         skillBonusPct,
@@ -287,15 +289,9 @@ function renderCourseChipsHtml(completedList, targetZone = null) {
     return completedList.map(cid => {
         const c = COURSES.find(x => x.id === cid);
         if (!c) return "";
-        const isMatched = (targetZone === "residential" && c.category === "residential")
-            || (targetZone === "industrial" && c.category === "industrial")
-            || (targetZone === "commercial" && (c.commercialBoost || 0) >= 15);
+        const isMatched = targetZone && c.category === targetZone;
         const cls = isMatched ? "matched" : (c.category === "it" ? "it" : (c.category === "industrial" ? "ind" : ""));
-        const bonusLabel = targetZone === "residential" && c.category === "residential"
-            ? ` (+${c.zoneBoost}%)`
-            : (targetZone === "industrial" && c.category === "industrial"
-                ? ` (+${c.zoneBoost}%)`
-                : (targetZone === "commercial" && c.commercialBoost ? ` (+${c.commercialBoost}%)` : ""));
+        const bonusLabel = c.zoneBoost > 0 ? ` (+${c.zoneBoost}%)` : (c.boost > 0 ? ` (+${c.boost}% IT)` : "");
         return `<span class="course-chip ${cls}">🎓 ${escapeHtml(c.name)}${bonusLabel}</span>`;
     }).join(" ");
 }
@@ -366,8 +362,6 @@ function getPlotPassiveBonusPct(plot, ownedData) {
     return Math.min(180, totalBoostPct);
 }
 
-// ВИМОГА 4 і 5: Сама земля обкладається податком! Порожня земля приносить 0 доходу і списує податок на землю щогодини.
-// Повертає повну погодинну бухгалтерію ділянки: валовий дохід будівлі, податок на землю, податок з обороту зони та чистий плюс/мінус.
 function calcPlotHourlyTaxAndNet(plot, ownedData) {
     if (!plot) return { grossIncome: 0, landTax: 0, turnoverTax: 0, totalTax: 0, netIncome: 0, landTaxPct: 0, turnoverTaxPct: 0 };
     const { turnoverTaxPct, landTaxPct } = getZoneTaxRates(plot.zone);
@@ -380,7 +374,6 @@ function calcPlotHourlyTaxAndNet(plot, ownedData) {
 
     const bld = getBuildingDef(plot.zone, ownedData.building);
     if (!bld) {
-        // Незабудована земля не генерує жодних «грошей з неба» — лише платить податок на землю!
         return { grossIncome: 0, landTax, turnoverTax: 0, totalTax: landTax, netIncome: -landTax, landTaxPct, turnoverTaxPct };
     }
 
@@ -406,7 +399,6 @@ function getPlotPassiveIncome(plot, ownedData) {
     return calcPlotHourlyTaxAndNet(plot, ownedData).netIncome;
 }
 
-// Загальний ЧИСТИЙ погодинний баланс гравця по всіх його ділянках (після вирахування податків на землю та оборот)
 function getPlayerPortfolioHourlyBreakdown(username = currentUser) {
     let grossTotal = 0;
     let landTaxTotal = 0;
@@ -486,6 +478,14 @@ let workCooldownReason = "";
 let cooldownIntervalId = null;
 let isProcessingWorkClick = false;
 
+// Захист від перезапису локально змінених монет застарілим snapshot-ом із Firebase
+let lastLocalCoinChangeAt = 0;
+let pendingSaveRequested = false;
+
+function markLocalCoinsChanged() {
+    lastLocalCoinChangeAt = Date.now();
+}
+
 let gameState = {
     coins: 0,
     jobIndex: 0,
@@ -527,6 +527,7 @@ const miniGames = new MiniGameManager(
         onComplete: () => {
             const job = getCurrentCorpJob();
             gameState.coins += job.taskReward;
+            markLocalCoinsChanged();
             gameState.taskActive = false;
             gameState.taskProgress = 0;
             renderStats();
@@ -577,11 +578,6 @@ async function sha256(text) {
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function colorFromName(name) {
-    let h = 0;
-    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-    return `hsl(${h},65%,45%)`;
-}
 
 function hasCourse(courseId, completedList = gameState.completedCourses) {
     if (!courseId) return true;
@@ -662,9 +658,10 @@ window.switchWorkSubtab = function (sub) {
     if (sub === "mybiz") renderOwnerBusinessesHub();
 };
 
+// Перемикання між 4 категоріями курсів: it, residential, commercial, industrial
 window.switchCourseCategory = function (cat) {
     activeCourseCategory = cat;
-    ["it", "residential", "industrial"].forEach(c => {
+    ["it", "residential", "commercial", "industrial"].forEach(c => {
         const btn = $("ctab-" + c);
         if (btn) btn.classList.toggle("active", c === cat);
     });
@@ -769,7 +766,6 @@ async function startGame() {
     setGameStatus("Ласкаво просимо у Windows 98 SE Work, " + currentUser + "!");
 }
 
-// Синхронізація міської податкової політики (зберігається у users/admin/clicker/cityPolicy для сумісності з Firebase Rules)
 function startPolicySync() {
     if (policyListener) { policyListener(); policyListener = null; }
     policyListener = onValue(ref(db, "users/admin/clicker/cityPolicy"), snap => {
@@ -876,6 +872,7 @@ window.executeAdminGlobalWipe = async function () {
         sharedPlots = {};
         userInboxMail = {};
         userSentMail = {};
+        markLocalCoinsChanged();
         gameState = {
             coins: 0,
             jobIndex: 0,
@@ -957,7 +954,10 @@ function startLiveSync() {
     dataListener = onValue(ref(db, `users/${currentUser}/clicker`), snap => {
         if (!snap.exists()) return;
         const d = snap.val();
-        gameState.coins = Number(d.coins) || 0;
+        // Захист: якщо ми щойно змінили монети локально (переказ поштою, покупка тощо), не перезаписуємо їх старим snapshot-ом
+        if (!isSaving && (Date.now() - lastLocalCoinChangeAt > 2500)) {
+            gameState.coins = Number(d.coins) || 0;
+        }
         gameState.jobIndex = Math.min(Number(d.jobIndex) || 0, JOBS.length - 1);
         gameState.xp = Number(d.xp) || 0;
         gameState.privateXp = Number(d.privateXp) || 0;
@@ -1003,7 +1003,7 @@ function startMapSync() {
     });
 }
 
-// ВИМОГА 4 і 5: Погодинний облік землі та будівель (відрахування податків на землю і оборот, зарахування чистого прибутку в Касу бізнесу!)
+// Погодинний облік землі та будівель
 async function checkPassiveRentIncome() {
     if (!currentUser || !sharedPlots) return;
     const now = Date.now();
@@ -1035,7 +1035,6 @@ async function checkPassiveRentIncome() {
         const deltaForHours = calc.netIncome * hours;
 
         if (owned.building) {
-            // Забудоване підприємство: чистий погодинний дохід (після сплати земельного податку і податку зони) йде прямо в КАСУ бізнесу!
             if (deltaForHours >= 0) {
                 totalAddedToCashboxes += deltaForHours;
                 try {
@@ -1045,12 +1044,13 @@ async function checkPassiveRentIncome() {
                 const loss = Math.abs(deltaForHours);
                 totalEmptyLandTaxDeducted += loss;
                 gameState.coins = Math.max(0, gameState.coins - loss);
+                markLocalCoinsChanged();
             }
         } else {
-            // Порожня земля без будівлі: приносить 0 доходу, списує податок на землю з гаманця
             const landTaxBill = calc.landTax * hours;
             totalEmptyLandTaxDeducted += landTaxBill;
             gameState.coins = Math.max(0, gameState.coins - landTaxBill);
+            markLocalCoinsChanged();
         }
     }
 
@@ -1078,28 +1078,36 @@ function recalculateBoost() {
     gameState.xpBoost = b;
 }
 
+// Гарантоване збереження без втрати викликів (черга pendingSaveRequested)
 async function saveGame() {
     if (!currentUser) return;
-    if (isSaving) { await new Promise(r => setTimeout(r, 200)); if (isSaving) return; }
+    if (isSaving) {
+        pendingSaveRequested = true;
+        return;
+    }
     isSaving = true;
     try {
-        await update(ref(db, `users/${currentUser}/clicker`), {
-            coins: gameState.coins,
-            jobIndex: gameState.jobIndex,
-            xp: gameState.xp,
-            privateJobIndex: 0,
-            privateXp: gameState.privateXp,
-            employer: gameState.employer,
-            taskProgress: gameState.taskProgress,
-            taskActive: gameState.taskActive,
-            activeCourseId: gameState.activeCourseId,
-            courseStartTime: gameState.courseStartTime,
-            completedCourses: gameState.completedCourses,
-            xpBoost: gameState.xpBoost,
-            lastRentAt: gameState.lastRentAt || Date.now(),
-            credit: gameState.credit,
-            deposit: gameState.deposit
-        });
+        do {
+            pendingSaveRequested = false;
+            await update(ref(db, `users/${currentUser}/clicker`), {
+                coins: gameState.coins,
+                jobIndex: gameState.jobIndex,
+                xp: gameState.xp,
+                privateJobIndex: 0,
+                privateXp: gameState.privateXp,
+                employer: gameState.employer,
+                taskProgress: gameState.taskProgress,
+                taskActive: gameState.taskActive,
+                activeCourseId: gameState.activeCourseId,
+                courseStartTime: gameState.courseStartTime,
+                completedCourses: gameState.completedCourses,
+                xpBoost: gameState.xpBoost,
+                lastRentAt: gameState.lastRentAt || Date.now(),
+                credit: gameState.credit,
+                deposit: gameState.deposit
+            });
+        } while (pendingSaveRequested);
+
         const pid = getActiveEmployerPlotId();
         if (pid !== null && getOwnedPlotData(pid)?.workers?.[currentUser]) {
             await update(ref(db, `plots/${pid}/workers/${currentUser}`), {
@@ -1137,11 +1145,16 @@ function checkCourseCompletion() {
         gameState.activeCourseId = null;
         gameState.courseStartTime = 0;
         setGameStatus("Курс завершено!");
-        const bonusDesc = c?.category === "it"
-            ? `+${c.boost}% IT-XP та доступ до посад у КовельКорп!`
-            : (c?.category === "residential"
-                ? `+${c.zoneBoost}% до чека замовлення у Житловій зоні!`
-                : `+${c?.zoneBoost || 0}% до чека замовлення у Промисловій зоні!`);
+        let bonusDesc = "";
+        if (c?.category === "it") {
+            bonusDesc = `+${c.boost}% IT-XP та доступ до посад у КовельКорп!`;
+        } else if (c?.category === "residential") {
+            bonusDesc = `+${c.zoneBoost}% до чека замовлення у Житловій зоні!`;
+        } else if (c?.category === "commercial") {
+            bonusDesc = `+${c.zoneBoost}% до чека замовлення у Комерційній зоні!`;
+        } else {
+            bonusDesc = `+${c?.zoneBoost || 0}% до чека замовлення у Промисловій зоні!`;
+        }
         showDialog("Диплом отримано!", `🎓 ${c ? c.name : "Курс"}\n${bonusDesc}`, "🎓");
         saveGame();
     }
@@ -1179,7 +1192,6 @@ window.openResumeModal = function (plotId) {
         return showDialog("Недоступно", "На цій ділянці ще немає збудованого підприємства.", "⚠️");
     }
 
-    // ВИМОГА 1: Якщо гравець вже працює на цьому підприємстві або вже працює на цього власника
     if (getActiveEmployerPlotId() === plotId || (owned.workers && owned.workers[currentUser])) {
         return showDialog("Ви вже тут працюєте!", "Ви вже працевлаштовані на цьому підприємстві.", "👷");
     }
@@ -1373,7 +1385,6 @@ window.openComposeMail = function (toUser = "", subject = "", preselectPlotId = 
 
 window.openJobInviteMail = function (plotId, toUser = "") {
     if (plotId === null || plotId === undefined) return;
-    // ВИМОГА 1: Якщо вказано конкретного гравця, який вже працює на нас — блокуємо одразу
     if (toUser) {
         const existing = getExistingEmploymentForOwner(toUser, currentUser);
         if (existing) {
@@ -1403,7 +1414,6 @@ function populateJobOfferPlotsSelect(preselectPlotId = null) {
     const options = [`<option value="">— Не прикріплювати координати роботи —</option>`];
     MAP_PLOTS_BASE.forEach(p => {
         const owned = getOwnedPlotData(p.id);
-        // Власник може запрошувати на свої забудовані ділянки
         if (owned && owned.building && owned.owner === currentUser) {
             const bld = getBuildingDef(p.zone, owned.building);
             const selAttr = (preselectPlotId !== null && Number(preselectPlotId) === p.id) ? " selected" : "";
@@ -1450,6 +1460,7 @@ async function populatePlayersSelectForMail() {
     } catch (e) {}
 }
 
+// ВИПРАВЛЕНО: Атомарне списання монет з гаманця відправника разом із записом у sentMail (без конфлікту з onValue!)
 window.sendPersonalMail = async function () {
     const to = ($("mail-to-input").value || "").trim();
     const subj = ($("mail-subj-input").value || "").trim() || "Повідомлення";
@@ -1469,7 +1480,6 @@ window.sendPersonalMail = async function () {
         return showDialog("Порожній лист", "Напишіть текст повідомлення, додайте переказ монет або координати роботи.", "⚠️");
     }
 
-    // ВИМОГА 1: Заборона запрошувати на роботу людину, яка вже працює на тебе!
     if (offerPlotId !== null) {
         const existingEmp = getExistingEmploymentForOwner(to, currentUser);
         if (existingEmp) {
@@ -1504,7 +1514,6 @@ window.sendPersonalMail = async function () {
             return showDialog("Гравця не знайдено", `Користувача з логіном «${to}» не існує в базі Ковеля.`, "⚠️");
         }
 
-        // Додаткова перевірка за профілем отримувача у БД
         if (offerPlotId !== null) {
             const targetEmp = userSnap.val()?.clicker?.employer || "none";
             if (String(targetEmp).startsWith("plot:")) {
@@ -1540,11 +1549,16 @@ window.sendPersonalMail = async function () {
             }
         }
 
+        // Миттєво списуємо монети локально і блокуємо відкат від onValue
         if (attachedCoins > 0) {
-            gameState.coins -= attachedCoins;
+            gameState.coins = Math.max(0, gameState.coins - attachedCoins);
+            markLocalCoinsChanged();
+            renderStats();
         }
 
+        const newRef = push(ref(db, `users/${to}/clicker/mail`));
         const msgData = {
+            id: newRef.key,
             type: jobOfferMeta ? "job_offer" : "personal",
             from: currentUser,
             to: to,
@@ -1557,15 +1571,14 @@ window.sendPersonalMail = async function () {
             createdAt: Date.now()
         };
 
-        const newRef = push(ref(db, `users/${to}/clicker/mail`));
-        msgData.id = newRef.key;
-        await set(newRef, msgData);
-        await set(ref(db, `users/${currentUser}/clicker/sentMail/${newRef.key}`), msgData);
+        // 1. Спочатку атомарно оновлюємо баланс відправника та його sentMail в одному запиті до users/${currentUser}/clicker!
+        await update(ref(db, `users/${currentUser}/clicker`), {
+            coins: gameState.coins,
+            [`sentMail/${newRef.key}`]: msgData
+        });
 
-        if (attachedCoins > 0) {
-            renderStats();
-            await saveGame();
-        }
+        // 2. Доставляємо лист отримувачу
+        await set(newRef, msgData);
 
         $("mail-subj-input").value = "";
         $("mail-body-input").value = "";
@@ -1576,9 +1589,11 @@ window.sendPersonalMail = async function () {
         }
 
         sfx.good();
+        renderAll();
         activeHistoryContact = to;
         switchMailSubtab("history");
-        setGameStatus(`📨 Листа для ${to} успішно надіслано!`);
+        const coinNote = attachedCoins > 0 ? ` (списано -${formatNumberFull(attachedCoins)} 💰 з вашого гаманця)` : "";
+        setGameStatus(`📨 Листа для ${to} успішно надіслано!${coinNote}`);
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -1593,10 +1608,15 @@ window.claimMailCoins = async function (mailId) {
 
     try {
         mail.coinsClaimed = true;
-        await update(ref(db, `users/${currentUser}/clicker/mail/${mailId}`), {
-            coinsClaimed: true,
-            unread: false
+        gameState.coins += amt;
+        markLocalCoinsChanged();
+
+        await update(ref(db, `users/${currentUser}/clicker`), {
+            coins: gameState.coins,
+            [`mail/${mailId}/coinsClaimed`]: true,
+            [`mail/${mailId}/unread`]: false
         });
+
         if (mail.from) {
             try {
                 await update(ref(db, `users/${mail.from}/clicker/sentMail/${mailId}`), {
@@ -1604,10 +1624,8 @@ window.claimMailCoins = async function (mailId) {
                 });
             } catch (e2) {}
         }
-        gameState.coins += amt;
         sfx.win();
         renderAll();
-        await saveGame();
         setGameStatus(`💰 Отримано переказ +${formatNumberFull(amt)} 💰 від гравця ${mail.from}!`);
         showDialog("Переказ отримано!", `Ви забрали +${formatNumberFull(amt)} 💰 від гравця «${mail.from}» у свій гаманець!`, "💰");
     } catch (e) {
@@ -2022,7 +2040,6 @@ function renderMailPage() {
         const isUnread = Boolean(m.unread);
         const coursesHtml = isResume ? renderCourseChipsHtml(m.completedCourses || [], m.plotZone) : "";
 
-        // Розрахунок маржі для кандидата в резюме!
         let resumeMarginHtml = "";
         if (isResume) {
             const p = MAP_PLOTS_BASE.find(x => x.id === Number(m.plotId));
@@ -2136,7 +2153,7 @@ window.resignCurrentJob = async function () {
     showDialog("Звільнення оформлено", "Ви звільнились із попереднього місця роботи.\nТепер ви можете подати резюме в бізнес іншого гравця або піти в КовельКорп.", "🚪");
 };
 
-// ВИМОГА 2, 3, 5: Прозора економіка замовлення (Чек клієнта -> Податок -> ЗП робітнику -> Чиста маржа власника в Касу)
+// Прозора економіка замовлення (Чек клієнта -> Податок -> ЗП робітнику -> Чиста маржа власника в Касу)
 async function doPrivateOrderStepWork(plotId) {
     if (isProcessingWorkClick || Date.now() < workCooldownUntil) return;
 
@@ -2179,21 +2196,16 @@ async function doPrivateOrderStepWork(plotId) {
             taxPaidThisOrder = txFin.taxAmount;
 
             if (isSelfOwner) {
-                // Якщо власник сам обслуговує клієнта на своєму підприємстві:
-                // Після сплати податку зони 50% чистого чека йде власнику в руки, а 50% — у Касу бізнесу!
                 paidToWorker = Math.max(1, Math.floor(txFin.afterTaxRevenue * 0.5));
                 netOwnerTreasuryDelta = Math.max(1, txFin.afterTaxRevenue - paidToWorker);
                 cur.treasury = treasury + netOwnerTreasuryDelta;
             } else {
-                // Гроші приходять від реального клієнта (afterTaxRevenue) + за потреби покриваються з Каси бізнесу.
-                // Жодних «грошей з неба»: якщо власник поставив ЗП вищу за чек після податку, різниця береться з Каси!
                 const availableForPay = treasury + txFin.afterTaxRevenue;
                 if (availableForPay >= activeWage) {
                     paidToWorker = activeWage;
                     netOwnerTreasuryDelta = txFin.afterTaxRevenue - activeWage;
                     cur.treasury = treasury + netOwnerTreasuryDelta;
                 } else {
-                    // У касі не вистачає грошей на завищену ЗП — працівник отримує все, що реально є з чека + залишку каси
                     paidToWorker = Math.max(1, availableForPay);
                     netOwnerTreasuryDelta = -treasury;
                     cur.treasury = 0;
@@ -2234,6 +2246,7 @@ async function doPrivateOrderStepWork(plotId) {
 
     sfx.good();
     gameState.coins += paidToWorker;
+    markLocalCoinsChanged();
     gameState.taskProgress = 0;
     triggerWorkCooldown(PRIVATE_ORDER_COOLDOWN_MS, "order");
     renderStats();
@@ -2257,6 +2270,7 @@ function doMunicipalStepWork() {
     } else {
         sfx.good();
         gameState.coins += MUNICIPAL_TASK_REWARD;
+        markLocalCoinsChanged();
         gameState.taskProgress = 0;
         triggerWorkCooldown(MUNICIPAL_ORDER_COOLDOWN_MS, "order");
         renderStats();
@@ -2273,7 +2287,6 @@ window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
     const wRec = getWorkerRecordOnPlot(plotId, workerName);
     const fin = calcOrderFinancials(p ? p.zone : "residential", bld, wRec.completedCourses, wRec.personalWage);
 
-    // За замовчуванням не піднімаємо ЗП вище беззбиткового порогу чека без відома власника, якщо вона була нижчою
     const rawTarget = Math.max(wRec.personalWage + 3, Math.round(wRec.personalWage * mult));
     const newWage = Math.min(50000, rawTarget);
 
@@ -2354,11 +2367,12 @@ window.fundPlotTreasury = async function (customPlotId = null, customInputId = n
     if (val <= 0) return showDialog("Введіть суму", "Вкажіть суму монет для поповнення каси підприємства.", "⚠️");
     if (gameState.coins < val) return showDialog("Недостатньо монет", `У гаманці лише ${formatNumberFull(gameState.coins)} 💰`, "💸");
     try {
-        await runTransaction(ref(db, `plots/${pid}/treasury`), (cur) => (Number(cur) || 0) + val);
         gameState.coins -= val;
+        markLocalCoinsChanged();
+        await runTransaction(ref(db, `plots/${pid}/treasury`), (cur) => (Number(cur) || 0) + val);
         if (inpEl) inpEl.value = "";
         sfx.good();
-        renderAll(); saveGame();
+        renderAll(); await saveGame();
         setGameStatus(`Касу підприємства поповнено на +${formatNumberFull(val)} 💰`);
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
 };
@@ -2374,16 +2388,16 @@ window.withdrawPlotTreasury = async function (customPlotId = null, customInputId
     const inputVal = Math.floor(Number(inpEl?.value) || 0);
     const takeAmt = (takeAll || inputVal <= 0) ? curTreasury : Math.min(curTreasury, inputVal);
     try {
-        await runTransaction(ref(db, `plots/${pid}/treasury`), (cur) => Math.max(0, (Number(cur) || 0) - takeAmt));
         gameState.coins += takeAmt;
+        markLocalCoinsChanged();
+        await runTransaction(ref(db, `plots/${pid}/treasury`), (cur) => Math.max(0, (Number(cur) || 0) - takeAmt));
         if (inpEl) inpEl.value = "";
         sfx.win();
-        renderAll(); saveGame();
+        renderAll(); await saveGame();
         setGameStatus(`💰 Виведено з Каси бізнесу у ваш гаманець: +${formatNumberFull(takeAmt)} 💰!`);
     } catch (e) { showDialog("Помилка", e.message, "⚠️"); }
 };
 
-// Зняття грошей одразу з УСІХ кас підприємств власника одним кліком!
 window.withdrawAllPlotsTreasury = async function () {
     if (!currentUser || !sharedPlots) return;
     let totalTaken = 0;
@@ -2403,6 +2417,7 @@ window.withdrawAllPlotsTreasury = async function () {
         return showDialog("Каси порожні", "Наразі в касах ваших підприємств 0 💰.", "ℹ️");
     }
     gameState.coins += totalTaken;
+    markLocalCoinsChanged();
     sfx.win();
     renderAll();
     await saveGame();
@@ -2410,7 +2425,6 @@ window.withdrawAllPlotsTreasury = async function () {
     showDialog("Прибуток забрано!", `Із кас усіх ваших підприємств у ваш гаманець переведено:\n\n+${formatNumberFull(totalTaken)} 💰`, "💰");
 };
 
-// Продаж незабудованої (або збиткової) ділянки назад місту за 75% ціни, щоб не платити земельний податок
 window.sellPlotToCity = async function (plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
     const owned = getOwnedPlotData(Number(plotId));
@@ -2424,6 +2438,7 @@ window.sellPlotToCity = async function (plotId) {
     try {
         await set(ref(db, `plots/${p.id}`), null);
         gameState.coins += refund;
+        markLocalCoinsChanged();
         if (selectedPlotId === p.id) closeMapInfo();
         sfx.win();
         renderAll();
@@ -2460,6 +2475,7 @@ window.depositMoney = function () {
     if (!gameState.deposit) gameState.deposit = { amount: 0, lastInterestAt: Date.now(), totalEarned: 0 };
     if (gameState.deposit.amount === 0) gameState.deposit.lastInterestAt = Date.now();
     gameState.coins -= val;
+    markLocalCoinsChanged();
     gameState.deposit.amount += val;
     $("dep-amount-input").value = "";
     sfx.good();
@@ -2477,13 +2493,13 @@ window.withdrawDeposit = function (all = false) {
 
     gameState.deposit.amount -= val;
     gameState.coins += val;
+    markLocalCoinsChanged();
     $("dep-amount-input").value = "";
     sfx.win();
     renderAll(); saveGame();
     setGameStatus(`Знято з депозиту: +${formatNumberFull(val)} 💰`);
 };
 
-// Депозит дає +1% ЩОГОДИНИ (HOUR_MS = 3 600 000 мс)
 function checkDepositInterest() {
     const dep = gameState.deposit;
     if (!dep || dep.amount <= 0) return;
@@ -2547,6 +2563,7 @@ window.takeCredit = async function () {
 
     gameState.credit = { amount: totalDebt, takenAt: now, dueAt: now + 30 * 60 * 1000, overdue: false, lastPenaltyAt: 0 };
     gameState.coins += requested;
+    markLocalCoinsChanged();
     if ($("credit-amount-input")) $("credit-amount-input").value = "";
     sfx.win();
     renderAll(); saveGame();
@@ -2565,6 +2582,7 @@ window.repayCredit = async function (payAll = true) {
     if (gameState.coins < payAmount) return showDialog("Недостатньо монет у гаманці", `Потрібно ${formatNumberFull(payAmount)} 💰.\nВи можете заробити монети на роботі або зняти кошти з депозиту чи Каси бізнесу.`, "💸");
 
     gameState.coins -= payAmount;
+    markLocalCoinsChanged();
     gameState.credit.amount -= payAmount;
     if ($("repay-amount-input")) $("repay-amount-input").value = "";
 
@@ -2581,7 +2599,6 @@ window.repayCredit = async function (payAll = true) {
     }
 };
 
-// Штрафи за прострочений кредит стягують гроші з ДЕПОЗИТУ (а за нестачі на депозиті — додають до боргу)
 function applyOverduePenaltyTick(c) {
     const penalty = Math.max(10, Math.floor(c.amount * 0.10));
     if (!gameState.deposit) gameState.deposit = { amount: 0, lastInterestAt: Date.now(), totalEarned: 0 };
@@ -2743,7 +2760,6 @@ function renderPrivateJobsBoard() {
     listEl.innerHTML = html;
 }
 
-// ВИМОГА 2 і 3: Інтуїтивно зрозуміла відомість робітників (по кожному видно Чек -> Податок -> ЗП -> Чистий Плюс власника!)
 function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const plotZone = p ? p.zone : "residential";
@@ -2763,7 +2779,6 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
         const role = wData?.role || "Робітник зміни";
         const orders = Number(wData?.orders) || 0;
         const totalEarned = Number(wData?.totalEarned) || 0;
-        const profitBrought = Number(wData?.profitBrought) || 0;
         const wCourses = Array.isArray(wData?.completedCourses) ? wData.completedCourses : [];
         const fin = calcOrderFinancials(plotZone, bld, wCourses, pWage);
         const netTotalBrought = wData?.netMarginBrought !== undefined
@@ -2792,7 +2807,6 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
                     <span class="w-wage-badge">ЗП робітнику: ${formatNumberFull(pWage)} 💰</span>
                 </div>
 
-                <!-- Наочний рядок: скільки платить клієнт, скільки йде на податок, скільки ЗП і скільки ЧИСТОЇ МАРЖІ власнику -->
                 <div class="receipt-pills-row" style="margin:3px 0">
                     <span class="receipt-pill">🛒 Чек клієнта: <b>+${fin.grossCheck} 💰</b> (курси +${fin.skillBonusPct}%)</span>
                     <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
@@ -2824,7 +2838,6 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     }).join("");
 }
 
-// Допоміжна функція для живого перегляду маржі при введенні базової ЗП у кабінеті власника
 window.previewHubBaseWageMargin = function (plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     const owned = getOwnedPlotData(plotId);
@@ -2859,7 +2872,6 @@ window.previewMapOwnerWageMargin = function () {
     }
 };
 
-// ВИМОГА 2 і 3: Максимально наочний кабінет власника з великою панеллю КАСИ, податками та маржею
 function renderOwnerBusinessesHub() {
     const masterEl = $("owner-master-summary");
     const hubEl = $("owner-businesses-hub");
@@ -2920,7 +2932,6 @@ function renderOwnerBusinessesHub() {
         const calc = calcPlotHourlyTaxAndNet(plot, owned);
         const zInfo = ZONE_INFO[plot.zone] || ZONE_INFO.residential;
 
-        // Якщо це порожня земля без будівлі — показуємо чітке попередження про земельний податок!
         if (!bld) {
             return `
                 <div class="group-box" data-label="⚠️ Незабудована земля: ${escapeHtml(plot.name)} (${escapeHtml(zInfo.shortName)})" style="margin-top:8px;background:#fff0f0">
@@ -2943,7 +2954,6 @@ function renderOwnerBusinessesHub() {
 
         return `
             <div class="group-box" data-label="${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} (${escapeHtml(zInfo.shortName)})" style="margin-top:10px">
-                <!-- БЛОК 1: ВЕЛИКА І ПОМІТНА КАСА ПІДПРИЄМСТВА -->
                 <div class="biz-cash-highlight">
                     <div>
                         <div style="font-size:11px;color:#004000;font-weight:bold">🏦 КАСА ПІДПРИЄМСТВА (гроші з замовлень і погодинної роботи):</div>
@@ -2958,7 +2968,6 @@ function renderOwnerBusinessesHub() {
                     </div>
                 </div>
 
-                <!-- БЛОК 2: ПРОЗОРИЙ ЧЕК 1 ЗАМОВЛЕННЯ ТА ПОГОДИННИЙ БАЛАНС З ПОДАТКАМИ -->
                 <div class="receipt-breakdown">
                     <div class="receipt-breakdown-title">🧾 Як розподіляються гроші з 1 замовлення клієнта (при базовій ЗП ${baseWage} 💰):</div>
                     <div class="receipt-pills-row">
@@ -2980,7 +2989,6 @@ function renderOwnerBusinessesHub() {
                     </div>
                 </div>
 
-                <!-- БЛОК 3: НАЛАШТУВАННЯ БАЗОВОЇ ЗП ТА ЗАПРОШЕННЯ ПРАЦІВНИКІВ -->
                 <div class="bank-input-wrap" style="margin-bottom:6px">
                     <span style="font-size:11px;font-weight:bold">Базова ЗП для нових робітників:</span>
                     <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" oninput="previewHubBaseWageMargin(${plot.id})" style="max-width:85px;padding:3px 6px;font-size:12px">
@@ -2989,7 +2997,6 @@ function renderOwnerBusinessesHub() {
                 </div>
                 <div id="hub_wage_hint_${plot.id}" style="font-size:11px;margin-bottom:6px;color:#004000"></div>
 
-                <!-- БЛОК 4: СПИСОК РОБІТНИКІВ ТА ЇХНЯ МАРЖА -->
                 <div class="workers-roster" style="max-height:240px">
                     ${buildWorkersRosterHtml(plot.id, owned, bld, "hub")}
                 </div>
@@ -2998,7 +3005,7 @@ function renderOwnerBusinessesHub() {
     }).join("");
 }
 
-// ===== ВИМОГА 4: ВКЛАДКА «🏛️ ПОЛІТИКА» (ПОДАТКИ НА ЗЕМЛЮ ТА ЗОНИ) =====
+// ===== ВКЛАДКА «🏛️ ПОЛІТИКА» (ПОДАТКИ НА ЗЕМЛЮ ТА ЗОНИ) =====
 window.saveAdminTaxPolicy = async function () {
     if (!isAdminUser()) return;
     const resTurn = Math.max(0, Math.min(50, Number($("pol_res_turn")?.value) || 8));
@@ -3098,7 +3105,6 @@ function renderPoliticsPage() {
         }
     }
 
-    // Персональна відомість по ділянках гравця
     const myPlots = [];
     MAP_PLOTS_BASE.forEach(p => {
         const owned = getOwnedPlotData(p.id);
@@ -3155,8 +3161,10 @@ function renderStats() {
     $("stat-coins").textContent = formatNumber(gameState.coins);
     $("stat-boost").textContent = gameState.xpBoost + "%";
     const resBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
+    const comBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "commercial");
     const indBoost = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
     if ($("stat-res-boost")) $("stat-res-boost").textContent = "+" + resBoost + "%";
+    if ($("stat-com-boost")) $("stat-com-boost").textContent = "+" + comBoost + "%";
     if ($("stat-ind-boost")) $("stat-ind-boost").textContent = "+" + indBoost + "%";
 
     const incPerHour = getTotalPassiveIncomePerHour();
@@ -3390,6 +3398,7 @@ function renderJobsList() {
     $("jobs-list").innerHTML = html;
 }
 
+// Відображення 4 категорій курсів (IT, Житлова, Комерційна, Промислова)
 function renderShop() {
     const bannerEl = $("course-cat-banner");
     const overdueBlocked = isBankBlocked();
@@ -3397,13 +3406,16 @@ function renderShop() {
         if (overdueBlocked) {
             bannerEl.innerHTML = `🚫 <span style="color:#800000">У вас прострочений кредит! Купівля курсів тимчасово заблокована — заробляйте монети на роботі та погасіть борг у вкладці «🏦 Банк».</span>`;
         } else if (activeCourseCategory === "it") {
-            bannerEl.innerHTML = `💻 <b>Курси програмування (КовельКорп):</b> Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп. Дорожчий курс автоматично зараховує вимоги всіх дешевших ІТ-курсів!`;
+            bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Елітні курси (від 2 500 💰). Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп, а дорожчий курс автоматично зараховує вимоги всіх дешевших!`;
         } else if (activeCourseCategory === "residential") {
             const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
-            bannerEl.innerHTML = `🏡 <b>Курси Житлової та Сервісної зони:</b> Збільшують чек клієнта при роботі в Житловій та Комерційній зонах! Ваш поточний бонус чека: <span style="color:#006400">+${myRes}%</span>.`;
+            bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (250 – 1 900 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
+        } else if (activeCourseCategory === "commercial") {
+            const myCom = getWorkerZoneSkillBonusPct(gameState.completedCourses, "commercial");
+            bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (300 – 2 100 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі в піцеріях, ТРЦ та бізнес-центрах Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
         } else {
             const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони:</b> Збільшують чек клієнта при роботі на заводах, СТО та терміналах Промзони! Ваш поточний бонус чека: <span style="color:#006400">+${myInd}%</span>.`;
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (350 – 2 300 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на заводах, СТО та терміналах Промзони! Ваш поточний бонус у Промзоні: <span style="color:#006400">+${myInd}%</span>.`;
         }
     }
 
@@ -3419,10 +3431,15 @@ function renderShop() {
         if (c.category === "it") {
             badgeLabel = `+${c.boost}% IT-XP`;
         } else if (c.category === "residential") {
-            badgeLabel = `+${c.zoneBoost}% Житл. / +${c.commercialBoost}% Ком.`;
+            badgeLabel = `+${c.zoneBoost}% Житлова зона`;
+        } else if (c.category === "commercial") {
+            badgeLabel = `+${c.zoneBoost}% Комерційна зона`;
         } else {
-            badgeLabel = `+${c.zoneBoost}% Промзона`;
+            badgeLabel = `+${c.zoneBoost}% Промислова зона`;
         }
+
+        const durMin = Math.round(c.durationMs / 60000);
+        const durText = durMin >= 60 ? `${(durMin / 60).toFixed(durMin % 60 === 0 ? 0 : 1)} год` : `${durMin} хв`;
 
         let status = "";
         if (done) {
@@ -3437,7 +3454,7 @@ function renderShop() {
 
         html += `<div class="shop-item${done ? " completed" : ""}${active ? " active-course" : ""}">
             <div class="shop-item-header"><span class="shop-item-name">🎓 ${escapeHtml(c.name)}</span><span class="shop-item-boost">${badgeLabel}</span></div>
-            <div class="shop-item-info">Тривалість: ${Math.round(c.durationMs / 3600000)} год • Ціна: <b>${formatNumberFull(c.price)} 💰</b><br>${escapeHtml(c.desc || "")}</div>
+            <div class="shop-item-info">Тривалість: ${durText} • Ціна: <b>${formatNumberFull(c.price)} 💰</b><br>${escapeHtml(c.desc || "")}</div>
             <div class="shop-item-actions">${status}</div></div>`;
     });
     $("shop-list").innerHTML = html;
@@ -3467,6 +3484,11 @@ function initKovelMap() {
 
     leafletPlotLayer = L.layerGroup().addTo(leafletMap);
     leafletBldLayer = L.layerGroup().addTo(leafletMap);
+
+    // ВИМОГА: Перемальовуємо мапу при зміні масштабу, щоб Богдана Поліщука можна було знайти лише на максимальному приближенні!
+    leafletMap.on("zoomend", () => {
+        renderMap();
+    });
 }
 
 window.centerKovelMap = function () {
@@ -3476,7 +3498,7 @@ window.centerKovelMap = function () {
 window.focusBohdanHouse = function () {
     const b = MAP_BUILDINGS.find(x => x.id === "bohdan");
     if (leafletMap && b) {
-        leafletMap.setView([b.lat, b.lng], 16);
+        leafletMap.setView([b.lat, b.lng], 17);
     }
     openBohdanModal();
 };
@@ -3490,12 +3512,19 @@ window.setZoneFilter = function (zone) {
     renderMap();
 };
 
+// ВИМОГА:
+// 1. Придбана земля зберігає колір своєї спеціалізації (житлова — зелена #2ecc71, комерція — синя #2980ff, промзона — помаранчева #ff7722).
+// 2. Нік власника показується в рамочці ЗВЕРХУ ВСЕРЕДИНІ квадрата землі.
+// 3. Богдана Поліщука можна знайти на мапі лише тоді, коли максимально приблизити камеру (zoom >= 17).
 function renderMap() {
     if (!leafletMap) initKovelMap();
     if (!leafletMap || !leafletPlotLayer || !leafletBldLayer) return;
 
     leafletPlotLayer.clearLayers();
     leafletBldLayer.clearLayers();
+
+    const curZoom = leafletMap.getZoom() || 13;
+    const maxZoom = leafletMap.getMaxZoom() || 17;
 
     MAP_PLOTS_BASE.forEach(p => {
         if (currentZoneFilter !== "all" && p.zone !== currentZoneFilter) return;
@@ -3506,30 +3535,10 @@ function renderMap() {
         const canAfford = gameState.coins >= price && !owned && !isBankBlocked();
         const isSelected = selectedPlotId === p.id;
 
-        let fillColor = zInfo.fillFree;
-        let borderColor = zInfo.borderFree;
-        let labelCls = "win95-map-label zone-" + p.zone;
-        let labelStyle = "";
-
+        // Земля ЗАВЖДИ має колір своєї спеціалізації (зелена / синя / помаранчева)
+        const fillColor = zInfo.fillFree;
+        const borderColor = isSelected ? "#ffff00" : zInfo.borderFree;
         const bld = owned ? getBuildingDef(p.zone, owned.building) : null;
-
-        if (owned) {
-            if (owned.owner === currentUser) {
-                fillColor = "#55ff55";
-                borderColor = "#0b4d0b";
-                labelCls = "win95-map-label owned-self";
-            } else {
-                const c = colorFromName(owned.owner);
-                fillColor = c;
-                borderColor = "#1a1a1a";
-                labelCls = "win95-map-label owned-other";
-                labelStyle = `background:${c};`;
-            }
-        }
-        if (isSelected) {
-            borderColor = "#ffff00";
-            labelCls += " selected";
-        }
 
         const bounds = [
             [p.lat - p.dLat / 2, p.lng - p.dLng / 2],
@@ -3538,34 +3547,61 @@ function renderMap() {
 
         const rect = L.rectangle(bounds, {
             color: borderColor,
-            weight: isSelected ? 3 : 2,
-            dashArray: (!owned && !canAfford) ? "4,3" : null,
+            weight: isSelected ? 3.5 : (owned ? 2.5 : 1.5),
+            dashArray: owned ? null : (canAfford ? "3,2" : "5,4"),
             fillColor: fillColor,
-            fillOpacity: owned ? 0.76 : (canAfford ? 0.65 : 0.48)
+            fillOpacity: owned ? 0.72 : (canAfford ? 0.44 : 0.30)
         }).addTo(leafletPlotLayer);
 
         rect.on("click", () => selectPlot(p.id));
 
         const zoneBadge = p.zone === "industrial" ? "🏭" : (p.zone === "commercial" ? "🏪" : "🏡");
-        const workersCount = owned?.workers ? Object.keys(owned.workers).length : 0;
-        const workerTag = workersCount > 0 ? ` 👷${workersCount}` : "";
-        const bldIcon = bld ? bld.icon + " " : zoneBadge + " ";
 
-        const badgeHtml = owned
-            ? `<div class="${labelCls}" style="${labelStyle}">${bldIcon}${escapeHtml(owned.owner)}${workerTag}</div>`
-            : `<div class="${labelCls}">${zoneBadge} ${formatNumber(price)}</div>`;
+        if (owned) {
+            // Рамочка з ніком власника — ЗВЕРХУ ВСЕРЕДИНІ квадрата землі!
+            const topInsideLat = p.lat + (p.dLat / 2) - (p.dLat * 0.05);
+            const isSelf = owned.owner === currentUser;
+            const frameCls = `plot-owner-top-frame${isSelf ? " self-owner" : ""}${isSelected ? " selected" : ""}`;
+            const topNameMarker = L.marker([topInsideLat, p.lng], {
+                icon: L.divIcon({
+                    className: "",
+                    html: `<div class="${frameCls}">${escapeHtml(owned.owner)}</div>`,
+                    iconSize: [0, 0]
+                })
+            }).addTo(leafletPlotLayer);
+            topNameMarker.on("click", () => selectPlot(p.id));
 
-        const labelMarker = L.marker([p.lat, p.lng], {
-            icon: L.divIcon({
-                className: "",
-                html: badgeHtml,
-                iconSize: [0, 0]
-            })
-        }).addTo(leafletPlotLayer);
-        labelMarker.on("click", () => selectPlot(p.id));
+            // Якщо є збудована будівля — компактний значок будівлі по центру квадрата нижче рамочки ніка
+            if (bld) {
+                const workersCount = owned.workers ? Object.keys(owned.workers).length : 0;
+                const workerTag = workersCount > 0 ? ` 👷${workersCount}` : "";
+                const centerMarker = L.marker([p.lat - p.dLat * 0.12, p.lng], {
+                    icon: L.divIcon({
+                        className: "",
+                        html: `<div class="plot-center-bld-badge">${bld.icon}${workerTag}</div>`,
+                        iconSize: [0, 0]
+                    })
+                }).addTo(leafletPlotLayer);
+                centerMarker.on("click", () => selectPlot(p.id));
+            }
+        } else {
+            // Вільна ділянка — ціна по центру
+            const labelCls = `win95-map-label zone-${p.zone}${isSelected ? " selected" : ""}`;
+            const labelMarker = L.marker([p.lat, p.lng], {
+                icon: L.divIcon({
+                    className: "",
+                    html: `<div class="${labelCls}">${zoneBadge} ${formatNumber(price)}</div>`,
+                    iconSize: [0, 0]
+                })
+            }).addTo(leafletPlotLayer);
+            labelMarker.on("click", () => selectPlot(p.id));
+        }
     });
 
     MAP_BUILDINGS.forEach(b => {
+        // Богдана Поліщука видно лише при максимальному наближенні камери!
+        if (b.id === "bohdan" && curZoom < maxZoom) return;
+
         const marker = L.marker([b.lat, b.lng], {
             pane: "kovelBuildingsPane",
             zIndexOffset: 1000,
@@ -3764,9 +3800,10 @@ window.buySelectedPlot = async function () {
         });
         if (!result.committed) return showDialog("Не встигли", "Хтось купив цю ділянку раніше.", "⚠️");
         gameState.coins -= price;
+        markLocalCoinsChanged();
         const calc = calcPlotHourlyTaxAndNet(p, { owner: currentUser, price });
         sfx.win();
-        renderAll(); saveGame();
+        renderAll(); await saveGame();
         showMapInfo(selectedPlotId);
         setGameStatus("Ділянку куплено: " + p.name);
         showDialog(
@@ -3792,16 +3829,17 @@ window.buildOnSelectedPlot = async function (buildingId) {
 
     try {
         const currentTreasury = Math.max(0, Number(owned.treasury) || 0);
+        gameState.coins -= bld.cost;
+        markLocalCoinsChanged();
         await update(ref(db, `plots/${selectedPlotId}`), {
             building: bld.id,
             builtAt: Date.now(),
             wage: bld.defaultWage,
             treasury: currentTreasury
         });
-        gameState.coins -= bld.cost;
         const fin = calcOrderFinancials(p.zone, bld, [], bld.defaultWage);
         sfx.win();
-        renderAll(); saveGame();
+        renderAll(); await saveGame();
         showMapInfo(selectedPlotId);
         setGameStatus(`Збудовано: ${bld.name}! Чек замовлення: ${bld.clickProfit} 💰, ваша маржа: +${fin.ownerNetMargin} 💰 у Касу.`);
         showDialog(
@@ -3835,7 +3873,7 @@ function initBohdanChatIfEmpty() {
     appendBohdanMsg(
         "bohdan",
         "Богдан Поліщук",
-        "Здоров, козаче! Тепер у Ковелі все прозоро і без жодних «грошей з неба»: у верхній панелі одразу світиться твоя «🏦 Каса», по кожному робітнику видно чек клієнта, податок місту, зарплату і твій чистий плюс. А у вкладці «🏛️ Політика» розписані податки на землю і зони!"
+        "Ого, знайшов-таки мою хату на Миколайчука, 100 на максимальному зумі! Молодець, козаче! Тепер у вкладці «🎓 Курси» 4 окремі гілки (IT, Житлова, Комерційна і Промислова), причому всі робітничі курси значно дешевші за IT!"
     );
 }
 
@@ -3889,6 +3927,9 @@ function generateSmartBohdanReply(userText) {
     const coins = formatNumberFull(gameState.coins);
     const cashbox = formatNumberFull(getTotalOwnerTreasury());
 
+    if (q.includes("курс") || q.includes("комерц") || q.includes("житл") || q.includes("пром")) {
+        return "Тепер у «🎓 Курсах» є 4 окремі вкладки: IT (від 2 500 💰 для КовельКорп), Житлова зона (250–1 900 💰), Комерційна зона (300–2 100 💰) і Промислова зона (350–2 300 💰). Усі робітничі курси значно дешевші за IT і напряму збільшують чек клієнта у своїй зоні!";
+    }
     if (q.includes("кас") || q.includes("марж") || q.includes("робітник") || q.includes("бізнес")) {
         return `Дивись по-простому: коли твій робітник закриває замовлення (5 дій), клієнт платить Чек (плюс бонус від дипломів робітника). З цього чека автоматично віднімається Податок зони та Зарплата робітнику, а вся чиста маржа лягає у твою «🏦 Касу»! Натисни на кнопку «🏦 Каса: ${cashbox}» зверху екрана і забери гроші в гаманець!`;
     }
@@ -3897,9 +3938,6 @@ function generateSmartBohdanReply(userText) {
         const rCom = getZoneTaxRates("commercial");
         const rInd = getZoneTaxRates("industrial");
         return `У вкладці «🏛️ Політика» діють ставки: Житлова зона — ${rRes.turnoverTaxPct}% з обороту і ${rRes.landTaxPct}%/год за землю; Комерція — ${rCom.turnoverTaxPct}% і ${rCom.landTaxPct}%/год; Промзона — ${rInd.turnoverTaxPct}% і ${rInd.landTaxPct}%/год. І пам'ятай: пуста земля без будівлі дає 0 доходу, а податок на землю жере щогодини!`;
-    }
-    if (q.includes("пошт") || q.includes("переказ") || q.includes("координат")) {
-        return "У вкладці «📧 Пошта» можна переглянути історію переписки з кожним гравцем, переслати монети або запропонувати роботу з GPS-координатами ділянки (причому гравців, які вже працюють на тебе, кликати повторно система не дозволить!).";
     }
     return `У твоєму гаманці зараз ${coins} 💰, а в Касах твоїх бізнесів — ${cashbox} 💰. Відкривай «🏦 Мій бізнес і КАСА» або «🏛️ Політика», там уся бухгалтерія як на долоні!`;
 }
@@ -4091,11 +4129,12 @@ window.buyCourse = async function (id) {
     if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price) + " 💰", "💸");
     miniGames.stop();
     gameState.coins -= c.price;
+    markLocalCoinsChanged();
     gameState.activeCourseId = c.id;
     gameState.courseStartTime = Date.now();
     gameState.taskActive = false; gameState.taskProgress = 0;
     renderAll(); startCourseTimer();
-    try { isSaving = false; await saveGame(); setGameStatus("Курс розпочато: " + c.name); showDialog("Курс розпочато!", c.name, "📚"); }
+    try { await saveGame(); setGameStatus("Курс розпочато: " + c.name); showDialog("Курс розпочато!", c.name, "📚"); }
     catch (e) { showDialog("Помилка", "Не вдалося зберегти", "⚠️"); }
 };
 
