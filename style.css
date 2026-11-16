@@ -1773,7 +1773,7 @@ body {
 
 @media (min-width: 600px) {
     body { padding: 18px; align-items: center; }
-    .window { max-width: 580px; height: calc(100vh - 36px); max-height: 900px; }
+    .window { max-width: 680px; height: calc(100vh - 28px); max-height: 920px; }
     #big-click { width: 290px; min-height: 115px; }
     .big-coins-display { font-size: 26px; }
     .stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -1781,7 +1781,7 @@ body {
 }
 
 @media (min-width: 900px) {
-    .window { max-width: 760px; }
+    .window { max-width: 860px; }
     .tab-content { padding: 14px; }
     #big-click { width: 320px; min-height: 120px; }
     #big-click .big-emoji { font-size: 44px; }
@@ -2417,4 +2417,194 @@ body {
     padding: 2px 6px;
     font-size: 11px;
     font-weight: bold;
+}
+/* ===== СКЛАД СИРОВИНИ ТА ЗАКУПІВЛЯ ТОВАРУ (v4.4.0) ===== */
+.supply-box {
+    background: #fff9ec;
+    border: 2px inset #808080;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.supply-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.supply-bar-wrap {
+    background: #ffffff;
+    border: 1px inset #808080;
+    height: 14px;
+    position: relative;
+    overflow: hidden;
+}
+
+.supply-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #b85d00, #e68a00);
+    transition: width 0.2s ease;
+}
+
+.receipt-pill.supply {
+    background: #fff3e0;
+    border-color: #b85d00;
+    color: #7a3d00;
+}
+
+/* ===== ПРОСТОРИЙ ІНТЕРФЕЙС БЕЗ ПЕРЕВАНТАЖЕННЯ ТА ВІДСІКИ БІЗНЕСУ (v4.5.0) ===== */
+.biz-card-shell {
+    background: #dfdfdf;
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.biz-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-bottom: 2px groove #ffffff;
+    padding-bottom: 6px;
+}
+
+.biz-card-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000080;
+}
+
+.biz-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+    gap: 6px;
+}
+
+.biz-kpi-box {
+    background: #ffffff;
+    border: 1px inset #808080;
+    padding: 5px 8px;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.biz-kpi-box .kpi-label {
+    color: #505050;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.biz-kpi-box .kpi-val {
+    font-weight: bold;
+    font-size: 13px;
+    color: #000080;
+}
+
+.biz-section-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #808080;
+    padding-bottom: 5px;
+}
+
+.biz-sec-btn {
+    background: #c0c0c0;
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    color: #000000;
+    cursor: pointer;
+}
+
+.biz-sec-btn.active {
+    background: #000080;
+    color: #ffff00;
+    border-color: #404040 #ffffff #ffffff #404040;
+}
+
+.biz-compartment {
+    background: #ececec;
+    border: 1px inset #808080;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.upgrade-ad-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 8px;
+}
+
+.feature-item-card {
+    background: #ffffff;
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.feature-item-card.owned {
+    background: #e6f7e6;
+    border: 1px solid #006400;
+}
+
+.feature-item-card.active-ad {
+    background: #fff8dc;
+    border: 2px solid #b85d00;
+}
+
+.feature-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+    font-weight: bold;
+    color: #000080;
+}
+
+.feature-card-Effect {
+    display: inline-block;
+    background: #eef4ff;
+    border: 1px solid #90b0d0;
+    color: #003366;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 5px;
+    white-space: nowrap;
+}
+
+.feature-card-desc {
+    font-size: 11px;
+    color: #333333;
+    line-height: 1.35;
 }
