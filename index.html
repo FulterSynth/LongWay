@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.1.0">
-<title>Win98 Work — Ковель Економіка SE v4.1</title>
+<meta name="version" content="4.1.1">
+<title>Win98 Work — Ковель Економіка SE v4.1.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.1 SE</div>
+        <div class="panel small">v4.1.1 SE</div>
     </div>
 </div>
 
@@ -567,18 +567,20 @@
             <button class="btn" onclick="openBohdanAiConfig()" style="min-width:auto;min-height:28px;padding:3px 7px;font-size:11px" title="Підключити OpenRouter API">⚙️ ШІ</button>
         </div>
 
-        <div class="bohdan-ai-config" id="bohdan-ai-config" style="display:none;">
-            <div style="font-size:11px;margin-bottom:4px">Опціонально: вставте ключ <b>OpenRouter</b> (наприклад DeepSeek/Claude), або залиште пустим для вбудованого ШІ-движка Богдана:</div>
-            <div style="display:flex;gap:4px">
-                <input type="password" class="input-field" id="bohdan-api-key" placeholder="sk-or-v1-..." style="font-size:12px;padding:4px 6px">
-                <button class="btn default" onclick="saveBohdanApiKey()" style="min-width:auto;min-height:28px;padding:4px 8px;font-size:12px">Зберегти</button>
+        <div class="bohdan-scroll-body">
+            <div class="bohdan-ai-config" id="bohdan-ai-config" style="display:none;">
+                <div style="font-size:11px;margin-bottom:4px">Опціонально: вставте ключ <b>OpenRouter</b> (наприклад DeepSeek/Claude), або залиште пустим для вбудованого ШІ-движка Богдана:</div>
+                <div style="display:flex;gap:4px">
+                    <input type="password" class="input-field" id="bohdan-api-key" placeholder="sk-or-v1-..." style="font-size:12px;padding:4px 6px">
+                    <button class="btn default" onclick="saveBohdanApiKey()" style="min-width:auto;min-height:28px;padding:4px 8px;font-size:12px">Зберегти</button>
+                </div>
             </div>
+
+            <!-- Гаражна школа зварювання Богдана Поліщука (-10% раз на 24 години) -->
+            <div class="bohdan-welding-box" id="bohdan-welding-box"></div>
+
+            <div class="bohdan-chat-log" id="bohdan-chat-log"></div>
         </div>
-
-        <!-- Гаражна школа зварювання Богдана Поліщука (-10% раз на 24 години) -->
-        <div class="bohdan-welding-box" id="bohdan-welding-box"></div>
-
-        <div class="bohdan-chat-log" id="bohdan-chat-log"></div>
 
         <div class="bohdan-chips">
             <button class="chip-btn" onclick="askBohdanPreset('Розкажи про свої курси зварювання зі знижкою -10%!')">🔥 Про курси зварювання -10%</button>
