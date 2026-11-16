@@ -547,4 +547,83 @@ export class MiniGameManager {
 
         loadCommand();
     }
+
+    startJanitorClean(onDone) {
+        this.stop();
+        this.activeType = "janitor";
+        this.elWin.style.display = "flex";
+        this.elIcon.textContent = "🧹";
+        this.elTitle.textContent = "Двірник: Розчистити ділянку";
+
+        const trashIcons = ["🍂", "🥤", "🗞️", "🍌", "🚬", "📦", "🍂", "🥤"];
+        const totalTrash = 6;
+        let cleaned = 0;
+        this.elBadge.textContent = `0/${totalTrash}`;
+
+        this.elBody.innerHTML = `
+            <div class="mg-hint">Зметіть усе сміття з тротуару! Клікайте по засмічених клітинках:</div>
+            <div class="mg-bug-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+            <div class="mg-feedback">Приберіть 6 купок сміття (+5 💰)</div>
+        `;
+        const gridEl = this.elBody.querySelector(".mg-bug-grid");
+        const fb = this.elBody.querySelector(".mg-feedback");
+
+        // Створюємо 9 клітинок: 6 зі сміттям і 3 чисті
+        const cellsData = [];
+        for (let i = 0; i < totalTrash; i++) {
+            cellsData.push({ isTrash: true, ico: trashIcons[i % trashIcons.length] });
+        }
+        for (let i = totalTrash; i < 9; i++) {
+            cellsData.push({ isTrash: false, ico: "⬜" });
+        }
+        // Перемішуємо
+        for (let i = cellsData.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cellsData[i], cellsData[j]] = [cellsData[j], cellsData[i]];
+        }
+
+        cellsData.forEach(item => {
+            const cell = document.createElement("button");
+            cell.type = "button";
+            cell.className = "mg-bug-cell";
+            cell.style.fontSize = "22px";
+            cell.textContent = item.isTrash ? item.ico : "";
+            if (!item.isTrash) {
+                cell.style.background = "#d8d8d8";
+            }
+            let doneCell = !item.isTrash;
+
+            cell.addEventListener("click", () => {
+                if (this.activeType !== "janitor") return;
+                if (doneCell) {
+                    sfx.click();
+                    fb.className = "mg-feedback";
+                    fb.textContent = "Тут уже чисто! Шукай сміття далі 🧹";
+                    return;
+                }
+                doneCell = true;
+                cleaned++;
+                cell.textContent = "✨";
+                cell.style.background = "#dfffdf";
+                cell.disabled = true;
+                sfx.good();
+                this.elBadge.textContent = `${cleaned}/${totalTrash}`;
+                fb.className = "mg-feedback ok";
+                fb.textContent = `Прибрано ${cleaned} з ${totalTrash}!`;
+                if (this.cb && this.cb.onStep) this.cb.onStep(1 / totalTrash);
+
+                if (cleaned >= totalTrash) {
+                    sfx.win();
+                    fb.textContent = "Усе чисто! Оплата +5 💰";
+                    setTimeout(() => {
+                        if (this.activeType === "janitor") {
+                            this.stop();
+                            if (typeof onDone === "function") onDone();
+                        }
+                    }, 220);
+                }
+            });
+            gridEl.appendChild(cell);
+        });
+    }
 }
