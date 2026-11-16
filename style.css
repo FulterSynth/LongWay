@@ -2257,3 +2257,48 @@ body {
 .xp-hud-pill.cashbox-pill:hover {
     background: #d0f0d0;
 }
+
+
+/* ===== РАМОЧКА НІКА ЗВЕРХУ ВСЕРЕДИНІ КВАДРАТА ЗЕМЛІ ТА ІКОНКА ЦЕНТРУ (v4.0.0) ===== */
+.plot-owner-top-frame {
+    transform: translate(-50%, 0%);
+    background: rgba(255, 255, 255, 0.94);
+    color: #000000;
+    border: 1.5px solid #000000;
+    box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.75);
+    padding: 1px 5px;
+    font-family: "Tahoma", "MS Sans Serif", sans-serif;
+    font-size: 10px;
+    font-weight: bold;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+    line-height: 1.15;
+    letter-spacing: 0.1px;
+}
+
+.plot-owner-top-frame.self-owner {
+    background: #ffffb8;
+    border-color: #000080;
+    color: #000080;
+}
+
+.plot-owner-top-frame.selected {
+    background: #000080;
+    color: #ffff00;
+    border-color: #ffff00;
+}
+
+.plot-center-bld-badge {
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.68);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    padding: 1px 4px;
+    font-size: 10px;
+    font-weight: bold;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+    line-height: 1.1;
+}
