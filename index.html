@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="3.9.0">
-<title>Win98 Work — Ковель Економіка SE v3.9</title>
+<meta name="version" content="4.0.0">
+<title>Win98 Work — Ковель Економіка SE v4.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v3.9 SE</div>
+        <div class="panel small">v4.0 SE</div>
     </div>
 </div>
 
@@ -152,6 +152,7 @@
                     <div class="stat-item"><span class="label">⭐ IT-Досвід:</span><span class="value" id="stat-xp">0</span></div>
                     <div class="stat-item"><span class="label">📈 Буст IT-XP:</span><span class="value" id="stat-boost">0%</span></div>
                     <div class="stat-item"><span class="label">🏡 Бонус Житл.:</span><span class="value" id="stat-res-boost">+0%</span></div>
+                    <div class="stat-item"><span class="label">🏪 Бонус Ком.:</span><span class="value" id="stat-com-boost">+0%</span></div>
                     <div class="stat-item"><span class="label">🏭 Бонус Пром.:</span><span class="value" id="stat-ind-boost">+0%</span></div>
                 </div>
                 <div id="career-xp-wrap" class="xp-bar-wrap"><div class="xp-bar" id="xp-bar"></div><div class="xp-text" id="xp-text">0 / 500</div></div>
@@ -247,7 +248,7 @@
                     <div class="bank-input-wrap">
                         <span style="font-size:12px">Сума монет (💰):</span>
                         <input type="number" class="input-field" id="mail-coins-input" placeholder="0" min="0" style="max-width:130px">
-                        <span class="muted" style="font-size:11px">Спишеться з вашого гаманця та прийде отримувачу в листі</span>
+                        <span class="muted" style="font-size:11px">Миттєво спишеться з вашого гаманця та прийде отримувачу в листі</span>
                     </div>
                 </div>
 
@@ -273,16 +274,17 @@
             </div>
         </div>
 
-        <!-- МАГАЗИН КУРСІВ (ПОДІЛЕНИЙ НА 3 КАТЕГОРІЇ) -->
+        <!-- МАГАЗИН КУРСІВ (ПОДІЛЕНИЙ НА 4 КАТЕГОРІЇ: IT, ЖИТЛОВА, КОМЕРЦІЙНА, ПРОМИСЛОВА) -->
         <div class="page" id="page-shop">
-            <div class="sub-title">🎓 Навчальний комбінат м. Ковель (3 напрямки підготовки)</div>
+            <div class="sub-title">🎓 Навчальний комбінат м. Ковель (4 спеціалізації)</div>
             <div class="muted" style="margin-bottom:4px">
-                Обирайте напрямок навчання! <b>Будь-який пройдений ІТ-курс</b> відкриває роботу в КовельКорп (дорожчий курс автоматично зараховує вимоги дешевших!). <b>Житлові</b> та <b>Промислові</b> курси збільшують чек клієнта при роботі на гравців у відповідній зоні!
+                Усі робітничі курси (<b>Житлові</b>, <b>Комерційні</b> та <b>Промислові</b>) значно дешевші за <b>IT</b> та напряму підвищують чек клієнта у відповідній зоні! А будь-який пройдений <b>IT-курс</b> відкриває роботу в КовельКорп.
             </div>
 
             <div class="work-mode-tabs">
-                <button class="work-mode-btn active" id="ctab-it" onclick="switchCourseCategory('it')">💻 Програмування (IT)</button>
-                <button class="work-mode-btn" id="ctab-residential" onclick="switchCourseCategory('residential')">🏡 Житлова та Сервіс</button>
+                <button class="work-mode-btn active" id="ctab-it" onclick="switchCourseCategory('it')">💻 IT (КовельКорп)</button>
+                <button class="work-mode-btn" id="ctab-residential" onclick="switchCourseCategory('residential')">🏡 Житлова зона</button>
+                <button class="work-mode-btn" id="ctab-commercial" onclick="switchCourseCategory('commercial')">🏪 Комерційна зона</button>
                 <button class="work-mode-btn" id="ctab-industrial" onclick="switchCourseCategory('industrial')">🏭 Промислова зона</button>
             </div>
 
@@ -400,20 +402,19 @@
         <div class="page" id="page-map">
             <div class="map-header-row">
                 <div>
-                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок, податки на землю та бізнес)</div>
-                    <div class="muted">Увага: порожня земля без будівлі не дає доходу і щогодини списує податок на землю! Будуйте бізнес та керуйте Касою.</div>
+                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок за кольором зон)</div>
+                    <div class="muted">Земля зберігає колір своєї зони (зелена — житлова, синя — комерція, помаранчева — промзона), а нік власника видно зверху всередині квадрата!</div>
                 </div>
                 <div style="display:flex;gap:4px">
-                    <button class="btn" onclick="focusBohdanHouse()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Миколайчука 100">👨‍🏭 Богдан</button>
                     <button class="btn" onclick="centerKovelMap()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">🎯 Центр</button>
                 </div>
             </div>
 
             <div class="map-zone-legend">
                 <button class="zone-pill active" id="zfilter-all" onclick="setZoneFilter('all')">Усі (48)</button>
-                <button class="zone-pill res" id="zfilter-residential" onclick="setZoneFilter('residential')">🏡 Жила</button>
-                <button class="zone-pill com" id="zfilter-commercial" onclick="setZoneFilter('commercial')">🏪 Комерція</button>
-                <button class="zone-pill ind" id="zfilter-industrial" onclick="setZoneFilter('industrial')">🏭 Промзона</button>
+                <button class="zone-pill res" id="zfilter-residential" onclick="setZoneFilter('residential')">🏡 Жила (Зелена)</button>
+                <button class="zone-pill com" id="zfilter-commercial" onclick="setZoneFilter('commercial')">🏪 Комерція (Синя)</button>
+                <button class="zone-pill ind" id="zfilter-industrial" onclick="setZoneFilter('industrial')">🏭 Промзона (Помаранчева)</button>
             </div>
 
             <div class="map-container" id="map-container">
@@ -480,7 +481,7 @@
 
             <div class="lb-refresh-row" style="margin-top:10px">
                 <div class="sub-title">👥 Зараз у мережі (останні 5 хв)</div>
-                <button class="btn" onclick="loadOnline()" style="min-width:auto;padding:5px 12px;font-size:13px">↻</button>
+                <button class="btn" onclick="loadOnline()" style="min-width:auto;min-height:28px;padding:5px 12px;font-size:13px">↻</button>
             </div>
             <div class="online-list" id="online-list" style="max-height:200px"><div class="lb-loading">Завантаження...</div></div>
             <div class="muted" id="online-count">—</div>
@@ -533,7 +534,7 @@
         </div>
         <div style="padding:14px;display:flex;flex-direction:column;gap:10px;font-size:12px;line-height:1.45">
             <div style="background:#ffffcc;border:2px inset #808080;padding:8px;color:#800000;font-weight:bold">
-                ⚠️ УВАГА! Ви увійшли як <b>admin</b>. Глобальний вайп скине абсолютно весь прогрес у всіх гравців Ковеля (монети, депозити, кредити, курси, звання, пошту, а також усі куплені ділянки та будівлі на мапі)!
+                ⚠️ УВАГА! Ви увійшли як <b>admin</b>. Глобальний вайп скине абсолютно весь прогрес у всіх гравців Ковеля (монети, депозити, кредити, курси, звання, пошта, а також усі куплені ділянки та будівлі на мапі)!
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
                 <button class="btn danger" id="btn-confirm-wipe-progress" onclick="executeAdminGlobalWipe()" style="width:100%;font-weight:bold">☢️ ПІДТВЕРДИТИ ПОВНИЙ ВАЙП УСІХ ГРАВЦІВ І МАПИ</button>
@@ -575,7 +576,7 @@
         <div class="bohdan-chips">
             <button class="chip-btn" onclick="askBohdanPreset('Поясни по-простому як працює Каса бізнесу і маржа з робітника?')">🏦 Про Касу і маржу</button>
             <button class="chip-btn" onclick="askBohdanPreset('Які податки на землю і зони у вкладці Політика?')">🏛️ Про податки та Політику</button>
-            <button class="chip-btn" onclick="askBohdanPreset('Як переслати гроші або координати роботи поштою?')">📧 Про Пошту і перекази</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Які тепер є курси для житлової, комерційної та промзони?')">🎓 Про 4 гілки курсів</button>
             <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">☕ Заварити кави</button>
         </div>
 
