@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.1.0";
+const APP_VERSION = "4.1.1";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -55,13 +55,13 @@ let policyListener = null;
 // ВИМОГА 1: ІТ-курси повернуто точно як було раніше (800, 3500, 9000, 22000, 45000, 90000),
 // а курси Житлової, Комерційної та Промислової зон розділені й усі дешевші за ІТ (< 800 💰)!
 const COURSES = [
-    // 1. ІТ-курси (КовельКорп — як було раніше)
-    { id: "basics", category: "it", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, zoneBoost: 0, desc: "Базовий курс для вступу в КовельКорп (або будь-який дорожчий ІТ-курс!)" },
-    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15, zoneBoost: 0, desc: "Потрібен для звання Junior QA та Junior Developer (зараховує і нижчі курси)" },
-    { id: "cleancode", category: "it", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20, zoneBoost: 0, desc: "Потрібен для звання Middle Developer (зараховує і нижчі ІТ-курси)" },
-    { id: "sysdesign", category: "it", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25, zoneBoost: 0, desc: "Потрібен для звання Senior Developer" },
-    { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, desc: "Потрібен для звання Team Lead" },
-    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, desc: "Потрібен для звання Tech Lead та CTO (відкриває всі ІТ-звання)" },
+    // 1. ІТ-курси (КовельКорп — проходяться строго по черзі!)
+    { id: "basics", category: "it", name: "Основи програмування", price: 800, durationMs: 3600000, boost: 10, zoneBoost: 0, desc: "Крок 1: Базовий курс для вступу в КовельКорп" },
+    { id: "algorithms", category: "it", name: "Алгоритми та структури даних", price: 3500, durationMs: 10800000, boost: 15, zoneBoost: 0, desc: "Крок 2: Потрібен для звання Junior QA та Junior Developer" },
+    { id: "cleancode", category: "it", name: "Clean Code (книга)", price: 9000, durationMs: 18000000, boost: 20, zoneBoost: 0, desc: "Крок 3: Потрібен для звання Middle Developer" },
+    { id: "sysdesign", category: "it", name: "Системний дизайн", price: 22000, durationMs: 28800000, boost: 25, zoneBoost: 0, desc: "Крок 4: Потрібен для звання Senior Developer" },
+    { id: "leadership", category: "it", name: "Лідерство і менеджмент", price: 45000, durationMs: 43200000, boost: 30, zoneBoost: 0, desc: "Крок 5: Потрібен для звання Team Lead" },
+    { id: "architecture", category: "it", name: "Архітектура високих навантажень", price: 90000, durationMs: 64800000, boost: 40, zoneBoost: 0, desc: "Крок 6: Потрібен для звання Tech Lead та CTO" },
 
     // 2. Курси Житлової зони (усі дешевші за IT: 150 – 720 💰)
     { id: "res_plumber", category: "residential", name: "Сантехніка та водопровід ОСББ", price: 150, durationMs: 900000, boost: 0, zoneBoost: 15, desc: "Дає +15% до чека клієнта при роботі на об'єктах у Житловій зоні" },
@@ -77,12 +77,12 @@ const COURSES = [
     { id: "com_marketing", category: "commercial", name: "Торговий маркетинг та продажі", price: 600, durationMs: 3600000, boost: 0, zoneBoost: 50, desc: "Залучення клієнтів і підвищення середнього чека: +50% у Комерційній зоні" },
     { id: "com_admin", category: "commercial", name: "Адміністратор ТРЦ та бізнес-холу", price: 750, durationMs: 5400000, boost: 0, zoneBoost: 70, desc: "Диплом топ-менеджера торгівлі: +70% до чека замовлення у Комерційній зоні" },
 
-    // 4. Курси Промислової зони та Зварювання (усі дешевші за IT: 200 – 780 💰; у Богдана Поліщука курси зварювання на 10% дешевше!)
-    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 200, durationMs: 900000, boost: 0, zoneBoost: 15, isWelding: false, desc: "Базовий промисловий допуск: +15% до чека замовлення у Промисловій зоні" },
-    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 350, durationMs: 1800000, boost: 0, zoneBoost: 25, isWelding: true, desc: "Базове зварювання металоконструкцій (+25% у Промзоні). У Богдана Поліщука — на 10% дешевше!" },
-    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 500, durationMs: 2700000, boost: 0, zoneBoost: 35, isWelding: true, desc: "Тонке зварювання нержавійки й алюмінію (+35% у Промзоні). У Богдана Поліщука — на 10% дешевше!" },
-    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 640, durationMs: 3600000, boost: 0, zoneBoost: 50, isWelding: true, desc: "Промислове зварювання та ЧПК-обробка (+50% у Промзоні). У Богдана Поліщука — на 10% дешевше!" },
-    { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 780, durationMs: 5400000, boost: 0, zoneBoost: 75, isWelding: true, desc: "Вища кваліфікація зварювального виробництва (+75% у Промзоні). У Богдана Поліщука — на 10% дешевше!" }
+    // 4. Курси Промислової зони та Зварювання (усі дешевші за IT: 200 – 780 💰)
+    { id: "ind_safety", category: "industrial", name: "Охорона праці та техніка безпеки", price: 200, durationMs: 900000, boost: 0, zoneBoost: 15, isWelding: false, desc: "Обов'язковий інструктаж для роботи в цехах і на заводах: +15% до чека" },
+    { id: "ind_welding", category: "industrial", name: "Електрогазозварювання (MIG/MAG)", price: 350, durationMs: 1800000, boost: 0, zoneBoost: 25, isWelding: true, desc: "Зварювання металоконструкцій та ремонт техніки на СТО: +25% до чека" },
+    { id: "ind_forklift", category: "industrial", name: "Аргонодугове зварювання (TIG) і різка", price: 500, durationMs: 2700000, boost: 0, zoneBoost: 35, isWelding: true, desc: "Робота з нержавійкою, алюмінієм і складними деталями: +35% до чека" },
+    { id: "ind_cnc", category: "industrial", name: "Оператор верстатів з ЧПК та плазморіза", price: 640, durationMs: 3600000, boost: 0, zoneBoost: 50, isWelding: true, desc: "Точна промислова обробка металу та автоматизація ліній: +50% до чека" },
+    { id: "ind_chief", category: "industrial", name: "Головний інженер-зварювальник заводу", price: 780, durationMs: 5400000, boost: 0, zoneBoost: 75, isWelding: true, desc: "Вища виробнича кваліфікація для заводів і депо Ковеля: +75% до чека" }
 ];
 
 const JOBS = [
@@ -610,6 +610,17 @@ async function sha256(text) {
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function getMissingPreviousItCourse(courseId, completedList = gameState.completedCourses) {
+    const itList = COURSES.filter(x => x.category === "it");
+    const idx = itList.findIndex(x => x.id === courseId);
+    if (idx <= 0) return null;
+    const prev = itList[idx - 1];
+    if (!Array.isArray(completedList) || !completedList.includes(prev.id)) {
+        return prev;
+    }
+    return null;
+}
 
 function hasCourse(courseId, completedList = gameState.completedCourses) {
     if (!courseId) return true;
@@ -3544,7 +3555,7 @@ function renderShop() {
         if (overdueBlocked) {
             bannerEl.innerHTML = `🚫 <span style="color:#800000">У вас прострочений кредит! Купівля курсів тимчасово заблокована — заробляйте монети на роботі та погасіть борг у вкладці «🏦 Банк».</span>`;
         } else if (activeCourseCategory === "it") {
-            bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Класичні ІТ-курси (від 800 💰). Будь-який пройдений ІТ-курс відкриває роботу в КовельКорп, а дорожчий курс автоматично зараховує вимоги всіх дешевших!`;
+            bannerEl.innerHTML = `💻 <b>Курси програмування (IT — КовельКорп):</b> Вивчаються <b>строго по черзі</b> — від «Основи програмування» (800 💰) до «Архітектура високих навантажень» (90 000 💰).`;
         } else if (activeCourseCategory === "residential") {
             const myRes = getWorkerZoneSkillBonusPct(gameState.completedCourses, "residential");
             bannerEl.innerHTML = `🏡 <b>Курси Житлової зони (150 – 720 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі на об'єктах Житлової зони! Ваш поточний бонус у Житловій зоні: <span style="color:#006400">+${myRes}%</span>.`;
@@ -3553,7 +3564,7 @@ function renderShop() {
             bannerEl.innerHTML = `🏪 <b>Курси Комерційної зони (180 – 750 💰, усі дешевші за IT):</b> Збільшують чек клієнта при роботі в пекарнях, піцеріях і ТРЦ Комерційної зони! Ваш поточний бонус у Комерції: <span style="color:#006400">+${myCom}%</span>.`;
         } else {
             const myInd = getWorkerZoneSkillBonusPct(gameState.completedCourses, "industrial");
-            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (200 – 780 💰, усі дешевші за IT):</b> Збільшують чек клієнта у Промзоні (+${myInd}%)! 💡 <i>Порада: у гаражі Богдана Поліщука курси зварювання можна купити на 10% дешевше раз на 24 години!</i>`;
+            bannerEl.innerHTML = `🏭 <b>Курси Промислової зони (200 – 780 💰):</b> Промислові та зварювальні спеціальності для цехів, комбінатів, депо й заводів Ковеля. Підвищують чек кожного замовлення у Промзоні — ваш поточний бонус: <span style="color:#006400">+${myInd}%</span>.`;
         }
     }
 
@@ -3561,9 +3572,9 @@ function renderShop() {
     let html = "";
     filtered.forEach(c => {
         const done = gameState.completedCourses.includes(c.id);
-        const coveredByHigher = !done && c.category === "it" && hasCourse(c.id);
+        const missingPrevIt = (!done && c.category === "it") ? getMissingPreviousItCourse(c.id) : null;
         const active = gameState.activeCourseId === c.id;
-        const can = !done && !active && !gameState.activeCourseId && !overdueBlocked && gameState.coins >= c.price;
+        const can = !done && !active && !missingPrevIt && !gameState.activeCourseId && !overdueBlocked && gameState.coins >= c.price;
 
         let badgeLabel = "";
         if (c.category === "it") {
@@ -3595,10 +3606,11 @@ function renderShop() {
                     <button class="btn" onclick="toggleCoursePause()" style="min-height:28px;padding:3px 10px;font-size:11px">⏸️ Пауза</button>
                 `;
             }
+        } else if (missingPrevIt) {
+            status = `<button class="btn" disabled title="Спочатку пройдіть попередній курс: ${escapeHtml(missingPrevIt.name)}">🔒 Спочатку: «${escapeHtml(missingPrevIt.name)}»</button>`;
         } else {
-            const extraNote = coveredByHigher ? `<span style="font-size:11px;color:#006400;margin-right:6px">✓ Вимогу вже перекрито вищим дипломом</span>` : "";
             const btnText = overdueBlocked ? `🚫 Борг у банку` : `Вивчити (${formatNumberFull(c.price)} 💰)`;
-            status = `${extraNote}<button class="btn default" ${can ? "" : "disabled"} onclick="buyCourse('${c.id}')">${btnText}</button>`;
+            status = `<button class="btn default" ${can ? "" : "disabled"} onclick="buyCourse('${c.id}')">${btnText}</button>`;
         }
 
         html += `<div class="shop-item${done ? " completed" : ""}${active ? " active-course" : ""}">
@@ -4455,6 +4467,18 @@ window.buyCourse = async function (id) {
     }
     const c = COURSES.find(x => x.id === id);
     if (!c || gameState.completedCourses.includes(id)) return;
+    if (c.category === "it") {
+        const missingPrev = getMissingPreviousItCourse(c.id);
+        if (missingPrev) {
+            return showDialog(
+                "Вивчайте IT-курси по черзі!",
+                `Щоб відкрити курс «${c.name}», спочатку необхідно пройти попередній курс:
+
+🎓 «${missingPrev.name}»`,
+                "🔒"
+            );
+        }
+    }
     if (gameState.coins < c.price) return showDialog("Недостатньо коштів", "Потрібно " + formatNumberFull(c.price) + " 💰", "💸");
     miniGames.stop();
     gameState.coins -= c.price;
