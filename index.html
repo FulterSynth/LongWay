@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.1.1">
-<title>Win98 Work — Ковель Економіка SE v4.1.1</title>
+<meta name="version" content="4.2.0">
+<title>Win98 Work — Ковель Економіка SE v4.2.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.1.1 SE</div>
+        <div class="panel small">v4.2.0 SE</div>
     </div>
 </div>
 
@@ -315,19 +315,19 @@
             <div class="bank-warning" id="bank-warning">⚠️ Прострочений кредит! Кожні 5 хв нараховується 10% штрафу, який примусово списується з вашого депозиту (а якщо депозиту не вистачає — додається до боргу).</div>
 
             <div class="bank-tabs">
-                <button class="bank-tab active" id="btab-deposit" onclick="switchBankTab('deposit')">📈 Депозитний сейф (+1%/год)</button>
+                <button class="bank-tab active" id="btab-deposit" onclick="switchBankTab('deposit')">📈 Депозитний сейф (+0.3%/год)</button>
                 <button class="bank-tab" id="btab-credit" onclick="switchBankTab('credit')">💳 Кредитний відділ</button>
             </div>
 
             <div id="bank-panel-deposit" class="bank-subpanel">
-                <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал» (1% на годину)">
+                <div class="group-box" data-label="Ощадний депозит «Ковель-Капітал» (0.3% на годину)">
                     <div class="credit-card" style="background:#e4f2e4;border-color:#2d7a2d">
                         <div class="credit-card-header">
                             <span class="credit-card-name">🔐 На депозитному рахунку:</span>
                             <span class="credit-card-limit" id="dep-balance" style="color:#006400;font-size:16px">0 💰</span>
                         </div>
                         <div class="credit-card-info">
-                            • Ставка: <b>+1% щогодини</b> (складний відсоток, капіталізація!).<br>
+                            • Ставка: <b>+0.3% щогодини</b> (складний відсоток, капіталізація!).<br>
                             • Наступне нарахування: <b id="dep-next-yield">+0 💰</b> через <b id="dep-next-timer">1:00:00</b>.<br>
                             • Всього зароблено відсотків: <b id="dep-earned-total">0 💰</b>.
                         </div>
@@ -583,7 +583,7 @@
         </div>
 
         <div class="bohdan-chips">
-            <button class="chip-btn" onclick="askBohdanPreset('Розкажи про свої курси зварювання зі знижкою -10%!')">🔥 Про курси зварювання -10%</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Розкажи про свої курси зварювання зі знижкою -10%!')">🔥 Про розклад і курси -10%</button>
             <button class="chip-btn" onclick="askBohdanPreset('Як працює пауза навчання на курсах?')">⏸️ Про паузу на курсах</button>
             <button class="chip-btn" onclick="askBohdanPreset('Що за кафе DOBRE на вулиці Косачів, 4а?')">☕ Про кафе DOBRE</button>
             <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">🤝 Поговорити за життя</button>
