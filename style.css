@@ -1519,7 +1519,22 @@ body {
 .build-card .btn { min-height: 32px; min-width: 80px; padding: 4px 10px; font-size: 12px; }
 
 /* Діалог з Богданом */
-.bohdan-dialog { max-width: 420px; }
+.bohdan-dialog {
+    max-width: 440px;
+    width: calc(100vw - 20px);
+    max-height: 90vh;
+    max-height: 90dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.bohdan-scroll-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
 .bohdan-header {
     display: flex;
     align-items: center;
@@ -1547,9 +1562,10 @@ body {
 .bohdan-chat-log {
     background: #ffffff;
     border: 2px inset #808080;
-    margin: 8px 10px 6px;
+    margin: 4px 10px 6px;
     padding: 8px;
-    height: 210px;
+    min-height: 120px;
+    max-height: 175px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -2320,10 +2336,10 @@ body {
 .bohdan-welding-box {
     background: #fff8e6;
     border: 2px inset #808080;
-    padding: 8px 10px;
-    margin: 0 10px 6px;
+    padding: 7px 9px;
+    margin: 6px 10px 4px;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.35;
 }
 
 .bohdan-welding-title {
