@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.0.0">
-<title>Win98 Work — Ковель Економіка SE v4.0</title>
+<meta name="version" content="4.1.0">
+<title>Win98 Work — Ковель Економіка SE v4.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.0 SE</div>
+        <div class="panel small">v4.1 SE</div>
     </div>
 </div>
 
@@ -94,7 +94,12 @@
                 </div>
             </div>
 
-            <div class="course-blocker" id="course-blocker">📚 Зараз ви проходите курс підвищення кваліфікації. Працювати тимчасово неможливо.<br><b id="course-blocker-timer">—</b></div>
+            <!-- Індикатор курсу з кнопкою ПАУЗИ / ПРОДОВЖЕННЯ -->
+            <div class="course-blocker" id="course-blocker">
+                <div id="course-blocker-msg">📚 Зараз ви проходите курс підвищення кваліфікації.</div>
+                <div style="margin:4px 0"><b id="course-blocker-timer">—</b></div>
+                <button class="btn default" id="course-pause-btn" onclick="toggleCoursePause()" style="min-height:28px;padding:3px 12px;font-size:11px;font-weight:bold">⏸️ Поставити на паузу (піти працювати)</button>
+            </div>
 
             <div class="click-area">
                 <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
@@ -191,12 +196,12 @@
             </div>
         </div>
 
-        <!-- ПОШТА (OUTLOOK EXPRESS 98: ІСТОРІЯ ПЕРЕПИСОК, ПЕРЕКАЗ ГРОШЕЙ, ПРОПОЗИЦІЇ РОБОТИ З КООРДИНАТАМИ ТА РЕЗЮМЕ) -->
+        <!-- ПОШТА (OUTLOOK EXPRESS 98: ВИДАЛЕННЯ ПОВІДОМЛЕНЬ ДЛЯ ДВОХ СТОРІН, ІСТОРІЯ, ПЕРЕКАЗ, КООРДИНАТИ) -->
         <div class="page" id="page-mail">
             <div class="mail-banner">
                 <div>
                     <div class="sub-title" style="color:#ffffff;margin:0">📧 Outlook Express 98 — Пошта м. Ковель</div>
-                    <div style="font-size:11px;color:#dbeafe">Історія переписки, пересилання монет, запрошення на роботу за GPS-координатами та резюме</div>
+                    <div style="font-size:11px;color:#dbeafe">Історія переписки, двостороннє видалення листів, пересилання монет, координати роботи та резюме</div>
                 </div>
                 <button class="btn" onclick="openComposeMail()" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:12px;font-weight:bold">✍️ Написати / Переказ</button>
             </div>
@@ -276,9 +281,9 @@
 
         <!-- МАГАЗИН КУРСІВ (ПОДІЛЕНИЙ НА 4 КАТЕГОРІЇ: IT, ЖИТЛОВА, КОМЕРЦІЙНА, ПРОМИСЛОВА) -->
         <div class="page" id="page-shop">
-            <div class="sub-title">🎓 Навчальний комбінат м. Ковель (4 спеціалізації)</div>
+            <div class="sub-title">🎓 Навчальний комбінат м. Ковель (будь-який курс можна ставити на паузу!)</div>
             <div class="muted" style="margin-bottom:4px">
-                Усі робітничі курси (<b>Житлові</b>, <b>Комерційні</b> та <b>Промислові</b>) значно дешевші за <b>IT</b> та напряму підвищують чек клієнта у відповідній зоні! А будь-який пройдений <b>IT-курс</b> відкриває роботу в КовельКорп.
+                Під час навчання ви можете в будь-який момент <b>поставити курс на паузу</b>, щоб попрацювати на роботі, а потім продовжити з тієї ж секунди! У гаражі Богдана Поліщука курси зварювання продаються зі знижкою <b>-10%</b> (раз на 24 години).
             </div>
 
             <div class="work-mode-tabs">
@@ -403,7 +408,7 @@
             <div class="map-header-row">
                 <div>
                     <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок за кольором зон)</div>
-                    <div class="muted">Земля зберігає колір своєї зони (зелена — житлова, синя — комерція, помаранчева — промзона), а нік власника видно зверху всередині квадрата!</div>
+                    <div class="muted">Земля має колір своєї зони, а нік власника видно в рамочці зверху всередині квадрата! Секретні локації (дім Богдана та кафе «DOBRE») видно на максимальному зумі.</div>
                 </div>
                 <div style="display:flex;gap:4px">
                     <button class="btn" onclick="centerKovelMap()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">🎯 Центр</button>
@@ -438,7 +443,6 @@
                 </div>
 
                 <div class="build-section" id="info-workers-section" style="display:none;">
-                    <!-- Наочна панель Каси та формули 1 замовлення прямо на мапі -->
                     <div id="info-cashbox-banner"></div>
                     <div id="info-order-formula"></div>
 
@@ -534,7 +538,7 @@
         </div>
         <div style="padding:14px;display:flex;flex-direction:column;gap:10px;font-size:12px;line-height:1.45">
             <div style="background:#ffffcc;border:2px inset #808080;padding:8px;color:#800000;font-weight:bold">
-                ⚠️ УВАГА! Ви увійшли як <b>admin</b>. Глобальний вайп скине абсолютно весь прогрес у всіх гравців Ковеля (монети, депозити, кредити, курси, звання, пошта, а також усі куплені ділянки та будівлі на мапі)!
+                ⚠️ УВАГА! Ви увійшли як <b>admin</b>. Глобальний вайп скине абсолютно весь прогрес у всіх гравців Ковеля (монети, депозити, кредити, курси, звання, пошту, а також усі куплені ділянки та будівлі на мапі)!
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
                 <button class="btn danger" id="btn-confirm-wipe-progress" onclick="executeAdminGlobalWipe()" style="width:100%;font-weight:bold">☢️ ПІДТВЕРДИТИ ПОВНИЙ ВАЙП УСІХ ГРАВЦІВ І МАПИ</button>
@@ -544,7 +548,7 @@
     </div>
 </div>
 
-<!-- ДІАЛОГ З БОГДАНОМ ПОЛІЩУКОМ -->
+<!-- ДІАЛОГ З БОГДАНОМ ПОЛІЩУКОМ + ПРОДАЖ КУРСІВ ЗВАРЮВАННЯ (-10% РАЗ НА 24 ГОДИНИ) -->
 <div class="dialog-overlay" id="bohdan-overlay">
     <div class="dialog bohdan-dialog">
         <div class="title-bar">
@@ -558,7 +562,7 @@
             <div class="bohdan-avatar">👨‍🏭</div>
             <div class="bohdan-bio">
                 <div class="bohdan-name">Богдан Поліщук <span class="online-badge">● Вдома</span></div>
-                <div class="bohdan-sub">Коваль свого щастя • Екс-зварювальник у Чехії • Миколайчука 100</div>
+                <div class="bohdan-sub">Майстер зварювання • Екс-зварювальник у Чехії • Миколайчука 100</div>
             </div>
             <button class="btn" onclick="openBohdanAiConfig()" style="min-width:auto;min-height:28px;padding:3px 7px;font-size:11px" title="Підключити OpenRouter API">⚙️ ШІ</button>
         </div>
@@ -571,18 +575,50 @@
             </div>
         </div>
 
+        <!-- Гаражна школа зварювання Богдана Поліщука (-10% раз на 24 години) -->
+        <div class="bohdan-welding-box" id="bohdan-welding-box"></div>
+
         <div class="bohdan-chat-log" id="bohdan-chat-log"></div>
 
         <div class="bohdan-chips">
-            <button class="chip-btn" onclick="askBohdanPreset('Поясни по-простому як працює Каса бізнесу і маржа з робітника?')">🏦 Про Касу і маржу</button>
-            <button class="chip-btn" onclick="askBohdanPreset('Які податки на землю і зони у вкладці Політика?')">🏛️ Про податки та Політику</button>
-            <button class="chip-btn" onclick="askBohdanPreset('Які тепер є курси для житлової, комерційної та промзони?')">🎓 Про 4 гілки курсів</button>
-            <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">☕ Заварити кави</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Розкажи про свої курси зварювання зі знижкою -10%!')">🔥 Про курси зварювання -10%</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Як працює пауза навчання на курсах?')">⏸️ Про паузу на курсах</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Що за кафе DOBRE на вулиці Косачів, 4а?')">☕ Про кафе DOBRE</button>
+            <button class="chip-btn" onclick="askBohdanPreset('Налий чаю або кави по-братськи!')">🤝 Поговорити за життя</button>
         </div>
 
         <div class="bohdan-input-row">
             <input type="text" class="input-field" id="bohdan-input" placeholder="Напиши Богдану повідомлення..." maxlength="200">
             <button class="btn default" id="bohdan-send-btn" onclick="sendBohdanMessage()" style="min-width:74px">Надіслати</button>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНЕ ВІКНО КАФЕ "DOBRE" (ВУЛ. КОСАЧІВ, 4А) -->
+<div class="dialog-overlay" id="dobre-overlay">
+    <div class="dialog" style="max-width:430px">
+        <div class="title-bar" style="background:linear-gradient(90deg,#4a2311,#8b4513)">
+            <span class="title-icon">☕</span>
+            <span class="title-text">Кафе «DOBRE» — м. Ковель, вул. Косачів, 4а</span>
+            <div class="win-controls">
+                <button class="win-btn close-btn" onclick="closeDobreModal()">✕</button>
+            </div>
+        </div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:8px;font-size:12px">
+            <div style="display:flex;align-items:center;gap:10px;background:#fff8ee;border:2px inset #808080;padding:8px">
+                <div style="font-size:30px">☕</div>
+                <div>
+                    <div style="font-weight:bold;color:#4a2311;font-size:13px">Кафе «DOBRE» (вул. Косачів, 4а)</div>
+                    <div style="font-size:11px;color:#555">Затишна кав'ярня у центрі Ковеля • Свіжа кава, сніданки та десерти</div>
+                </div>
+            </div>
+            <div id="dobre-status-msg" style="background:#fffff0;border:1px solid #808080;padding:6px 8px;font-size:11px;line-height:1.4">
+                Завітайте на фірмову каву чи обід! Замовлення у «DOBRE» миттєво знімає втому (скидає кулдаун перерви на роботі) або пришвидшує поточний курс!
+            </div>
+            <div class="dobre-menu-grid" id="dobre-menu-grid"></div>
+            <div class="btn-row">
+                <button class="btn default" onclick="closeDobreModal()">Закрити меню</button>
+            </div>
         </div>
     </div>
 </div>
