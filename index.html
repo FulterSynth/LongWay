@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.2.0">
-<title>Win98 Work — Ковель Економіка SE v4.2.0</title>
+<meta name="version" content="4.3.0">
+<title>Win98 Work — Ковель Економіка SE v4.3.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.2.0 SE</div>
+        <div class="panel small">v4.3.0 SE</div>
     </div>
 </div>
 
@@ -455,7 +455,8 @@
                         <div class="bank-input-wrap">
                             <span style="font-size:11px;min-width:110px">Базова ЗП/замовл.:</span>
                             <input type="number" class="input-field" id="owner-wage-input" min="5" max="50000" oninput="previewMapOwnerWageMargin()" style="font-size:12px;padding:4px 6px;max-width:95px">
-                            <button class="btn default" onclick="savePlotWage()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">💾 Зберегти ЗП</button>
+                            <button class="btn default" onclick="savePlotWage(null, null, false)" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Лише для нових працівників">💾 Для нових</button>
+                            <button class="btn" onclick="savePlotWage(null, null, true)" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Застосувати цю ЗП усім поточним працівникам">👥 Всім</button>
                             <button class="btn success" onclick="openJobInviteMail(selectedPlotId)" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px" title="Надіслати гравцю координати та пропозицію роботи">📍 Запросити</button>
                         </div>
                         <div id="owner-wage-preview-hint" style="font-size:11px;margin-top:2px"></div>
