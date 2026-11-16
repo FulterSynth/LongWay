@@ -2302,3 +2302,56 @@ body {
     cursor: pointer;
     line-height: 1.1;
 }
+
+
+/* ===== КАФЕ «DOBRE» (КОСАЧІВ, 4А), ШКОЛА ЗВАРЮВАННЯ БОГДАНА (-10% РАЗ НА 24 ГОД) ТА ПАУЗА КУРСУ (v4.1.0) ===== */
+.win95-bld-marker.dobre {
+    background: #4a2311;
+    color: #ffe4b5;
+    border-color: #ffd700 #2a1005 #2a1005 #ffd700;
+}
+
+.course-blocker.paused-mode {
+    background: #e6f4ff;
+    border-color: #004080;
+    color: #002b5c;
+}
+
+.bohdan-welding-box {
+    background: #fff8e6;
+    border: 2px inset #808080;
+    padding: 8px 10px;
+    margin: 0 10px 6px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.bohdan-welding-title {
+    font-weight: bold;
+    color: #802000;
+    font-size: 12px;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.dobre-menu-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.dobre-item-card {
+    background: #ffffff;
+    border: 1px solid #808080;
+    padding: 6px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
