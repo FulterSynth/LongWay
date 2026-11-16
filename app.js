@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.3.0";
+const APP_VERSION = "4.5.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -45,18 +45,70 @@ const OWNER_ASSIGNED_TITLES = [
 ];
 
 
+
+// ===== СИСТЕМА ЗАКУПІВЛІ СИРОВИНИ / ТОВАРІВ НА СКЛАД ПІДПРИЄМСТВА (v4.4.0) =====
+const ZONE_SUPPLY_NAMES = {
+    residential: "🧱 Будматеріали і запчастини",
+    commercial:  "📦 Товари та продукти",
+    industrial:  "🔩 Сировина, метал і паливо"
+};
+
+function getSupplyUnitCost(buildingDef) {
+    const baseCheck = buildingDef ? buildingDef.clickProfit : 24;
+    // Роздрібна собівартість закупівлі 1 одиниці сировини (~18% від базового чека)
+    return Math.max(2, Math.round(baseCheck * 0.18));
+}
+
+function getSupplyMaxCapacity(zone, buildingId) {
+    const zInfo = ZONE_INFO[zone];
+    if (!zInfo || !buildingId) return 60;
+    const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
+    const caps = [60, 110, 180, 300];
+    return caps[Math.max(0, idx)] || 60;
+}
+
+function getPlotSupplyState(plot, ownedData) {
+    if (!plot || !ownedData || !ownedData.building) {
+        return { stock: 0, maxStock: 0, unitCost: 0, bulk25Cost: 0, bulk100Cost: 0, autoRestock: true, supplyLabel: "📦 Сировина" };
+    }
+    const bld = getBuildingDef(plot.zone, ownedData.building);
+    const maxStock = getSupplyMaxCapacity(plot.zone, ownedData.building);
+    // Для вже збудованих раніше об'єктів без поля supplyStock даємо стартовий запас 40 од.
+    const stock = ownedData.supplyStock !== undefined ? Math.max(0, Math.floor(Number(ownedData.supplyStock) || 0)) : Math.min(40, maxStock);
+    const unitCost = getSupplyUnitCost(bld);
+    // Оптова закупівля власником вручну дає знижку: -12% за 25 од., -20% за повний склад!
+    const bulk25Units = Math.min(25, Math.max(0, maxStock - stock));
+    const fullUnits = Math.max(0, maxStock - stock);
+    const bulk25Cost = Math.max(1, Math.round(bulk25Units * unitCost * 0.88));
+    const fullCost = Math.max(1, Math.round(fullUnits * unitCost * 0.80));
+    const autoRestock = ownedData.autoRestock !== undefined ? Boolean(ownedData.autoRestock) : true;
+    const supplyLabel = ZONE_SUPPLY_NAMES[plot.zone] || "📦 Сировина і товари";
+
+    return {
+        stock,
+        maxStock,
+        unitCost,
+        bulk25Units,
+        bulk25Cost,
+        fullUnits,
+        fullCost,
+        autoRestock,
+        supplyLabel
+    };
+}
+
 // ===== СИСТЕМА ПОТОКУ КЛІЄНТІВ, ПЕРМАНЕНТНОЇ ІНФРАСТРУКТУРИ ТА ТИМЧАСОВОЇ РЕКЛАМИ (v4.3.0) =====
 const BUSINESS_UPGRADES = [
-    { id: "parking",  name: "🅿️ Власна парковка",          cost: 12000, clientBonus: 15, desc: "+15 макс. клієнтів/год назавжди" },
-    { id: "ramp",     name: "♿ Пандус і доступність",     cost: 15000, clientBonus: 15, desc: "+15 макс. клієнтів/год назавжди" },
-    { id: "cameras",  name: "📹 Камери безпеки і Wi-Fi",   cost: 24000, clientBonus: 20, desc: "+20 макс. клієнтів/год назавжди" },
-    { id: "climate",  name: "❄️ Кондиціонер і лаунж-зона", cost: 38000, clientBonus: 25, desc: "+25 макс. клієнтів/год назавжди" }
+    { id: "parking",  name: "🅿️ Власна парковка",          cost: 12000, clientBonus: 15, badge: "+15 клієнтів/год", desc: "Зручний паркінг для авто біля закладу. Назавжди збільшує місткість та притік клієнтів на +15/год." },
+    { id: "ramp",     name: "♿ Пандус і доступність",     cost: 15000, clientBonus: 15, badge: "+15 клієнтів/год", desc: "Безбар'єрний вхід для маломобільних груп та батьків із візочками. Дає +15 клієнтів/год назавжди." },
+    { id: "cameras",  name: "📹 Камери безпеки і Wi-Fi",   cost: 24000, clientBonus: 20, badge: "+20 клієнтів/год", desc: "Відеоспостереження та безкоштовний Wi-Fi підвищують довіру відвідувачів: +20 клієнтів/год назавжди." },
+    { id: "climate",  name: "❄️ Кондиціонер і зона очікування", cost: 38000, clientBonus: 25, badge: "+25 клієнтів/год", desc: "Комфортний клімат-контроль і м'які місця для очікування. Назавжди додає +25 клієнтів/год." }
 ];
 
 const BUSINESS_ADS = [
-    { id: "flyers", name: "📢 Листівки біля ЦУМу",       cost: 1500,  durationMs: 3600000,  multPct: 35,  instantClients: 18, desc: "+35% до потоку на 1 год і +18 клієнтів одразу" },
-    { id: "radio",  name: "📻 Реклама на Радіо Ковель",  cost: 4200,  durationMs: 7200000,  multPct: 65,  instantClients: 40, desc: "+65% до потоку на 2 год і +40 клієнтів одразу" },
-    { id: "social", name: "📱 Таргет у соцмережах",      cost: 9500,  durationMs: 10800000, multPct: 100, instantClients: 75, desc: "+100% до потоку (x2) на 3 год і +75 клієнтів одразу" }
+    { id: "flyers", name: "📢 Промоутери з листівками біля ЦУМу", cost: 1500,  durationMs: 3600000,  multPct: 35,  instantClients: 18, badge: "+35% потік (1 год)", desc: "Роздача флаєрів у центрі Ковеля. Миттєво приводить +18 клієнтів у чергу та прискорює потік на +35% протягом 1 години." },
+    { id: "radio",  name: "📻 Рекламний ролик на Радіо Ковель",   cost: 4200,  durationMs: 7200000,  multPct: 65,  instantClients: 40, badge: "+65% потік (2 год)", desc: "Щогодинні оголошення по місцевому радіо. Одразу додає +40 клієнтів і збільшує потік покупців на +65% на 2 години." },
+    { id: "social", name: "📱 Таргетована реклама в Instagram/FB", cost: 9500, durationMs: 10800000, multPct: 100, instantClients: 75, badge: "x2 потік (3 год)", desc: "Масштабна рекламна кампанія на все місто. Миттєво приводить +75 клієнтів та подвоює (+100%) потік на 3 години!" }
 ];
 
 function getBaseClientsPerHour(zone, buildingId) {
@@ -364,22 +416,27 @@ function getWorkerZoneSkillBonusPct(completedList, plotZone) {
     return totalPct;
 }
 
-function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWage = 15) {
+function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWage = 15, hasPreboughtStock = false) {
     const baseCheck = buildingDef ? buildingDef.clickProfit : 24;
     const skillBonusPct = getWorkerZoneSkillBonusPct(workerCourses, plotZone);
     const grossCheck = Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
+    const unitSupplyCost = getSupplyUnitCost(buildingDef);
+    // Якщо власник закупив сировину на склад оптом (-20%), собівартість одиниці менша; при автозакупівлі з колеса — повна роздрібна ціна
+    const supplyCost = hasPreboughtStock ? Math.max(1, Math.round(unitSupplyCost * 0.80)) : unitSupplyCost;
     const { turnoverTaxPct } = getZoneTaxRates(plotZone);
     const taxAmount = Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
-    const afterTaxRevenue = Math.max(1, grossCheck - taxAmount);
+    const afterTaxAndSupply = Math.max(1, grossCheck - taxAmount - supplyCost);
     const wage = Math.max(1, Math.floor(Number(workerWage) || (buildingDef ? buildingDef.defaultWage : 12)));
-    const ownerNetMargin = afterTaxRevenue - wage;
+    const ownerNetMargin = afterTaxAndSupply - wage;
     return {
         baseCheck,
         skillBonusPct,
         grossCheck,
+        supplyCost,
+        unitSupplyCost,
         turnoverTaxPct,
         taxAmount,
-        afterTaxRevenue,
+        afterTaxRevenue: afterTaxAndSupply,
         wage,
         ownerNetMargin
     };
@@ -482,12 +539,14 @@ function calcPlotHourlyTaxAndNet(plot, ownedData) {
 
     const bonusPct = getPlotPassiveBonusPct(plot, ownedData);
     const grossIncome = Math.floor(bld.income * (1 + bonusPct / 100));
+    const supplyExpense = Math.max(5, Math.round(grossIncome * 0.15)); // 15% обороту йде на погодинну закупівлю розхідників/товару
     const turnoverTax = Math.max(1, Math.round(grossIncome * (turnoverTaxPct / 100)));
     const totalTax = landTax + turnoverTax;
-    const netIncome = grossIncome - totalTax;
+    const netIncome = grossIncome - totalTax - supplyExpense;
 
     return {
         grossIncome,
+        supplyExpense,
         landTax,
         turnoverTax,
         totalTax,
@@ -563,7 +622,8 @@ const db = getDatabase(app);
 let currentUser = "";
 let authMode = "login";
 let activeBankTab = "deposit";
-let activeWorkSubtab = "vacancies";
+let activeWorkSubtab = "shift";
+let activeBizCompartment = {};
 let activeCourseCategory = "it";
 let activeMailSubtab = "inbox";
 let activeHistoryContact = "";
@@ -769,13 +829,20 @@ window.openMyBizCashboxQuick = function () {
 
 window.switchWorkSubtab = function (sub) {
     activeWorkSubtab = sub;
-    ["vacancies", "mybiz", "career"].forEach(k => {
+    ["shift", "vacancies", "mybiz", "career"].forEach(k => {
         const btn = $("wtab-" + k);
         const box = $("work-sub-" + k);
         if (btn) btn.classList.toggle("active", k === sub);
-        if (box) box.style.display = k === sub ? "block" : "none";
+        if (box) box.style.display = k === sub ? (k === "shift" ? "flex" : "block") : "none";
     });
     if (sub === "mybiz") renderOwnerBusinessesHub();
+    if (sub === "vacancies") renderPrivateJobsBoard();
+    if (sub === "career") renderJobsList();
+};
+
+window.switchBizCompartment = function (plotId, comp) {
+    activeBizCompartment[plotId] = comp;
+    renderOwnerBusinessesHub();
 };
 
 window.switchCourseCategory = function (cat) {
@@ -2372,6 +2439,14 @@ async function doPrivateOrderStepWork(plotId) {
             "🚶"
         );
     }
+    const supPre = getPlotSupplyState(p, owned);
+    if (supPre.stock <= 0 && !supPre.autoRestock) {
+        return showDialog(
+            "На складі закінчився товар!",
+            `На складі підприємства «${p.name}» 0 од. сировини, а автозакупівлю вимкнено власником!\nВласник має закупити товар/сировину на склад у вкладці «🏦 Мій бізнес і КАСА».`,
+            "📦"
+        );
+    }
 
     const currentStep = (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) + 1;
     sfx.click();
@@ -2401,21 +2476,38 @@ async function doPrivateOrderStepWork(plotId) {
                 noClientsLeft = true;
                 return; // перериваємо транзакцію, бо клієнти скінчились
             }
+            const supLive = getPlotSupplyState(p, cur);
+            if (supLive.stock <= 0 && !supLive.autoRestock) {
+                noClientsLeft = true;
+                return;
+            }
+            const usedFromStock = supLive.stock > 0;
+            if (usedFromStock) {
+                cur.supplyStock = supLive.stock - 1;
+            } else {
+                cur.supplyStock = 0;
+            }
+
             cur.clientsRemaining = Math.max(0, cLive.current - 1);
             cur.clientsLastRefillAt = Date.now();
 
             const treasury = Math.max(0, Number(cur.treasury) || 0);
             const curWorker = (cur.workers && cur.workers[currentUser]) ? cur.workers[currentUser] : {};
             const baseWage = Number(cur.wage) > 0 ? Number(cur.wage) : (bld ? bld.defaultWage : 15);
-            // ВИМОГА 1: Зарплата строго дорівнює тій, яку призначив власник (без жодного множення на бонуси курсів!)
             const activeWage = Number(curWorker.personalWage) > 0 ? Number(curWorker.personalWage) : baseWage;
-            const txFin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, activeWage);
+            const txFin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, activeWage, usedFromStock);
             taxPaidThisOrder = txFin.taxAmount;
 
-            const availableForPay = treasury + txFin.afterTaxRevenue;
+            // Якщо товар брали зі складу (вже оплаченого раніше власником), з чека вираховується лише податок;
+            // якщо ж склад був порожній і спрацювала автозакупівля «з коліс» — з чека одразу списується повна вартість закупівлі unitSupplyCost!
+            const orderCashAfterTaxAndAutoSupply = usedFromStock
+                ? Math.max(1, txFin.grossCheck - txFin.taxAmount)
+                : txFin.afterTaxRevenue;
+
+            const availableForPay = treasury + orderCashAfterTaxAndAutoSupply;
             if (availableForPay >= activeWage) {
                 paidToWorker = activeWage;
-                netOwnerTreasuryDelta = txFin.afterTaxRevenue - activeWage;
+                netOwnerTreasuryDelta = orderCashAfterTaxAndAutoSupply - activeWage;
                 cur.treasury = treasury + netOwnerTreasuryDelta;
             } else {
                 paidToWorker = Math.max(1, availableForPay);
@@ -2563,6 +2655,65 @@ window.fireWorkerFromPlot = async function (plotId, workerName) {
     }
 };
 
+
+
+window.buyPlotSupplies = async function (plotId, mode = "bulk25") {
+    if (isBankBlocked()) {
+        return showDialog("Покупки заблоковано!", "У вас прострочений кредит у КовельБанку!", "🚫");
+    }
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    const owned = getOwnedPlotData(Number(plotId));
+    if (!p || !owned || owned.owner !== currentUser || !owned.building) return;
+
+    const sup = getPlotSupplyState(p, owned);
+    const unitsToBuy = mode === "full" ? sup.fullUnits : sup.bulk25Units;
+    const cost = mode === "full" ? sup.fullCost : sup.bulk25Cost;
+
+    if (unitsToBuy <= 0) {
+        return showDialog("Склад повний!", `На складі підприємства вже максимум сировини (${sup.stock}/${sup.maxStock} од.).`, "📦");
+    }
+
+    const treasury = Math.max(0, Number(owned.treasury) || 0);
+    // Спочатку списуємо з Каси бізнесу, а якщо в Касі не вистачає — з гаманця власника
+    if (treasury + gameState.coins < cost) {
+        return showDialog("Недостатньо коштів на закупівлю", `Для закупівлі ${unitsToBuy} од. сировини потрібно ${formatNumberFull(cost)} 💰 (у касі + гаманці недостатньо монет).`, "💸");
+    }
+
+    const fromTreasury = Math.min(treasury, cost);
+    const fromWallet = cost - fromTreasury;
+
+    try {
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
+        await update(ref(db, `plots/${p.id}`), {
+            supplyStock: Math.min(sup.maxStock, sup.stock + unitsToBuy),
+            treasury: treasury - fromTreasury
+        });
+        sfx.good();
+        renderAll();
+        if (fromWallet > 0) await saveGame();
+        setGameStatus(`📦 Закуплено +${unitsToBuy} од. на склад «${p.name}» за ${formatNumberFull(cost)} 💰 (оптова знижка)!`);
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+window.togglePlotAutoRestock = async function (plotId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    const owned = getOwnedPlotData(Number(plotId));
+    if (!p || !owned || owned.owner !== currentUser || !owned.building) return;
+    const sup = getPlotSupplyState(p, owned);
+    const nextVal = !sup.autoRestock;
+    try {
+        await update(ref(db, `plots/${p.id}`), { autoRestock: nextVal });
+        sfx.click();
+        setGameStatus(nextVal
+            ? `🔄 Автозакупівлю сировини для «${p.name}» УВІМКНЕНО (якщо склад порожній, сировина купується автоматично за роздрібною ціною).`
+            : `⏸️ Автозакупівлю сировини для «${p.name}» ВИМКНЕНО (закуповуйте товар вручну зі знижкою до -20%!).`);
+    } catch (e) {}
+};
 
 window.buyPlotUpgrade = async function (plotId, upgradeId) {
     if (isBankBlocked()) {
@@ -3103,10 +3254,11 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
                 </div>
 
                 <div class="receipt-pills-row" style="margin:3px 0">
-                    <span class="receipt-pill">🛒 Чек клієнта: <b>+${fin.grossCheck} 💰</b> (курси +${fin.skillBonusPct}%)</span>
+                    <span class="receipt-pill">🛒 Чек: <b>+${fin.grossCheck} 💰</b> (+${fin.skillBonusPct}%)</span>
+                    <span class="receipt-pill supply">📦 Закупівля: <b>-${fin.supplyCost} 💰</b></span>
                     <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
                     <span class="receipt-pill wage">👷 ЗП: <b>-${fin.wage} 💰</b></span>
-                    <span class="receipt-pill ${isPositive ? "net-pos" : "net-neg"}">📈 Ваша маржа з замовлення: ${marginText}</span>
+                    <span class="receipt-pill ${isPositive ? "net-pos" : "net-neg"}">📈 Чиста маржа: ${marginText}</span>
                 </div>
 
                 <div class="w-stats">
@@ -3244,87 +3396,197 @@ function renderOwnerBusinessesHub() {
 
         const baseWage = Number(owned.wage) > 0 ? Number(owned.wage) : bld.defaultWage;
         const treasury = Math.max(0, Number(owned.treasury) || 0);
-        const fin = calcOrderFinancials(plot.zone, bld, [], baseWage);
+        const sup = getPlotSupplyState(plot, owned);
+        const cs = getPlotClientsState(plot, owned);
+        const fin = calcOrderFinancials(plot.zone, bld, [], baseWage, sup.stock > 0);
         const isOrderProfitable = fin.ownerNetMargin >= 0;
+        const upgs = owned.upgrades || {};
+        const ownedUpgCount = BUSINESS_UPGRADES.filter(u => upgs[u.id]).length;
+        const wCount = owned.workers ? Object.keys(owned.workers).length : 0;
+        const curComp = activeBizCompartment[plot.id] || "overview";
 
-        return `
-            <div class="group-box" data-label="${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} (${escapeHtml(zInfo.shortName)})" style="margin-top:10px">
-                <div class="biz-cash-highlight">
+        let compartmentHtml = "";
+
+        if (curComp === "overview") {
+            compartmentHtml = `
+                <div class="biz-cash-highlight" style="margin-bottom:2px">
                     <div>
-                        <div style="font-size:11px;color:#004000;font-weight:bold">🏦 КАСА ПІДПРИЄМСТВА (гроші з замовлень і погодинної роботи):</div>
-                        <div class="cash-big">💰 У касі зараз: ${formatNumberFull(treasury)} монет</div>
+                        <div style="font-size:11px;color:#004000;font-weight:bold">🏦 КАСА ПІДПРИЄМСТВА:</div>
+                        <div class="cash-big">💰 ${formatNumberFull(treasury)} монет</div>
                     </div>
                     <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
                         <button class="btn success" onclick="withdrawPlotTreasury(${plot.id}, 'hub_fund_${plot.id}', true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:32px;padding:4px 12px;font-size:12px;font-weight:bold">
                             💰 Забрати в гаманець (+${formatNumberFull(treasury)})
                         </button>
                         <input type="number" class="input-field" id="hub_fund_${plot.id}" placeholder="Сума..." min="10" style="max-width:80px;padding:3px 6px;font-size:12px">
-                        <button class="btn" onclick="fundPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:30px;min-width:auto;padding:3px 8px;font-size:11px" title="Покласти монети з гаманця в касу">➕ В касу</button>
+                        <button class="btn" onclick="fundPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:30px;min-width:auto;padding:3px 8px;font-size:11px">➕ В касу</button>
                     </div>
                 </div>
 
-                <div class="receipt-breakdown">
-                    <div class="receipt-breakdown-title">🧾 Як розподіляються гроші з 1 замовлення клієнта (при базовій ЗП ${baseWage} 💰):</div>
+                <div class="receipt-breakdown" style="margin-bottom:2px">
+                    <div class="receipt-breakdown-title">🧾 Розрахунок 1 замовлення (базова ЗП ${baseWage} 💰):</div>
                     <div class="receipt-pills-row">
-                        <span class="receipt-pill">🛒 Покупець платить: <b>+${fin.grossCheck} 💰</b></span>
-                        <span>➔</span>
-                        <span class="receipt-pill tax">🏛️ Податок зони (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
-                        <span>➔</span>
-                        <span class="receipt-pill wage">👷 ЗП робітнику: <b>-${fin.wage} 💰</b></span>
+                        <span class="receipt-pill">🛒 Чек: <b>+${fin.grossCheck} 💰</b></span>
+                        <span>−</span>
+                        <span class="receipt-pill supply">📦 Закупівля: <b>-${fin.supplyCost} 💰</b></span>
+                        <span>−</span>
+                        <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
+                        <span>−</span>
+                        <span class="receipt-pill wage">👷 ЗП: <b>-${fin.wage} 💰</b></span>
                         <span>=</span>
                         <span class="receipt-pill ${isOrderProfitable ? "net-pos" : "net-neg"}">
-                            📈 Ваш ЧИСТИЙ ПЛЮС у касу: ${isOrderProfitable ? "+" + fin.ownerNetMargin + " 💰" : fin.ownerNetMargin + " 💰 (ЗБИТОК!)"}
+                            📈 У касу: ${isOrderProfitable ? "+" + fin.ownerNetMargin + " 💰" : fin.ownerNetMargin + " 💰 (ЗБИТОК)"}
                         </span>
                     </div>
-                    <div style="margin-top:4px;font-size:11px;color:#333">
-                        ⏱️ <b>Погодинний баланс будівлі:</b> Валовий дохід <b>+${formatNumberFull(calc.grossIncome)}/год</b> (бонус штату +${calc.bonusPct || 0}%)
-                        − Податок на землю (${calc.landTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.landTax)}/год</b>
-                        − Податок зони (${calc.turnoverTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.turnoverTax)}/год</b>
-                        = <b style="color:${calc.netIncome >= 0 ? "#006400" : "#900000"}">Чистими в касу: ${calc.netIncome >= 0 ? "+" : ""}${formatNumberFull(calc.netIncome)} 💰/год</b>
+                    <div style="margin-top:5px;font-size:11px;color:#333">
+                        ⏱️ <b>За годину:</b> Обіг <b>+${formatNumberFull(calc.grossIncome)}</b> − Сировина <b>-${formatNumberFull(calc.supplyExpense)}</b> − Податки <b>-${formatNumberFull(calc.totalTax)}</b> = <b style="color:${calc.netIncome >= 0 ? "#006400" : "#900000"}">${calc.netIncome >= 0 ? "+" : ""}${formatNumberFull(calc.netIncome)} 💰/год чистими</b>
                     </div>
                 </div>
 
-                <!-- БЛОК ПОТОКУ КЛІЄНТІВ, ІНФРАСТРУКТУРИ ТА РЕКЛАМИ -->
-                ${(() => {
-                    const cs = getPlotClientsState(plot, owned);
-                    const upgs = owned.upgrades || {};
-                    const upgHtml = BUSINESS_UPGRADES.map(u => {
-                        const isOwned = Boolean(upgs[u.id]);
-                        return `<div class="infra-card${isOwned ? " owned" : ""}">
-                            <div><b>${u.name}</b><br><span style="color:#444">${u.desc}</span></div>
-                            ${isOwned
-                                ? `<span style="color:#006400;font-weight:bold">✓ Встановлено</span>`
-                                : `<button class="btn default" onclick="buyPlotUpgrade(${plot.id}, '${u.id}')" style="min-height:24px;min-width:auto;padding:2px 6px;font-size:10px">Купити (${formatNumberFull(u.cost)} 💰)</button>`
-                            }
-                        </div>`;
-                    }).join("");
-                    const adsHtml = BUSINESS_ADS.map(a => `
-                        <button class="btn" onclick="buyPlotAd(${plot.id}, '${a.id}')" style="min-height:26px;min-width:auto;padding:3px 7px;font-size:10px" title="${a.desc}">${a.name} (${formatNumberFull(a.cost)} 💰)</button>
-                    `).join("");
-                    return `
-                        <div class="clients-status-bar">
-                            <span>🚶 <b>Клієнти на підприємстві: ${cs.current} / ${cs.max}</b> (потік: <b>${cs.perHour}/год</b>${cs.current < cs.max ? `, наступний через ${cs.nextClientSec}с` : ""})</span>
-                            ${cs.adActive ? `<span class="ad-active-pill">📢 ${escapeHtml(cs.adName)} (+${cs.adMultPct}%, ще ${formatDuration(cs.adRemainingMs)})</span>` : ""}
-                        </div>
-                        <div style="margin-bottom:6px">
-                            <div style="font-size:11px;font-weight:bold;color:#000080;margin-bottom:3px">🏗️ Покращення потоку клієнтів (назавжди) та 📢 Реклама (тимчасово):</div>
-                            <div class="infra-ads-grid">${upgHtml}</div>
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${adsHtml}</div>
-                        </div>
-                    `;
-                })()}
-
-                <div class="bank-input-wrap" style="margin-bottom:6px">
-                    <span style="font-size:11px;font-weight:bold">ЗП за замовлення:</span>
+                <div class="bank-input-wrap">
+                    <span style="font-size:11px;font-weight:bold">Ставка ЗП:</span>
                     <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" oninput="previewHubBaseWageMargin(${plot.id})" style="max-width:85px;padding:3px 6px;font-size:12px">
                     <button class="btn default" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', false)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">💾 Для нових</button>
-                    <button class="btn" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', true)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px" title="Застосувати цю ЗП до всіх поточних працівників">👥 Застосувати всім</button>
-                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px" title="Надіслати гравцю координати цього місця для роботи">📍 Запросити</button>
+                    <button class="btn" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', true)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">👥 Застосувати всім</button>
+                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px">📍 Запросити</button>
                 </div>
-                <div id="hub_wage_hint_${plot.id}" style="font-size:11px;margin-bottom:6px;color:#004000"></div>
-
-                <div class="workers-roster" style="max-height:240px">
+                <div id="hub_wage_hint_${plot.id}" style="font-size:11px;color:#004000"></div>
+            `;
+        } else if (curComp === "workers") {
+            compartmentHtml = `
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                    <span style="font-size:12px;font-weight:bold;color:#000080">👷 Штат працівників та їхня продуктивність:</span>
+                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">📍 Запросити людину за координатами</button>
+                </div>
+                <div class="workers-roster" style="max-height:none">
                     ${buildWorkersRosterHtml(plot.id, owned, bld, "hub")}
+                </div>
+            `;
+        } else if (curComp === "supply") {
+            const pct = Math.min(100, Math.round((sup.stock / Math.max(1, sup.maxStock)) * 100));
+            compartmentHtml = `
+                <div class="supply-box" style="margin:0">
+                    <div class="supply-top-row">
+                        <span style="font-size:12px"><b>${sup.supplyLabel}: ${sup.stock} / ${sup.maxStock} од.</b></span>
+                        <button class="btn" onclick="togglePlotAutoRestock(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">
+                            ${sup.autoRestock ? "🔄 Автозакупівля: УВІМКНЕНО" : "⏸️ Автозакупівля: ВИМКНЕНО"}
+                        </button>
+                    </div>
+                    <div style="font-size:11px;color:#444">
+                        Кожне замовлення витрачає <b>1 од. сировини</b>. Роздрібна ціна автозакупівлі: <b>${sup.unitCost} 💰/од.</b> При ручній закупівлі на склад діє оптова знижка до <b>-20%</b> (лише <b>${Math.max(1, Math.round(sup.unitCost * 0.8))} 💰/од.</b>)!
+                    </div>
+                    <div class="supply-bar-wrap" style="height:18px"><div class="supply-bar-fill" style="width:${pct}%"></div></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                        <button class="btn default" ${sup.bulk25Units <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'bulk25')" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:11px">
+                            📦 Закупити +${sup.bulk25Units} од. (опт -12%: ${formatNumberFull(sup.bulk25Cost)} 💰)
+                        </button>
+                        <button class="btn success" ${sup.fullUnits <= 0 ? "disabled" : ""} onclick="buyPlotSupplies(${plot.id}, 'full')" style="min-height:30px;min-width:auto;padding:4px 10px;font-size:11px">
+                            🚚 Заповнити склад +${sup.fullUnits} од. (опт -20%: ${formatNumberFull(sup.fullCost)} 💰)
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (curComp === "upgrades") {
+            const upgCardsHtml = BUSINESS_UPGRADES.map(u => {
+                const isOwned = Boolean(upgs[u.id]);
+                return `
+                    <div class="feature-item-card${isOwned ? " owned" : ""}">
+                        <div>
+                            <div class="feature-card-head">
+                                <span>${u.name}</span>
+                                <span class="feature-card-Effect">${u.badge}</span>
+                            </div>
+                            <div class="feature-card-desc" style="margin-top:4px">${escapeHtml(u.desc)}</div>
+                        </div>
+                        <div style="margin-top:4px">
+                            ${isOwned
+                                ? `<div style="color:#006400;font-weight:bold;font-size:11px">✓ Встановлено назавжди</div>`
+                                : `<button class="btn default" onclick="buyPlotUpgrade(${plot.id}, '${u.id}')" style="width:100%;min-height:28px;padding:4px 8px;font-size:11px">Встановити (${formatNumberFull(u.cost)} 💰)</button>`
+                            }
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            compartmentHtml = `
+                <div style="font-size:11px;color:#333">
+                    <b>Постійні покращення інфраструктури</b> назавжди збільшують максимальну місткість черги та щогодинний притік клієнтів на підприємство:
+                </div>
+                <div class="upgrade-ad-cards-grid">${upgCardsHtml}</div>
+            `;
+        } else if (curComp === "ads") {
+            const adCardsHtml = BUSINESS_ADS.map(a => {
+                const isThisAdActive = cs.adActive && owned.adName === a.name;
+                return `
+                    <div class="feature-item-card${isThisAdActive ? " active-ad" : ""}">
+                        <div>
+                            <div class="feature-card-head">
+                                <span>${a.name}</span>
+                                <span class="feature-card-Effect">${a.badge}</span>
+                            </div>
+                            <div class="feature-card-desc" style="margin-top:4px">${escapeHtml(a.desc)}</div>
+                        </div>
+                        <div style="margin-top:4px">
+                            ${isThisAdActive
+                                ? `<div style="color:#804000;font-weight:bold;font-size:11px;margin-bottom:4px">🔥 Активно зараз: ще ${formatDuration(cs.adRemainingMs)}</div>`
+                                : ""
+                            }
+                            <button class="btn ${isThisAdActive ? "" : "success"}" onclick="buyPlotAd(${plot.id}, '${a.id}')" style="width:100%;min-height:28px;padding:4px 8px;font-size:11px">
+                                📢 Запустити кампанію (${formatNumberFull(a.cost)} 💰)
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            compartmentHtml = `
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;font-size:11px;color:#333">
+                    <span><b>Рекламні кампанії</b> миттєво приводять нових покупців у чергу та тимчасово прискорюють погодинний потік клієнтів:</span>
+                    ${cs.adActive ? `<span class="ad-active-pill">🔥 Активна: ${escapeHtml(cs.adName)} (+${cs.adMultPct}%, ще ${formatDuration(cs.adRemainingMs)})</span>` : ""}
+                </div>
+                <div class="upgrade-ad-cards-grid">${adCardsHtml}</div>
+            `;
+        }
+
+        return `
+            <div class="biz-card-shell">
+                <div class="biz-card-header">
+                    <div class="biz-card-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px;color:#444">(${escapeHtml(zInfo.shortName)})</span></div>
+                    <button class="btn" onclick="focusPlotFromMail(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 8px;font-size:11px">🗺️ На мапі</button>
+                </div>
+
+                <!-- 4 головні показники підприємства в один погляд -->
+                <div class="biz-kpi-strip">
+                    <div class="biz-kpi-box">
+                        <span class="kpi-label">🏦 У касі бізнесу</span>
+                        <span class="kpi-val" style="color:#006400">${formatNumberFull(treasury)} 💰</span>
+                    </div>
+                    <div class="biz-kpi-box">
+                        <span class="kpi-label">🚶 Клієнти в черзі</span>
+                        <span class="kpi-val">${cs.current} / ${cs.max} <span style="font-size:10px;font-weight:normal">(${cs.perHour}/год)</span></span>
+                    </div>
+                    <div class="biz-kpi-box">
+                        <span class="kpi-label">📦 Склад сировини</span>
+                        <span class="kpi-val" style="color:${sup.stock > 0 ? "#7a3d00" : "#900000"}">${sup.stock} / ${sup.maxStock} од.</span>
+                    </div>
+                    <div class="biz-kpi-box">
+                        <span class="kpi-label">📈 Маржа / Замовл.</span>
+                        <span class="kpi-val" style="color:${isOrderProfitable ? "#006400" : "#900000"}">${isOrderProfitable ? "+" : ""}${fin.ownerNetMargin} 💰</span>
+                    </div>
+                </div>
+
+                <!-- Внутрішні вкладки-відсіки бізнесу -->
+                <div class="biz-section-tabs">
+                    <button class="biz-sec-btn${curComp === "overview" ? " active" : ""}" onclick="switchBizCompartment(${plot.id}, 'overview')">💰 Каса і Розрахунки</button>
+                    <button class="biz-sec-btn${curComp === "workers" ? " active" : ""}" onclick="switchBizCompartment(${plot.id}, 'workers')">👷 Робітники (${wCount})</button>
+                    <button class="biz-sec-btn${curComp === "supply" ? " active" : ""}" onclick="switchBizCompartment(${plot.id}, 'supply')">📦 Склад (${sup.stock}/${sup.maxStock})</button>
+                    <button class="biz-sec-btn${curComp === "upgrades" ? " active" : ""}" onclick="switchBizCompartment(${plot.id}, 'upgrades')">🏗️ Покращення (${ownedUpgCount}/4)</button>
+                    <button class="biz-sec-btn${curComp === "ads" ? " active" : ""}" onclick="switchBizCompartment(${plot.id}, 'ads')">📢 Реклама ${cs.adActive ? "🔥" : ""}</button>
+                </div>
+
+                <!-- Вміст обраного відсіку -->
+                <div class="biz-compartment">
+                    ${compartmentHtml}
                 </div>
             </div>
         `;
@@ -4193,7 +4455,9 @@ window.buildOnSelectedPlot = async function (buildingId) {
             building: bld.id,
             builtAt: Date.now(),
             wage: bld.defaultWage,
-            treasury: currentTreasury
+            treasury: currentTreasury,
+            supplyStock: 40,
+            autoRestock: true
         });
         const fin = calcOrderFinancials(p.zone, bld, [], bld.defaultWage);
         sfx.win();
