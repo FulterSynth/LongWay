@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.3.0">
-<title>Win98 Work — Ковель Економіка SE v4.3.0</title>
+<meta name="version" content="4.5.0">
+<title>Win98 Work — Ковель Економіка SE v4.5.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.3.0 SE</div>
+        <div class="panel small">v4.5.0 SE</div>
     </div>
 </div>
 
@@ -101,56 +101,57 @@
                 <button class="btn default" id="course-pause-btn" onclick="toggleCoursePause()" style="min-height:28px;padding:3px 12px;font-size:11px;font-weight:bold">⏸️ Поставити на паузу (піти працювати)</button>
             </div>
 
-            <div class="click-area">
-                <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
-
-                <div class="task-box">
-                    <div class="task-title" id="task-title">Задача не почата</div>
-                    <div class="task-bar-wrap"><div class="task-bar" id="task-bar"></div><div class="task-text" id="task-text">0 / 0</div></div>
-                    <div class="task-reward" id="task-reward">Нагорода: —</div>
-                </div>
-
-                <button id="big-click" onclick="startTaskOrShowStatus()">
-                    <span class="big-emoji" id="big-click-emoji">💼</span>
-                    <span class="click-label" id="big-click-label">ПРАЦЮВАТИ</span>
-                    <span class="click-sub" id="big-click-sub">Натисніть, щоб виконати дію</span>
-                </button>
-
-                <div class="mg-window" id="mg-window" style="display:none;">
-                    <div class="mg-title-bar">
-                        <span id="mg-icon">🎮</span>
-                        <span class="mg-title-text" id="mg-title">Міні-гра</span>
-                        <span class="mg-badge" id="mg-badge">0/0</span>
-                    </div>
-                    <div class="mg-body" id="mg-body"></div>
-                </div>
-
-                <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись у КовельКорп</button>
-            </div>
-
-            <!-- Інтуїтивні під-вкладки робочої панелі -->
-            <div class="work-mode-tabs">
-                <button class="work-mode-btn active" id="wtab-vacancies" onclick="switchWorkSubtab('vacancies')">🏪 Вакансії (Влаштуватись) <span class="badge-cnt" id="badge-vacancies">0</span></button>
+            <!-- Просторі під-вкладки на весь екран (без нагромадження елементів один на одного) -->
+            <div class="work-mode-tabs" style="margin-bottom:6px">
+                <button class="work-mode-btn active" id="wtab-shift" onclick="switchWorkSubtab('shift')">⚡ Робоча зміна</button>
                 <button class="work-mode-btn" id="wtab-mybiz" onclick="switchWorkSubtab('mybiz')">🏦 Мій бізнес і КАСА <span class="badge-cnt" id="badge-mybiz">0</span></button>
-                <button class="work-mode-btn" id="wtab-career" onclick="switchWorkSubtab('career')">📊 Дипломи і Кар'єра</button>
+                <button class="work-mode-btn" id="wtab-vacancies" onclick="switchWorkSubtab('vacancies')">🏪 Вакансії <span class="badge-cnt" id="badge-vacancies">0</span></button>
+                <button class="work-mode-btn" id="wtab-career" onclick="switchWorkSubtab('career')">📊 Кар'єра і Дипломи</button>
             </div>
 
-            <!-- Під-вкладка 1: Вакансії у бізнесах гравців -->
-            <div class="group-box" id="work-sub-vacancies" data-label="🏪 Біржа праці Ковеля (подача резюме на підприємства гравців)">
-                <div class="muted" style="margin-bottom:6px">
-                    Оберіть підприємство нижче та натисніть <b>«📨 Подати резюме»</b>. Коли ви виконуєте замовлення на роботі, покупець оплачує чек: з нього списується міський податок і ваша зарплата, а решта йде власнику в касу!
+            <!-- Під-вкладка 0: Робоча зміна (чистий екран для праці та міні-ігор) -->
+            <div id="work-sub-shift" style="display:flex;flex-direction:column;flex:1;justify-content:center">
+                <div class="click-area" style="padding:14px 8px">
+                    <div class="big-coins-display"><span class="coin-icon">💰</span><span id="big-coins">0</span></div>
+
+                    <div class="task-box">
+                        <div class="task-title" id="task-title">Задача не почата</div>
+                        <div class="task-bar-wrap"><div class="task-bar" id="task-bar"></div><div class="task-text" id="task-text">0 / 0</div></div>
+                        <div class="task-reward" id="task-reward">Нагорода: —</div>
+                    </div>
+
+                    <button id="big-click" onclick="startTaskOrShowStatus()">
+                        <span class="big-emoji" id="big-click-emoji">💼</span>
+                        <span class="click-label" id="big-click-label">ПРАЦЮВАТИ</span>
+                        <span class="click-sub" id="big-click-sub">Натисніть, щоб виконати дію</span>
+                    </button>
+
+                    <div class="mg-window" id="mg-window" style="display:none;">
+                        <div class="mg-title-bar">
+                            <span id="mg-icon">🎮</span>
+                            <span class="mg-title-text" id="mg-title">Міні-гра</span>
+                            <span class="mg-badge" id="mg-badge">0/0</span>
+                        </div>
+                        <div class="mg-body" id="mg-body"></div>
+                    </div>
+
+                    <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись у КовельКорп</button>
                 </div>
-                <div class="private-jobs-list" id="private-jobs-list"></div>
             </div>
 
-            <!-- Під-вкладка 2: Керування своїми підприємствами, КАСА, податки та маржа з робітників -->
-            <div class="group-box" id="work-sub-mybiz" data-label="🏦 Мій бізнес: Каса, Податки та Чистий прибуток з робітників" style="display:none;">
+            <!-- Під-вкладка 1: Вакансії у бізнесах гравців (на весь простір вікна) -->
+            <div class="group-box" id="work-sub-vacancies" data-label="🏪 Біржа праці Ковеля (подача резюме)" style="display:none;flex:1;overflow-y:auto">
+                <div class="private-jobs-list" id="private-jobs-list" style="max-height:none"></div>
+            </div>
+
+            <!-- Під-вкладка 2: Мій бізнес і КАСА (на весь простір вікна, з окремими відсіками під Касу, Склад, Покращення та Рекламу) -->
+            <div id="work-sub-mybiz" style="display:none;flex:1;overflow-y:auto;padding-top:4px">
                 <div id="owner-master-summary"></div>
-                <div id="owner-businesses-hub" class="private-jobs-list" style="max-height:380px;"></div>
+                <div id="owner-businesses-hub"></div>
             </div>
 
             <!-- Під-вкладка 3: Кар'єра та детальна статистика -->
-            <div class="group-box" id="work-sub-career" data-label="📊 Особова справа, Дипломи та Кар'єра" style="display:none;">
+            <div class="group-box" id="work-sub-career" data-label="📊 Особова справа, Дипломи та Кар'єра" style="display:none;flex:1;overflow-y:auto">
                 <div class="stats-grid" style="margin-bottom:8px;">
                     <div class="stat-item"><span class="label">💰 Гаманець:</span><span class="value" id="stat-coins">0</span></div>
                     <div class="stat-item"><span class="label">💼 Посада:</span><span class="value" id="stat-job">—</span></div>
