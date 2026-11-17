@@ -544,8 +544,9 @@ function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWa
     const unitProductValue = plotZone === "industrial" ? Math.max(1, Math.round(baseCheck / baseOutputUnits)) : baseCheck;
     const grossCheck = Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
     const unitSupplyCost = getSupplyUnitCost(buildingDef);
-    // Якщо власник закупив товар/сировину на склад наперед, собівартість одиниці менша; при автозакупівлі з коліс — повна роздрібна ціна
-    const supplyCost = hasPreboughtStock ? Math.max(1, Math.round(unitSupplyCost * 0.75)) : unitSupplyCost;
+    // Якщо товар береться зі складу (вже оплаченого власником), з чека на касі закупівля не списується повторно (0 💰).
+    // Якщо склад порожній і йде автозакупівля «з коліс», з чека списується повна роздрібна ціна unitSupplyCost.
+    const supplyCost = hasPreboughtStock ? 0 : unitSupplyCost;
     const { turnoverTaxPct } = getZoneTaxRates(plotZone);
     const taxAmount = Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
     const afterTaxAndSupply = Math.max(1, grossCheck - taxAmount - supplyCost);
@@ -3500,7 +3501,9 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
         const orders = Number(wData?.orders) || 0;
         const totalEarned = Number(wData?.totalEarned) || 0;
         const wCourses = Array.isArray(wData?.completedCourses) ? wData.completedCourses : [];
-        const fin = calcOrderFinancials(plotZone, bld, wCourses, pWage);
+        const supRoster = p ? getPlotSupplyState(p, owned) : { stock: 0 };
+        const hasStock = supRoster.stock > 0;
+        const fin = calcOrderFinancials(plotZone, bld, wCourses, pWage, hasStock);
         const netTotalBrought = wData?.netMarginBrought !== undefined
             ? Number(wData.netMarginBrought)
             : (orders * fin.ownerNetMargin);
@@ -3529,7 +3532,7 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
 
                 <div class="receipt-pills-row" style="margin:3px 0">
                     <span class="receipt-pill">${plotZone === "industrial" ? `🏭 Вихід: <b>${fin.producedUnits} од.</b> (<b>+${fin.grossCheck} 💰</b>)` : (plotZone === "commercial" ? `🛒 Допродаж x${fin.producedUnits}: <b>+${fin.grossCheck} 💰</b>` : `🏡 Чек: <b>+${fin.grossCheck} 💰</b> (+${fin.skillBonusPct}%)`)}</span>
-                    <span class="receipt-pill supply">📦 Закупівля: <b>-${fin.supplyCost} 💰</b></span>
+                    <span class="receipt-pill supply">${fin.supplyCost > 0 ? `📦 Автозакупівля: <b>-${fin.supplyCost} 💰</b>` : `📦 Зі складу: <b>0 💰</b> (оплачено)`}</span>
                     <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
                     <span class="receipt-pill wage">👷 ЗП: <b>-${fin.wage} 💰</b></span>
                     <span class="receipt-pill ${isPositive ? "net-pos" : "net-neg"}">📈 Чиста маржа: ${marginText}</span>
@@ -3702,7 +3705,7 @@ function renderOwnerBusinessesHub() {
                     <div class="receipt-pills-row">
                         <span class="receipt-pill">🛒 Чек: <b>+${fin.grossCheck} 💰</b></span>
                         <span>−</span>
-                        <span class="receipt-pill supply">📦 Закупівля: <b>-${fin.supplyCost} 💰</b></span>
+                        <span class="receipt-pill supply">${fin.supplyCost > 0 ? `📦 Автозакупівля: <b>-${fin.supplyCost} 💰</b>` : `📦 Зі складу: <b>0 💰</b> (оплачено)`}</span>
                         <span>−</span>
                         <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
                         <span>−</span>
