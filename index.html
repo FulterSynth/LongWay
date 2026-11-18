@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.7.0">
-<title>Win98 Work — Ковель Економіка SE v4.7.0</title>
+<meta name="version" content="4.8.0">
+<title>Win98 Work — Ковель Економіка SE v4.8.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.7.0 SE</div>
+        <div class="panel small">v4.8.0 SE</div>
     </div>
 </div>
 
@@ -63,6 +63,7 @@
             <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
         </div>
         <div class="xp-hud-right">
+            <button class="hud-help-btn" onclick="openHelpModal()" title="Зрозумілий довідник по економіці, зонах і правилах гри">📘 Довідка</button>
             <button class="hud-wipe-btn" id="admin-wipe-btn" onclick="openAdminWipeModal()" style="display:none" title="Скинути прогрес усіх гравців та очистити мапу (тільки для admin)">☢️ ВАЙП</button>
             <button class="hud-mail-shortcut" id="hud-mail-btn" onclick="switchPage('mail')" title="Відкрити пошту Outlook Express 98">📧 <span id="hud-mail-cnt">0</span></button>
             <span>👤 <span id="stat-user">—</span></span>
@@ -623,6 +624,32 @@
             <div class="dobre-menu-grid" id="dobre-menu-grid"></div>
             <div class="btn-row">
                 <button class="btn default" onclick="closeDobreModal()">Закрити меню</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ДОВІДНИК ПО ЕКОНОМІЦІ ТА ПРАВИЛАХ ГРИ (WIN98 HELP) -->
+<div class="dialog-overlay" id="help-overlay">
+    <div class="dialog help-dialog">
+        <div class="title-bar">
+            <span class="title-icon">📘</span>
+            <span class="title-text">Довідка Win98 SE — Як працює економіка м. Ковель</span>
+            <div class="win-controls">
+                <button class="win-btn close-btn" onclick="closeHelpModal()" title="Закрити">✕</button>
+            </div>
+        </div>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;flex:1">
+            <div class="work-mode-tabs" style="margin-bottom:0">
+                <button class="work-mode-btn active" id="htab-zones" onclick="switchHelpTab('zones')">🗺️ 3 Зони</button>
+                <button class="work-mode-btn" id="htab-supply" onclick="switchHelpTab('supply')">📦 Склад і B2B</button>
+                <button class="work-mode-btn" id="htab-staff" onclick="switchHelpTab('staff')">👷 Люди і Боти</button>
+                <button class="work-mode-btn" id="htab-secrets" onclick="switchHelpTab('secrets')">🎓 Курси і Мапа</button>
+            </div>
+            <div id="help-body-content" class="help-scroll-body"></div>
+            <div class="btn-row" style="margin-top:2px">
+                <button class="btn default" onclick="closeHelpModal()">Зрозуміло, закрити</button>
             </div>
         </div>
     </div>
