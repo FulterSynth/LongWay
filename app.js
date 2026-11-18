@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "5.2.0";
+const APP_VERSION = "5.2.1";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -250,15 +250,15 @@ function getCommercialStaffFlowBonus(ownedData) {
     return Math.min(80, flowAdd);
 }
 
-const WAVE_INTERVAL_MS = 90000; // Подовжена хвиля клієнтів (раз на 90 секунд) — трохи більше клієнтів за раз, але рідше!
+const WAVE_INTERVAL_MS = 120000; // Подовжена хвиля клієнтів (раз на 120 секунд = 2 хвилини)!
 
 function getCurrentWaveSecLeft() {
-    return Math.max(1, 90 - Math.floor((Date.now() % WAVE_INTERVAL_MS) / 1000));
+    return Math.max(1, 120 - Math.floor((Date.now() % WAVE_INTERVAL_MS) / 1000));
 }
 
 function getPlotClientsState(plot, ownedData) {
     if (!plot || !ownedData || !ownedData.building) {
-        return { current: 0, max: 0, perHour: 0, perWave: 0, currentWaveMin: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 90, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
+        return { current: 0, max: 0, perHour: 0, perWave: 0, currentWaveMin: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 120, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
     }
     const basePerHour = getBaseClientsPerHour(plot.zone, ownedData.building);
     const upgMap = ownedData.upgrades || {};
@@ -311,7 +311,7 @@ function getPlotClientsState(plot, ownedData) {
         adMultPct,
         adRemainingMs: Math.max(0, adUntil - now),
         nextClientSec,
-        secPerClient: 90,
+        secPerClient: 120,
         workersCount,
         clientsPerWorkerPerHour
     };
@@ -3789,7 +3789,7 @@ function startCreditTimer() {
         if (currentPage === "work" && activeWorkSubtab === "shift") {
             renderShiftLiveWorkersBoard();
         }
-        if (waveSec === 90) {
+        if (waveSec === 120) {
             if (currentPage === "work") { renderTask(); renderOwnerBusinessesHub(); }
             if (selectedPlotId !== null) showMapInfo(selectedPlotId);
         }
