@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "5.0.0";
+const APP_VERSION = "5.1.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -152,8 +152,8 @@ function getPlotSupplyState(plot, ownedData) {
     const finishedStock = isInd
         ? (ownedData.finishedStock !== undefined ? Math.max(0, Math.floor(Number(ownedData.finishedStock) || 0)) : 24)
         : 0;
-    // Ціна здачі 1 од. готової продукції на системне Держзамовлення (страховка, якщо інші гравці офлайн)
-    const govUnitPrice = isInd ? Math.max(3, Math.round(unitCost * 0.65)) : 0;
+    // Реалістична ціна викупу 1 од. готової продукції заводу на Держзамовленні (~85% від базової вартості, покриває сировину + ЗП + маржу!)
+    const govUnitPrice = isInd ? Math.max(12, Math.round((bld ? bld.clickProfit : 170) / 2 * 0.85)) : 0;
     const govTotalValue = finishedStock * govUnitPrice;
     const b2bSoldUnits = Math.max(0, Math.floor(Number(ownedData.b2bSoldUnits) || 0));
     const b2bEarnedTotal = Math.max(0, Math.floor(Number(ownedData.b2bEarnedTotal) || 0));
@@ -250,9 +250,15 @@ function getCommercialStaffFlowBonus(ownedData) {
     return Math.min(80, flowAdd);
 }
 
+const WAVE_INTERVAL_MS = 60000; // Єдина міська хвиля раз на 60 секунд — таймер ніколи не збивається!
+
+function getCurrentWaveSecLeft() {
+    return Math.max(1, 60 - Math.floor((Date.now() % WAVE_INTERVAL_MS) / 1000));
+}
+
 function getPlotClientsState(plot, ownedData) {
     if (!plot || !ownedData || !ownedData.building) {
-        return { current: 0, max: 0, perHour: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 0, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
+        return { current: 0, max: 0, perHour: 0, perWave: 0, currentWaveMin: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 60, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
     }
     const basePerHour = getBaseClientsPerHour(plot.zone, ownedData.building);
     const upgMap = ownedData.upgrades || {};
@@ -269,22 +275,24 @@ function getPlotClientsState(plot, ownedData) {
     const rawCap = basePerHour + upgradeBonus + comStaffFlowBonus;
     const perHour = Math.round(rawCap * (1 + adMultPct / 100));
     const maxClients = perHour;
+    const perWave = Math.max(1, Math.round(perHour / 12)); // Кількість нових клієнтів/слотів за кожну 60-секундну хвилю
 
-    const lastRefill = Number(ownedData.clientsLastRefillAt) || Number(ownedData.builtAt) || now;
+    const currentWaveMin = Math.floor(now / WAVE_INTERVAL_MS);
+    const lastWaveMin = ownedData.clientsWaveMin !== undefined
+        ? Number(ownedData.clientsWaveMin)
+        : Math.floor((Number(ownedData.clientsLastRefillAt) || Number(ownedData.builtAt) || now) / WAVE_INTERVAL_MS);
+    const wavesPassed = Math.max(0, Math.min(60, currentWaveMin - lastWaveMin));
     const storedClients = ownedData.clientsRemaining !== undefined ? Number(ownedData.clientsRemaining) : maxClients;
-    const elapsedMs = Math.max(0, now - lastRefill);
-    const msPerClient = HOUR_MS / Math.max(1, perHour);
-    const regenerated = Math.floor(elapsedMs / msPerClient);
+    const addedByWaves = wavesPassed * perWave;
 
-    // ВАЖЛИВО: Якщо реклама додала миттєвих клієнтів понад базовий ліміт maxClients — вони НЕ згорають і зберігаються в спільній черзі, доки їх не обслужать робітники!
     let current;
     if (storedClients >= maxClients) {
         current = Math.floor(storedClients);
     } else {
-        current = Math.min(maxClients, Math.max(0, Math.floor(storedClients) + regenerated));
+        current = Math.min(maxClients, Math.max(0, Math.floor(storedClients) + addedByWaves));
     }
-    const remToNextMs = current >= maxClients ? 0 : Math.max(1000, msPerClient - (elapsedMs % msPerClient));
-    const secPerClient = Math.max(1, Math.round(3600 / Math.max(1, perHour)));
+
+    const nextClientSec = getCurrentWaveSecLeft();
     const workersCount = ownedData.workers ? Object.keys(ownedData.workers).length : 0;
     const clientsPerWorkerPerHour = workersCount > 0 ? Math.max(1, Math.round(perHour / workersCount)) : perHour;
 
@@ -292,6 +300,8 @@ function getPlotClientsState(plot, ownedData) {
         current,
         max: maxClients,
         perHour,
+        perWave,
+        currentWaveMin,
         rawCap,
         basePerHour,
         upgradeBonus,
@@ -300,8 +310,8 @@ function getPlotClientsState(plot, ownedData) {
         adName: ownedData.adName || "",
         adMultPct,
         adRemainingMs: Math.max(0, adUntil - now),
-        nextClientSec: Math.ceil(remToNextMs / 1000),
-        secPerClient,
+        nextClientSec,
+        secPerClient: 60,
         workersCount,
         clientsPerWorkerPerHour
     };
@@ -2818,6 +2828,7 @@ async function doPrivateOrderStepWork(plotId) {
     let netOwnerTreasuryDelta = 0;
     let taxPaidThisOrder = fin.taxAmount;
     let noClientsLeft = false;
+    let noCashInTreasury = false;
 
     try {
         const txRes = await runTransaction(ref(db, `plots/${plotId}`), (cur) => {
@@ -2825,7 +2836,7 @@ async function doPrivateOrderStepWork(plotId) {
             const cLive = getPlotClientsState(p, cur);
             if (cLive.current <= 0) {
                 noClientsLeft = true;
-                return; // перериваємо транзакцію, бо клієнти скінчились
+                return;
             }
             const supLive = getPlotSupplyState(p, cur);
             if (supLive.stock <= 0 && !supLive.autoRestock) {
@@ -2833,15 +2844,6 @@ async function doPrivateOrderStepWork(plotId) {
                 return;
             }
             const usedFromStock = supLive.stock > 0;
-            if (usedFromStock) {
-                cur.supplyStock = supLive.stock - 1;
-            } else {
-                cur.supplyStock = 0;
-            }
-
-            cur.clientsRemaining = Math.max(0, cLive.current - 1);
-            cur.clientsLastRefillAt = Date.now();
-
             const treasury = Math.max(0, Number(cur.treasury) || 0);
             const curWorker = (cur.workers && cur.workers[currentUser]) ? cur.workers[currentUser] : {};
             const baseWage = Number(cur.wage) > 0 ? Number(cur.wage) : (bld ? bld.defaultWage : 15);
@@ -2849,35 +2851,41 @@ async function doPrivateOrderStepWork(plotId) {
             const txFin = calcOrderFinancials(p.zone, bld, gameState.completedCourses, activeWage, usedFromStock);
             taxPaidThisOrder = txFin.taxAmount;
 
-            // Якщо товар брали зі складу (вже оплаченого раніше власником), з чека вираховується лише податок;
-            // якщо ж склад був порожній і спрацювала автозакупівля «з коліс» — з чека одразу списується повна вартість закупівлі unitSupplyCost!
-            const orderCashAfterTaxAndAutoSupply = usedFromStock
-                ? Math.max(1, txFin.grossCheck - txFin.taxAmount)
-                : txFin.afterTaxRevenue;
-
-            const availableForPay = treasury + orderCashAfterTaxAndAutoSupply;
-            let govOverflowBonus = 0;
+            let orderCashInflow = 0;
             if (p.zone === "industrial") {
+                // У Промзоні на зміні гроші з повітря НЕ генеруються: завод платить ЗП і сировину з Каси, а заробляє при продажі готової продукції!
+                const autoSupply = usedFromStock ? 0 : txFin.unitSupplyCost;
                 const maxFin = getFinishedGoodsMaxCapacity(owned.building);
                 const curFin = cur.finishedStock !== undefined ? Math.max(0, Math.floor(Number(cur.finishedStock) || 0)) : 24;
                 const prodUnits = txFin.producedWholeUnits || 2;
                 const canStore = Math.min(Math.max(0, maxFin - curFin), prodUnits);
                 const overflowUnits = Math.max(0, prodUnits - canStore);
+                const overflowPayout = overflowUnits * supLive.govUnitPrice;
+                if (treasury + overflowPayout < activeWage + autoSupply) {
+                    noCashInTreasury = true;
+                    return;
+                }
                 cur.finishedStock = curFin + canStore;
-                if (overflowUnits > 0) {
-                    govOverflowBonus = overflowUnits * supLive.govUnitPrice;
+                taxPaidThisOrder = 0;
+                orderCashInflow = overflowPayout - autoSupply;
+            } else {
+                // Житлова та Комерційна: покупець платить у Касу чек, з нього мінус податок і автозакупівля (якщо склад порожній)
+                orderCashInflow = usedFromStock
+                    ? Math.max(1, txFin.grossCheck - txFin.taxAmount)
+                    : txFin.afterTaxRevenue;
+                if (treasury + orderCashInflow < activeWage) {
+                    noCashInTreasury = true;
+                    return;
                 }
             }
 
-            if (availableForPay + govOverflowBonus >= activeWage) {
-                paidToWorker = activeWage;
-                netOwnerTreasuryDelta = orderCashAfterTaxAndAutoSupply + govOverflowBonus - activeWage;
-                cur.treasury = treasury + netOwnerTreasuryDelta;
-            } else {
-                paidToWorker = Math.max(1, availableForPay + govOverflowBonus);
-                netOwnerTreasuryDelta = -treasury;
-                cur.treasury = 0;
-            }
+            cur.supplyStock = usedFromStock ? supLive.stock - 1 : 0;
+            cur.clientsRemaining = Math.max(0, cLive.current - 1);
+            cur.clientsWaveMin = cLive.currentWaveMin;
+
+            paidToWorker = activeWage;
+            netOwnerTreasuryDelta = orderCashInflow - activeWage;
+            cur.treasury = Math.max(0, treasury + netOwnerTreasuryDelta);
 
             if (!cur.workers) cur.workers = {};
             const prevOrders = Number(curWorker.orders) || 0;
@@ -2911,11 +2919,23 @@ async function doPrivateOrderStepWork(plotId) {
         isProcessingWorkClick = false;
     }
 
+    if (noCashInTreasury) {
+        gameState.taskProgress = 0;
+        renderTask();
+        updateWorkButtonState();
+        return showDialog(
+            "У Касі підприємства недостатньо коштів!",
+            `На рахунку «${p.name}» не вистачає грошей у Касі для виплати вашої ЗП (${fin.wage} 💰).
+
+Власник (${owned.owner}) має поповнити Касу бізнесу або знизити ставку ЗП.`,
+            "🏦"
+        );
+    }
     if (noClientsLeft) {
         gameState.taskProgress = 0;
         renderTask();
         updateWorkButtonState();
-        return showDialog("Клієнта вже обслужено", "Останнього клієнта щойно обслужив інший працівник! Зачекайте на наступного покупця.", "🚶");
+        return showDialog("Черга порожня", "Останнього клієнта / слот щойно забрав інший працівник! Зачекайте на наступну 60-секундну хвилю.", "🚶");
     }
 
     sfx.good();
@@ -3124,30 +3144,33 @@ async function processOwnerBotWorkers() {
                     if (supLive.stock <= 0 && !supLive.autoRestock) return;
 
                     const usedFromStock = supLive.stock > 0;
-                    cur.supplyStock = usedFromStock ? supLive.stock - 1 : 0;
-                    cur.clientsRemaining = Math.max(0, cLive.current - 1);
-                    cur.clientsLastRefillAt = txNow;
-
                     const minBotWage = getBotMinWage(bld);
                     const activeWage = Math.max(minBotWage, Number(curBot.personalWage) || minBotWage);
                     const txFin = calcOrderFinancials(p.zone, bld, [], activeWage, usedFromStock);
+                    const treasury = Math.max(0, Number(cur.treasury) || 0);
 
-                    let govOverflowBonus = 0;
+                    let orderCash = 0;
                     if (p.zone === "industrial") {
+                        const autoSupply = usedFromStock ? 0 : txFin.unitSupplyCost;
                         const maxFin = getFinishedGoodsMaxCapacity(owned.building);
                         const curFin = cur.finishedStock !== undefined ? Math.max(0, Math.floor(Number(cur.finishedStock) || 0)) : 24;
                         const prodUnits = txFin.producedWholeUnits || 2;
                         const canStore = Math.min(Math.max(0, maxFin - curFin), prodUnits);
                         const overflowUnits = Math.max(0, prodUnits - canStore);
+                        const overflowPayout = overflowUnits * supLive.govUnitPrice;
+                        if (treasury + overflowPayout < activeWage + autoSupply) return;
                         cur.finishedStock = curFin + canStore;
-                        if (overflowUnits > 0) {
-                            govOverflowBonus = overflowUnits * supLive.govUnitPrice;
-                        }
+                        orderCash = overflowPayout - autoSupply;
+                    } else {
+                        orderCash = usedFromStock ? Math.max(1, txFin.grossCheck - txFin.taxAmount) : txFin.afterTaxRevenue;
+                        if (treasury + orderCash < activeWage) return;
                     }
 
-                    const treasury = Math.max(0, Number(cur.treasury) || 0);
-                    const orderCash = usedFromStock ? Math.max(1, txFin.grossCheck - txFin.taxAmount) : txFin.afterTaxRevenue;
-                    const netDelta = orderCash + govOverflowBonus - activeWage;
+                    cur.supplyStock = usedFromStock ? supLive.stock - 1 : 0;
+                    cur.clientsRemaining = Math.max(0, cLive.current - 1);
+                    cur.clientsWaveMin = cLive.currentWaveMin;
+
+                    const netDelta = orderCash - activeWage;
                     cur.treasury = Math.max(0, treasury + netDelta);
 
                     cur.workers[botName] = {
@@ -3203,26 +3226,23 @@ window.buyPlotSupplies = async function (plotId, mode = "bulk25") {
     }
 
     const treasury = Math.max(0, Number(owned.treasury) || 0);
-    // Спочатку списуємо з Каси бізнесу, а якщо в Касі не вистачає — з гаманця власника
-    if (treasury + gameState.coins < cost) {
-        return showDialog("Недостатньо коштів на закупівлю", `Для закупівлі ${unitsToBuy} од. сировини потрібно ${formatNumberFull(cost)} 💰 (у касі + гаманці недостатньо монет).`, "💸");
+    if (treasury < cost) {
+        return showDialog(
+            "У Касі не вистачає на закупівлю!",
+            `Для закупівлі +${unitsToBuy} од. потрібно ${formatNumberFull(cost)} 💰, а в Касі «${p.name}» зараз лише ${formatNumberFull(treasury)} 💰.
+
+Поповніть Касу бізнесу з Гаманця у відсіку «💰 Каса і Розрахунки»!`,
+            "🏦"
+        );
     }
 
-    const fromTreasury = Math.min(treasury, cost);
-    const fromWallet = cost - fromTreasury;
-
     try {
-        if (fromWallet > 0) {
-            gameState.coins -= fromWallet;
-            markLocalCoinsChanged();
-        }
         await update(ref(db, `plots/${p.id}`), {
             supplyStock: Math.min(sup.maxStock, sup.stock + unitsToBuy),
-            treasury: treasury - fromTreasury
+            treasury: treasury - cost
         });
         sfx.good();
         renderAll();
-        if (fromWallet > 0) await saveGame();
         setGameStatus(`📦 Закуплено +${unitsToBuy} од. на склад «${p.name}» за ${formatNumberFull(cost)} 💰 (оптова знижка)!`);
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
@@ -3274,25 +3294,24 @@ window.buySuppliesFromFactory = async function (buyerPlotId, factoryPlotId, mode
     const totalCost = Math.max(1, unitsToBuy * supBuyer.b2bUnitCost);
 
     const buyerTreasury = Math.max(0, Number(buyerOwned.treasury) || 0);
-    if (buyerTreasury + gameState.coins < totalCost) {
-        return showDialog("Недостатньо монет", `Для купівлі ${unitsToBuy} од. у заводу потрібно ${formatNumberFull(totalCost)} 💰 (ціна B2B: ${supBuyer.b2bUnitCost} 💰/од., знижка -28%).`, "💸");
+    if (buyerTreasury < totalCost) {
+        return showDialog(
+            "У Касі не вистачає для B2B-закупівлі!",
+            `Потрібно ${formatNumberFull(totalCost)} 💰, а в Касі «${buyerPlot.name}» зараз лише ${formatNumberFull(buyerTreasury)} 💰.
+
+Поповніть Касу підприємства з вашого Гаманця!`,
+            "🏦"
+        );
     }
 
-    const fromTreasury = Math.min(buyerTreasury, totalCost);
-    const fromWallet = totalCost - fromTreasury;
-    // Завод отримує оплату в свою Касу (за вирахуванням податку Промзони)
     const { turnoverTaxPct } = getZoneTaxRates("industrial");
     const factoryTax = Math.max(1, Math.round(totalCost * (turnoverTaxPct / 100)));
     const factoryNetGain = Math.max(1, totalCost - factoryTax);
 
     try {
-        if (fromWallet > 0) {
-            gameState.coins -= fromWallet;
-            markLocalCoinsChanged();
-        }
         await update(ref(db, `plots/${buyerPlot.id}`), {
             supplyStock: Math.min(supBuyer.maxStock, supBuyer.stock + unitsToBuy),
-            treasury: buyerTreasury - fromTreasury
+            treasury: buyerTreasury - totalCost
         });
 
         await runTransaction(ref(db, `plots/${factoryPlot.id}`), (cur) => {
@@ -3307,7 +3326,6 @@ window.buySuppliesFromFactory = async function (buyerPlotId, factoryPlotId, mode
 
         sfx.win();
         renderAll();
-        if (fromWallet > 0) await saveGame();
         setGameStatus(`🤝 Куплено +${unitsToBuy} од. у заводу «${factoryPlot.name}» (${factoryOwned.owner}) зі знижкою -28% за ${formatNumberFull(totalCost)} 💰!`);
         showDialog(
             "Пряма поставка з Промзони (-28%)!",
@@ -3403,32 +3421,30 @@ window.buyPlotAd = async function (plotId, adId) {
     if (!ad) return;
 
     const treasury = Math.max(0, Number(owned.treasury) || 0);
-    if (treasury + gameState.coins < ad.cost) {
-        return showDialog("Недостатньо монет", `Для запуску реклами потрібно ${formatNumberFull(ad.cost)} 💰 (можна оплатити з Каси бізнесу або гаманця).`, "💸");
+    if (treasury < ad.cost) {
+        return showDialog(
+            "У Касі не вистачає на рекламу!",
+            `Вартість кампанії: ${formatNumberFull(ad.cost)} 💰, а в Касі «${p.name}» зараз ${formatNumberFull(treasury)} 💰.
+
+Поповніть Касу бізнесу з Гаманця у відсіку «💰 Каса і Розрахунки»!`,
+            "🏦"
+        );
     }
 
-    const fromTreasury = Math.min(treasury, ad.cost);
-    const fromWallet = ad.cost - fromTreasury;
-
     try {
-        if (fromWallet > 0) {
-            gameState.coins -= fromWallet;
-            markLocalCoinsChanged();
-        }
         const cState = getPlotClientsState(p, owned);
         const now = Date.now();
         const newQueueTotal = cState.current + ad.instantClients;
         await update(ref(db, `plots/${p.id}`), {
-            treasury: treasury - fromTreasury,
+            treasury: treasury - ad.cost,
             adUntil: now + ad.durationMs,
             adMultPct: ad.multPct,
             adName: ad.name,
             clientsRemaining: newQueueTotal,
-            clientsLastRefillAt: now
+            clientsWaveMin: cState.currentWaveMin
         });
         sfx.win();
         renderAll();
-        if (fromWallet > 0) await saveGame();
         setGameStatus(`📢 Запущено «${ad.name}» за ${formatNumberFull(ad.cost)} 💰! У спільну чергу додано +${ad.instantClients} клієнтів (зараз ${newQueueTotal}), потік +${ad.multPct}%!`);
         showDialog(
             "Рекламу запущено (гарантована окупність)!",
@@ -3761,6 +3777,14 @@ function startCreditTimer() {
         checkDepositInterest();
         checkPassiveRentIncome();
         processOwnerBotWorkers();
+        const waveSec = getCurrentWaveSecLeft();
+        document.querySelectorAll(".js-wave-sec").forEach(el => {
+            el.textContent = waveSec + "с";
+        });
+        if (waveSec === 60) {
+            if (currentPage === "work") { renderTask(); renderOwnerBusinessesHub(); }
+            if (selectedPlotId !== null) showMapInfo(selectedPlotId);
+        }
         if (currentPage === "bank") renderBank();
         if ($("bohdan-overlay")?.classList.contains("active")) renderBohdanWeldingSchool();
     }, 1000);
@@ -4375,7 +4399,7 @@ function renderOwnerBusinessesHub() {
                         </div>
                         <div class="dash-w-sub">
                             <span>${wCount > 0 ? `👷 ~<b>${cs.clientsPerWorkerPerHour}/год</b> на 1 роб.` : `⚠️ <b>0 роб.</b> у штаті`}</span>
-                            <span>${cs.current >= cs.max ? (overCap ? "🔥 Реклама+" : "✓ Повна") : `+1 за ${cs.nextClientSec}с`}</span>
+                            <span>${cs.current >= cs.max ? (overCap ? "🔥 Реклама+" : "✓ Повна") : `🌊 +${cs.perWave} за <span class="js-wave-sec">${cs.nextClientSec}с</span>`}</span>
                         </div>
                     </div>
 
@@ -4678,7 +4702,7 @@ function renderTask() {
         $("task-reward").innerHTML = `
             <div class="task-pills-row">
                 <span class="task-info-pill wage">💵 Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰</span>
-                <span class="task-info-pill queue">👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} ${cs.current < cs.max ? `(+1 за ${cs.nextClientSec}с)` : ""}</span>
+                <span class="task-info-pill queue">👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} ${cs.current < cs.max ? `(🌊 +${cs.perWave} за <span class="js-wave-sec">${cs.nextClientSec}с</span>)` : ""}</span>
                 <span class="task-info-pill">${p && p.zone === "industrial" ? `🏭 Вихід: <b>${fin.producedUnits} од.</b> (${fin.grossCheck} 💰)` : `🛒 Чек: <b>${fin.grossCheck} 💰</b>`}</span>
             </div>
         `;
@@ -5328,6 +5352,7 @@ window.buildOnSelectedPlot = async function (buildingId) {
         await update(ref(db, `plots/${selectedPlotId}`), {
             building: bld.id,
             builtAt: Date.now(),
+            clientsWaveMin: Math.floor(Date.now() / WAVE_INTERVAL_MS),
             wage: bld.defaultWage,
             treasury: currentTreasury,
             supplyStock: 40,
