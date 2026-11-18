@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.9.1">
-<title>Win98 Work — Ковель Економіка SE v4.9.1</title>
+<meta name="version" content="5.0.0">
+<title>Win98 Work — Ковель Економіка SE v5.0.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.9.1 SE</div>
+        <div class="panel small">v5.0.0 SE</div>
     </div>
 </div>
 
@@ -57,10 +57,10 @@
     <!-- Інтуїтивна верхня панель швидкого огляду в стилі Windows 98 Explorer Coolbar -->
     <div class="xp-quick-hud">
         <div class="xp-hud-left">
-            <div class="xp-hud-pill coins" title="Готівка у вашому гаманці">💰 <b id="hud-coins">0</b></div>
+            <div class="xp-hud-pill coins" onclick="switchPage('bank')" style="cursor:pointer" title="Готівка у вашому гаманці (натисніть, щоб відкрити Банк)">💰 <b id="hud-coins">0</b></div>
             <div class="xp-hud-pill cashbox-pill" onclick="openMyBizCashboxQuick()" title="Гроші у касах ваших підприємств (натисніть, щоб відкрити Касу і забрати прибуток)">🏦 Каса: <b id="hud-treasury">0</b></div>
-            <div class="xp-hud-pill" onclick="switchPage('politics')" style="cursor:pointer" title="Щогодинний земельний податок по ваших ділянках (пасивного доходу будівель немає — дохід лише від працівників)">🏘️ <b id="hud-income">+0/год</b></div>
-            <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
+            <div class="xp-hud-pill" onclick="switchPage('politics')" style="cursor:pointer" title="Щогодинний земельний податок по ваших ділянках (натисніть для деталей)">🏘️ Земля: <b id="hud-income">0/год</b></div>
+            <div class="xp-hud-pill" onclick="switchPage('work');switchWorkSubtab('shift')" style="cursor:pointer" title="Поточна робота (натисніть, щоб перейти до робочої зміни)">💼 <b id="hud-job">—</b></div>
         </div>
         <div class="xp-hud-right">
             <button class="hud-help-btn" onclick="openHelpModal()" title="Зрозумілий довідник по економіці, зонах і правилах гри">📘 Довідка</button>
@@ -117,6 +117,7 @@
 
                     <div class="task-box">
                         <div class="task-title" id="task-title">Задача не почата</div>
+                        <div class="shift-steps-track" id="shift-steps-track" style="display:none"></div>
                         <div class="task-bar-wrap"><div class="task-bar" id="task-bar"></div><div class="task-text" id="task-text">0 / 0</div></div>
                         <div class="task-reward" id="task-reward">Нагорода: —</div>
                     </div>
