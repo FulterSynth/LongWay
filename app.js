@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.9.1";
+const APP_VERSION = "5.0.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -1072,6 +1072,16 @@ function triggerWorkCooldown(durationMs, reason) {
 window.openMyBizCashboxQuick = function () {
     switchPage("work");
     switchWorkSubtab("mybiz");
+};
+
+window.openBusinessInHub = function (plotId, compartment = "overview") {
+    activeBizCompartment[plotId] = compartment;
+    switchPage("work");
+    switchWorkSubtab("mybiz");
+    setTimeout(() => {
+        const el = document.getElementById("biz_card_" + plotId);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
 };
 
 window.switchWorkSubtab = function (sub) {
@@ -4073,46 +4083,34 @@ function renderOwnerBusinessesHub() {
 
         if (curComp === "overview") {
             compartmentHtml = `
-                <div class="biz-cash-highlight" style="margin-bottom:2px">
-                    <div>
-                        <div style="font-size:11px;color:#004000;font-weight:bold">🏦 КАСА ПІДПРИЄМСТВА:</div>
-                        <div class="cash-big">💰 ${formatNumberFull(treasury)} монет</div>
-                    </div>
-                    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-                        <button class="btn success" onclick="withdrawPlotTreasury(${plot.id}, 'hub_fund_${plot.id}', true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:32px;padding:4px 12px;font-size:12px;font-weight:bold">
-                            💰 Забрати в гаманець (+${formatNumberFull(treasury)})
-                        </button>
-                        <input type="number" class="input-field" id="hub_fund_${plot.id}" placeholder="Сума..." min="10" style="max-width:80px;padding:3px 6px;font-size:12px">
-                        <button class="btn" onclick="fundPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:30px;min-width:auto;padding:3px 8px;font-size:11px">➕ В касу</button>
-                    </div>
-                </div>
-
                 <div class="receipt-breakdown" style="margin-bottom:2px">
-                    <div class="receipt-breakdown-title">🧾 Розрахунок 1 замовлення (базова ЗП ${baseWage} 💰):</div>
+                    <div class="receipt-breakdown-title">🧾 Куди йдуть гроші з 1 замовлення (при базовій ЗП ${baseWage} 💰):</div>
                     <div class="receipt-pills-row">
-                        <span class="receipt-pill">🛒 Чек: <b>+${fin.grossCheck} 💰</b></span>
-                        <span>−</span>
-                        <span class="receipt-pill supply">${fin.supplyCost > 0 ? `📦 Автозакупівля: <b>-${fin.supplyCost} 💰</b>` : `📦 Зі складу: <b>0 💰</b> (оплачено)`}</span>
-                        <span>−</span>
+                        <span class="receipt-pill">${plot.zone === "industrial" ? `🏭 Партія (2 од.): <b>+${fin.grossCheck} 💰</b>` : `🛒 Чек клієнта: <b>+${fin.grossCheck} 💰</b>`}</span>
+                        <span>➔</span>
+                        <span class="receipt-pill supply">${fin.supplyCost > 0 ? `📦 Автозакупівля: <b>-${fin.supplyCost} 💰</b>` : `📦 Зі складу: <b>0 💰</b>`}</span>
+                        <span>➔</span>
                         <span class="receipt-pill tax">🏛️ Податок (${fin.turnoverTaxPct}%): <b>-${fin.taxAmount} 💰</b></span>
-                        <span>−</span>
-                        <span class="receipt-pill wage">👷 ЗП: <b>-${fin.wage} 💰</b></span>
+                        <span>➔</span>
+                        <span class="receipt-pill wage">👷 ЗП робітнику: <b>-${fin.wage} 💰</b></span>
                         <span>=</span>
                         <span class="receipt-pill ${isOrderProfitable ? "net-pos" : "net-neg"}">
-                            📈 У касу: ${isOrderProfitable ? "+" + fin.ownerNetMargin + " 💰" : fin.ownerNetMargin + " 💰 (ЗБИТОК)"}
+                            📈 Вам у Касу: ${isOrderProfitable ? "+" + fin.ownerNetMargin + " 💰" : fin.ownerNetMargin + " 💰 (ЗБИТОК)"}
                         </span>
-                    </div>
-                    <div style="margin-top:5px;font-size:11px;color:#333">
-                        🏛️ <b>Земельний податок:</b> <b style="color:#800000">-${formatNumberFull(calc.landTax)} 💰/год</b> • <i>Пасивного доходу немає — заробіток приносять лише працівники та бот ЦЗ!</i>
                     </div>
                 </div>
 
-                <div class="bank-input-wrap">
-                    <span style="font-size:11px;font-weight:bold">Ставка ЗП:</span>
-                    <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" oninput="previewHubBaseWageMargin(${plot.id})" style="max-width:85px;padding:3px 6px;font-size:12px">
-                    <button class="btn default" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', false)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">💾 Для нових</button>
-                    <button class="btn" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', true)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">👥 Застосувати всім</button>
-                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:28px;min-width:auto;padding:3px 10px;font-size:11px">📍 Запросити</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                    <div class="bank-input-wrap" style="flex:1;min-width:260px">
+                        <span style="font-size:11px;font-weight:bold">👷 ЗП за замовлення:</span>
+                        <input type="number" class="input-field" id="hub_basewage_${plot.id}" value="${baseWage}" min="5" max="50000" oninput="previewHubBaseWageMargin(${plot.id})" style="max-width:80px;padding:3px 6px;font-size:12px">
+                        <button class="btn default" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', false)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">💾 Новим</button>
+                        <button class="btn" onclick="savePlotWage(${plot.id}, 'hub_basewage_${plot.id}', true)" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">👥 Всім (${wCount})</button>
+                    </div>
+                    <div class="bank-input-wrap">
+                        <input type="number" class="input-field" id="hub_fund_${plot.id}" placeholder="Сума в касу..." min="10" style="max-width:105px;padding:3px 6px;font-size:11px">
+                        <button class="btn" onclick="fundPlotTreasury(${plot.id}, 'hub_fund_${plot.id}')" style="min-height:28px;min-width:auto;padding:3px 8px;font-size:11px">➕ Поповнити касу</button>
+                    </div>
                 </div>
                 <div id="hub_wage_hint_${plot.id}" style="font-size:11px;color:#004000"></div>
             `;
@@ -4331,44 +4329,72 @@ function renderOwnerBusinessesHub() {
         }
 
         const isInd = plot.zone === "industrial";
-        const secondKpiLabel = isInd ? "⚙️ Лінії цеху (змін)" : (plot.zone === "commercial" ? "🚶 Потік покупців" : "🚶 Клієнти (рідкі)");
-        const thirdKpiLabel = isInd ? "🔩 Сировина / 📦 Товар" : (plot.zone === "commercial" ? "🥐 Склад їжі й товару" : "🧱 Склад матеріалів");
-        const thirdKpiVal = isInd
-            ? `${sup.stock} сир. ➔ ${sup.finishedStock} гот.`
-            : `${sup.stock} / ${sup.maxStock} од.`;
+        const qPct = Math.min(100, Math.round((cs.current / Math.max(1, cs.max)) * 100));
+        const sPct = Math.min(100, Math.round((sup.stock / Math.max(1, sup.maxStock)) * 100));
+        const overCap = cs.current > cs.max;
+        const branchBadge = bld.indBranch === "heavy"
+            ? `<span class="branch-pill heavy">🟩 Тяжка пром ➔ 🏡 Жила</span>`
+            : (bld.indBranch === "light" ? `<span class="branch-pill light">🟦 Легка пром ➔ 🏪 Комерція</span>` : `<span class="branch-pill">${escapeHtml(zInfo.shortName)}</span>`);
 
         return `
-            <div class="biz-card-shell">
+            <div class="biz-card-shell" id="biz_card_${plot.id}">
                 <div class="biz-card-header">
-                    <div class="biz-card-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px;color:#444">(${escapeHtml(zInfo.shortName)})</span></div>
-                    <button class="btn" onclick="focusPlotFromMail(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 8px;font-size:11px">🗺️ На мапі</button>
-                </div>
-
-                <div class="zone-role-banner ${plot.zone}">
-                    <span>${ZONE_ROLE_DESCRIPTIONS[plot.zone] || ""}</span>
-                </div>
-
-                <!-- 4 головні показники підприємства в один погляд -->
-                <div class="biz-kpi-strip">
-                    <div class="biz-kpi-box">
-                        <span class="kpi-label">🏦 У касі бізнесу</span>
-                        <span class="kpi-val" style="color:#006400">${formatNumberFull(treasury)} 💰</span>
-                    </div>
-                    <div class="biz-kpi-box">
-                        <span class="kpi-label">👥 Спільна черга (на ${wCount} роб.)</span>
-                        <span class="kpi-val">${cs.current} / ${cs.max} <span style="font-size:10px;font-weight:normal">(${cs.perHour}/год)</span></span>
-                    </div>
-                    <div class="biz-kpi-box">
-                        <span class="kpi-label">${thirdKpiLabel}</span>
-                        <span class="kpi-val" style="color:${sup.stock > 0 ? "#7a3d00" : "#900000"}">${thirdKpiVal}</span>
-                    </div>
-                    <div class="biz-kpi-box">
-                        <span class="kpi-label">📈 Маржа / Цикл</span>
-                        <span class="kpi-val" style="color:${isOrderProfitable ? "#006400" : "#900000"}">${isOrderProfitable ? "+" : ""}${fin.ownerNetMargin} 💰</span>
+                    <div class="biz-card-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} ${branchBadge}</div>
+                    <div style="display:flex;gap:5px">
+                        <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 8px;font-size:11px">📍 Запросити роб.</button>
+                        <button class="btn" onclick="focusPlotFromMail(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 8px;font-size:11px">🗺️ На мапі</button>
                     </div>
                 </div>
 
-                ${buildSharedClientsBannerHtml(plot, owned, cs)}
+                <!-- Інтуїтивний дашборд із 3 карток: Каса, Спільна черга та Склад -->
+                <div class="biz-visual-dash">
+                    <!-- 1. Каса -->
+                    <div class="biz-dash-widget cash-widget">
+                        <div class="dash-w-top">
+                            <span class="dash-w-label">🏦 Каса підприємства</span>
+                            <span style="font-size:10px;color:#800000">Земля: -${calc.landTax}/год</span>
+                        </div>
+                        <div class="dash-w-big" style="color:#006400">💰 ${formatNumberFull(treasury)}</div>
+                        <div class="dash-w-sub">
+                            <span>Маржа: <b style="color:${isOrderProfitable ? "#006400" : "#900000"}">${isOrderProfitable ? "+" : ""}${fin.ownerNetMargin} 💰/зам.</b></span>
+                            <button class="btn success" onclick="withdrawPlotTreasury(${plot.id}, null, true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:24px;min-width:auto;padding:2px 8px;font-size:11px;font-weight:bold">
+                                📥 Забрати
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. Спільна черга на всіх робітників -->
+                    <div class="biz-dash-widget queue-widget" onclick="switchBizCompartment(${plot.id}, 'ads')" style="cursor:pointer" title="Натисніть, щоб відкрити Рекламу й збільшити спільну чергу">
+                        <div class="dash-w-top">
+                            <span class="dash-w-label">👥 Спільна черга (на ${wCount} роб.)</span>
+                            <span style="font-size:10px;color:#003366;font-weight:bold">+${cs.perHour}/год</span>
+                        </div>
+                        <div class="dash-w-big">${cs.current} / ${cs.max} <span style="font-size:11px;font-weight:normal">${isInd ? "циклів" : "клієнтів"}</span></div>
+                        <div class="shared-pool-bar-wrap" style="height:10px">
+                            <div class="shared-pool-bar-fill${overCap ? " overcap" : ""}" style="width:${qPct}%"></div>
+                        </div>
+                        <div class="dash-w-sub">
+                            <span>${wCount > 0 ? `👷 ~<b>${cs.clientsPerWorkerPerHour}/год</b> на 1 роб.` : `⚠️ <b>0 роб.</b> у штаті`}</span>
+                            <span>${cs.current >= cs.max ? (overCap ? "🔥 Реклама+" : "✓ Повна") : `+1 за ${cs.nextClientSec}с`}</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Склад сировини / продукції -->
+                    <div class="biz-dash-widget stock-widget" onclick="switchBizCompartment(${plot.id}, 'supply')" style="cursor:pointer" title="Натисніть, щоб відкрити Склад і закупівлю">
+                        <div class="dash-w-top">
+                            <span class="dash-w-label">${isInd ? "🔩 Сировина і 📦 Збут" : "📦 Склад товару"}</span>
+                            <span style="font-size:10px;color:${sup.stock > 0 ? "#006400" : "#900000"};font-weight:bold">${sup.stock > 0 ? "✓ Є запас" : "⚠️ Автозакуп."}</span>
+                        </div>
+                        <div class="dash-w-big" style="color:#7a3d00">${sup.stock}/${sup.maxStock} <span style="font-size:11px;font-weight:normal">${isInd ? `сир. (📦 ${sup.finishedStock} гот.)` : "од."}</span></div>
+                        <div class="supply-bar-wrap" style="height:10px">
+                            <div class="supply-bar-fill" style="width:${sPct}%"></div>
+                        </div>
+                        <div class="dash-w-sub">
+                            <span>${isInd ? `Вихід: <b>2–4 од./цикл</b>` : `Зі складу: <b>0 💰 з чека</b>`}</span>
+                            <span style="color:#000080;text-decoration:underline">Поповнити ➔</span>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Внутрішні вкладки-відсіки бізнесу -->
                 <div class="biz-section-tabs">
@@ -4616,6 +4642,7 @@ function renderTask() {
         $("task-bar").style.width = (needed > 0 ? Math.min(100, (gameState.taskProgress / needed) * 100) : 0) + "%";
         $("task-text").textContent = prog + " / " + needed;
         $("task-reward").textContent = "Нагорода за ІТ-задачу: +" + formatNumberFull(job.taskReward) + " 💰";
+        if ($("shift-steps-track")) $("shift-steps-track").style.display = "none";
         $("task-title").textContent = gameState.taskActive ? "Активна ІТ-задача (" + job.name + ")" : "КовельКорп: Задача очікує запуску";
     } else if (gameState.employer && gameState.employer.startsWith("plot:")) {
         const pid = getActiveEmployerPlotId();
@@ -4637,14 +4664,25 @@ function renderTask() {
             $("task-text").textContent = `Етап замовлення: ${step} / ${ORDER_STEPS_REQUIRED}`;
         }
         const cs = p && owned ? getPlotClientsState(p, owned) : { current: 0, max: 0, nextClientSec: 0, workersCount: 1, perHour: 0 };
-        if (p && p.zone === "industrial") {
-            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | 👥 Спільні лінії (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} (${cs.perHour}/год) | Вихід: ${fin.producedUnits} од.`;
-        } else if (p && p.zone === "commercial") {
-            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | 👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} (+1 за ${cs.nextClientSec}с) | Чек: ${fin.grossCheck} 💰`;
-        } else {
-            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | 👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} (+1 за ${cs.nextClientSec}с) | Чек: ${fin.grossCheck} 💰`;
+        const shortStepNames = p && p.zone === "industrial"
+            ? ["1. Сировина", "2. Верстати", "3. Якість", "4. Фасування", "5. На склад"]
+            : ["1. Прийом", "2. Склад", "3. Перевірка", "4. Каса", "5. Видача"];
+        const trackEl = $("shift-steps-track");
+        if (trackEl) {
+            trackEl.style.display = "grid";
+            trackEl.innerHTML = shortStepNames.map((sName, idx) => {
+                const cls = idx < step ? "done" : (idx === step && !(onCooldown && workCooldownReason === "order") ? "current" : "");
+                return `<div class="shift-step-chip ${cls}">${idx < step ? "✓ " : ""}${sName}</div>`;
+            }).join("");
         }
-        $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — Посада: ${wRec.role}`;
+        $("task-reward").innerHTML = `
+            <div class="task-pills-row">
+                <span class="task-info-pill wage">💵 Ваша ЗП: +${formatNumberFull(wRec.personalWage)} 💰</span>
+                <span class="task-info-pill queue">👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} ${cs.current < cs.max ? `(+1 за ${cs.nextClientSec}с)` : ""}</span>
+                <span class="task-info-pill">${p && p.zone === "industrial" ? `🏭 Вихід: <b>${fin.producedUnits} од.</b> (${fin.grossCheck} 💰)` : `🛒 Чек: <b>${fin.grossCheck} 💰</b>`}</span>
+            </div>
+        `;
+        $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — ${wRec.role}`;
     } else {
         const step = Math.floor(gameState.taskProgress);
         if (onCooldown && workCooldownReason === "order") {
@@ -4659,6 +4697,7 @@ function renderTask() {
             $("task-text").textContent = gameState.taskActive ? `Розчищено: ${step} / 6` : "Готово до прибирання";
         }
         $("task-reward").textContent = `Оплата двірника: +${MUNICIPAL_TASK_REWARD} 💰 за ділянку (міні-гра розчищення)`;
+        if ($("shift-steps-track")) $("shift-steps-track").style.display = "none";
         $("task-title").textContent = "Муніципальний підробіток — Двірник м. Ковель";
     }
 }
@@ -5099,9 +5138,14 @@ function showMapInfo(plotId) {
                         <div class="cash-big">💰 ${formatNumberFull(treasury)} монет</div>
                     </div>
                     ${owned.owner === currentUser ? `
-                        <button class="btn success" onclick="withdrawPlotTreasury(${plotId}, null, true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:30px;padding:4px 10px;font-size:11px;font-weight:bold">
-                            💰 Забрати в гаманець (+${formatNumberFull(treasury)})
-                        </button>
+                        <div style="display:flex;gap:5px;flex-wrap:wrap">
+                            <button class="btn success" onclick="withdrawPlotTreasury(${plotId}, null, true)" ${treasury <= 0 ? "disabled" : ""} style="min-height:30px;padding:4px 10px;font-size:11px;font-weight:bold">
+                                💰 Забрати (+${formatNumberFull(treasury)})
+                            </button>
+                            <button class="btn default" onclick="openBusinessInHub(${plotId}, 'overview')" style="min-height:30px;padding:4px 10px;font-size:11px;font-weight:bold">
+                                🏦 Відкрити кабінет (Склад / Реклама)
+                            </button>
+                        </div>
                     ` : ""}
                 </div>
             `;
