@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "5.1.0";
+const APP_VERSION = "5.2.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -250,15 +250,15 @@ function getCommercialStaffFlowBonus(ownedData) {
     return Math.min(80, flowAdd);
 }
 
-const WAVE_INTERVAL_MS = 60000; // Єдина міська хвиля раз на 60 секунд — таймер ніколи не збивається!
+const WAVE_INTERVAL_MS = 90000; // Подовжена хвиля клієнтів (раз на 90 секунд) — трохи більше клієнтів за раз, але рідше!
 
 function getCurrentWaveSecLeft() {
-    return Math.max(1, 60 - Math.floor((Date.now() % WAVE_INTERVAL_MS) / 1000));
+    return Math.max(1, 90 - Math.floor((Date.now() % WAVE_INTERVAL_MS) / 1000));
 }
 
 function getPlotClientsState(plot, ownedData) {
     if (!plot || !ownedData || !ownedData.building) {
-        return { current: 0, max: 0, perHour: 0, perWave: 0, currentWaveMin: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 60, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
+        return { current: 0, max: 0, perHour: 0, perWave: 0, currentWaveMin: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 90, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
     }
     const basePerHour = getBaseClientsPerHour(plot.zone, ownedData.building);
     const upgMap = ownedData.upgrades || {};
@@ -275,7 +275,7 @@ function getPlotClientsState(plot, ownedData) {
     const rawCap = basePerHour + upgradeBonus + comStaffFlowBonus;
     const perHour = Math.round(rawCap * (1 + adMultPct / 100));
     const maxClients = perHour;
-    const perWave = Math.max(1, Math.round(perHour / 12)); // Кількість нових клієнтів/слотів за кожну 60-секундну хвилю
+    const perWave = Math.max(2, Math.round(perHour / 8)); // Трохи більша пачка клієнтів за кожну 90-секундну хвилю
 
     const currentWaveMin = Math.floor(now / WAVE_INTERVAL_MS);
     const lastWaveMin = ownedData.clientsWaveMin !== undefined
@@ -311,7 +311,7 @@ function getPlotClientsState(plot, ownedData) {
         adMultPct,
         adRemainingMs: Math.max(0, adUntil - now),
         nextClientSec,
-        secPerClient: 60,
+        secPerClient: 90,
         workersCount,
         clientsPerWorkerPerHour
     };
@@ -2815,6 +2815,10 @@ async function doPrivateOrderStepWork(plotId) {
     if (currentStep < ORDER_STEPS_REQUIRED) {
         gameState.taskProgress = currentStep;
         triggerWorkCooldown(PRIVATE_STEP_COOLDOWN_MS, "step");
+        update(ref(db, `plots/${plotId}/workers/${currentUser}`), {
+            liveStep: currentStep,
+            lastWorkAt: Date.now()
+        }).catch(() => {});
         setGameStatus(`${stageLabels[currentStep - 1]} — виконано! Наступний крок через 1.6с...`);
         return;
     }
@@ -2901,6 +2905,7 @@ async function doPrivateOrderStepWork(plotId) {
                 role: curWorker.role || "Робітник зміни",
                 personalWage: activeWage,
                 completedCourses: gameState.completedCourses || [],
+                liveStep: 0,
                 orders: prevOrders + 1,
                 clicks: prevClicks + ORDER_STEPS_REQUIRED,
                 totalEarned: prevEarned + paidToWorker,
@@ -3781,7 +3786,10 @@ function startCreditTimer() {
         document.querySelectorAll(".js-wave-sec").forEach(el => {
             el.textContent = waveSec + "с";
         });
-        if (waveSec === 60) {
+        if (currentPage === "work" && activeWorkSubtab === "shift") {
+            renderShiftLiveWorkersBoard();
+        }
+        if (waveSec === 90) {
             if (currentPage === "work") { renderTask(); renderOwnerBusinessesHub(); }
             if (selectedPlotId !== null) showMapInfo(selectedPlotId);
         }
@@ -4724,6 +4732,106 @@ function renderTask() {
         if ($("shift-steps-track")) $("shift-steps-track").style.display = "none";
         $("task-title").textContent = "Муніципальний підробіток — Двірник м. Ковель";
     }
+    renderShiftLiveWorkersBoard();
+}
+
+function renderShiftLiveWorkersBoard() {
+    const boardEl = $("shift-live-board");
+    if (!boardEl) return;
+
+    let targetPlotId = getActiveEmployerPlotId();
+    let isOwnerFallback = false;
+
+    // Якщо гравець зараз не найманий працівник на ділянці, але має власний бізнес зі штатом — показуємо живу активність на його бізнесі!
+    if (targetPlotId === null && currentUser && sharedPlots) {
+        for (const p of MAP_PLOTS_BASE) {
+            const owned = getOwnedPlotData(p.id);
+            if (owned && owned.owner === currentUser && owned.building && owned.workers && Object.keys(owned.workers).length > 0) {
+                targetPlotId = p.id;
+                isOwnerFallback = true;
+                break;
+            }
+        }
+    }
+
+    if (targetPlotId === null) {
+        boardEl.style.display = "none";
+        return;
+    }
+
+    const p = MAP_PLOTS_BASE.find(x => x.id === targetPlotId);
+    const owned = getOwnedPlotData(targetPlotId);
+    const bld = p && owned ? getBuildingDef(p.zone, owned.building) : null;
+    if (!p || !owned || !bld) {
+        boardEl.style.display = "none";
+        return;
+    }
+
+    const workersEntries = Object.entries(owned.workers || {});
+    if (!workersEntries.length) {
+        boardEl.style.display = "none";
+        return;
+    }
+
+    const now = Date.now();
+    const cs = getPlotClientsState(p, owned);
+    const isInd = p.zone === "industrial";
+
+    workersEntries.sort((a, b) => (Number(b[1]?.lastWorkAt) || 0) - (Number(a[1]?.lastWorkAt) || 0));
+
+    const rowsHtml = workersEntries.map(([wName, wData]) => {
+        const isSelf = wName === currentUser;
+        const isBot = Boolean(wData && wData.isBot);
+        const orders = Number(wData?.orders) || 0;
+        const earned = Number(wData?.totalEarned) || 0;
+        const lastWork = Number(wData?.lastWorkAt) || 0;
+        const elapsedSec = Math.max(0, Math.floor((now - lastWork) / 1000));
+        const liveStep = isSelf ? (Math.floor(gameState.taskProgress) % ORDER_STEPS_REQUIRED) : (Number(wData?.liveStep) || 0);
+        const wCourses = isBot ? [] : (Array.isArray(wData?.completedCourses) ? wData.completedCourses : []);
+        const wFin = calcOrderFinancials(p.zone, bld, wCourses, wData?.personalWage || bld.defaultWage, true);
+
+        let statusPill = "";
+        let isWorkingNow = false;
+        if (isBot) {
+            const remBotSec = Math.max(1, Math.ceil((BOT_ORDER_INTERVAL_MS - (now - lastWork)) / 1000));
+            statusPill = `<span class="live-status-pill bot">🤖 Авто-зміна ЦЗ: замовлення через ${remBotSec}с</span>`;
+        } else if (elapsedSec < 25) {
+            isWorkingNow = true;
+            const stepText = liveStep > 0 ? `Виконує крок ${liveStep}/5` : `Щойно закрив замовлення!`;
+            statusPill = `<span class="live-status-pill working">🟢 ПРАЦЮЄ ЗАРАЗ: ${stepText}</span>`;
+        } else {
+            statusPill = `<span class="live-status-pill">⚪ Перерва (${formatTimeAgo(lastWork)})</span>`;
+        }
+
+        const perOrderOutput = isInd
+            ? `Вихід: <b>${wFin.producedUnits} од.</b>/цикл`
+            : `Чек: <b>${wFin.grossCheck} 💰</b>`;
+
+        return `
+            <div class="shift-worker-live-row${isWorkingNow ? " active-now" : ""}">
+                <div style="display:flex;flex-direction:column;gap:2px">
+                    <div>
+                        <b>${isBot ? "🤖" : "👷"} ${escapeHtml(wName)}${isSelf ? " (Ви)" : ""}</b>
+                        <span style="color:#555;font-size:10px">• ЗП: +${formatNumberFull(wData?.personalWage || bld.defaultWage)} 💰 • ${perOrderOutput}</span>
+                    </div>
+                    <div>${statusPill}</div>
+                </div>
+                <div style="text-align:right;font-family:'Courier New',monospace">
+                    <div style="font-weight:bold;color:#000080">📦 Зробив: ${formatNumberFull(orders)} зам.</div>
+                    <div style="font-size:10px;color:#006400">💵 Заробив: +${formatNumberFull(earned)} 💰</div>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    boardEl.style.display = "flex";
+    boardEl.innerHTML = `
+        <div class="shift-live-header">
+            <span>📡 Наживо на зміні: ${bld.icon} ${escapeHtml(bld.name)} ${isOwnerFallback ? "(ваш бізнес)" : ""}</span>
+            <span>👥 Черга: ${cs.current}/${cs.max} (🌊 +${cs.perWave} за <span class="js-wave-sec">${cs.nextClientSec}с</span>)</span>
+        </div>
+        ${rowsHtml}
+    `;
 }
 
 // ВИМОГА 3: Кнопка паузи курсу прямо на банері навчання; коли курс на паузі — кнопка роботи ВІДКРИТА!
