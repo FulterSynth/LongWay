@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "5.2.1";
+const APP_VERSION = "5.2.2";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -273,9 +273,10 @@ function getPlotClientsState(plot, ownedData) {
     const adActive = adUntil > now;
     const adMultPct = adActive ? (Number(ownedData.adMultPct) || 0) : 0;
     const rawCap = basePerHour + upgradeBonus + comStaffFlowBonus;
-    const perHour = Math.round(rawCap * (1 + adMultPct / 100));
-    const maxClients = perHour;
-    const perWave = Math.max(2, Math.round(perHour / 8)); // Трохи більша пачка клієнтів за кожну 90-секундну хвилю
+    const maxClients = Math.round(rawCap * (1 + adMultPct / 100)); // Місткість черги (залу)
+    const perWave = Math.max(2, Math.round(maxClients / 8)); // Скільки заходить за одну 2-хвилинну хвилю
+    const wavesPerHour = Math.round(HOUR_MS / WAVE_INTERVAL_MS); // 30 хвиль на годину (по 120с)
+    const perHour = perWave * wavesPerHour; // Чесний реальний потік за годину = perWave × 30
 
     const currentWaveMin = Math.floor(now / WAVE_INTERVAL_MS);
     const lastWaveMin = ownedData.clientsWaveMin !== undefined
@@ -4399,7 +4400,7 @@ function renderOwnerBusinessesHub() {
                     <div class="biz-dash-widget queue-widget" onclick="switchBizCompartment(${plot.id}, 'ads')" style="cursor:pointer" title="Натисніть, щоб відкрити Рекламу й збільшити спільну чергу">
                         <div class="dash-w-top">
                             <span class="dash-w-label">👥 Спільна черга (на ${wCount} роб.)</span>
-                            <span style="font-size:10px;color:#003366;font-weight:bold">+${cs.perHour}/год</span>
+                            <span style="font-size:10px;color:#003366;font-weight:bold">+${cs.perWave}/2хв (${cs.perHour}/год)</span>
                         </div>
                         <div class="dash-w-big">${cs.current} / ${cs.max} <span style="font-size:11px;font-weight:normal">${isInd ? "циклів" : "клієнтів"}</span></div>
                         <div class="shared-pool-bar-wrap" style="height:10px">
