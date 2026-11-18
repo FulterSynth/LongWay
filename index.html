@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="5.1.0">
-<title>Win98 Work — Ковель Економіка SE v5.1.0</title>
+<meta name="version" content="5.2.0">
+<title>Win98 Work — Ковель Економіка SE v5.2.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v5.1.0 SE</div>
+        <div class="panel small">v5.2.0 SE</div>
     </div>
 </div>
 
@@ -138,6 +138,9 @@
                     </div>
 
                     <button class="btn promote-btn" id="promote-btn" onclick="doPromote()">⬆ Підвищитись у КовельКорп</button>
+
+                    <!-- Живе табло зміни: хто з працівників працює прямо зараз і скільки робить -->
+                    <div class="shift-live-board" id="shift-live-board" style="display:none;"></div>
                 </div>
             </div>
 
