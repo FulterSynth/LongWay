@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="4.6.0">
-<title>Win98 Work — Ковель Економіка SE v4.6.0</title>
+<meta name="version" content="4.7.0">
+<title>Win98 Work — Ковель Економіка SE v4.7.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v4.6.0 SE</div>
+        <div class="panel small">v4.7.0 SE</div>
     </div>
 </div>
 
@@ -59,7 +59,7 @@
         <div class="xp-hud-left">
             <div class="xp-hud-pill coins" title="Готівка у вашому гаманці">💰 <b id="hud-coins">0</b></div>
             <div class="xp-hud-pill cashbox-pill" onclick="openMyBizCashboxQuick()" title="Гроші у касах ваших підприємств (натисніть, щоб відкрити Касу і забрати прибуток)">🏦 Каса: <b id="hud-treasury">0</b></div>
-            <div class="xp-hud-pill" onclick="switchPage('politics')" style="cursor:pointer" title="Чистий погодинний баланс землі та будівель після вирахування податків (натисніть для деталей)">🏘️ <b id="hud-income">+0/год</b></div>
+            <div class="xp-hud-pill" onclick="switchPage('politics')" style="cursor:pointer" title="Щогодинний земельний податок по ваших ділянках (пасивного доходу будівель немає — дохід лише від працівників)">🏘️ <b id="hud-income">+0/год</b></div>
             <div class="xp-hud-pill" title="Поточна посада та місце роботи">💼 <b id="hud-job">—</b></div>
         </div>
         <div class="xp-hud-right">
@@ -179,8 +179,9 @@
             <div class="group-box" data-label="📜 Діючі податкові ставки по зонах м. Ковель">
                 <div class="muted" style="margin-bottom:6px">
                     <b>Як працюють податки (жодних грошей з неба!):</b><br>
-                    1) <b>Податок на землю (/год):</b> стягується щогодини за сам факт володіння ділянкою (% від базової вартості ділянки). Якщо купити землю і нічого не збудувати — вона приносить <b>0 💰 доходу</b> і тягне вас у мінус на суму земельного податку!<br>
-                    2) <b>Податок з обороту зони (%):</b> автоматично утримується з кожного чека клієнта (коли працює робітник) та з погодинної виручки будівлі перед тим, як чистий прибуток потрапляє у вашу <b>Касу бізнесу</b>.
+                    1) <b>Жодного пасивного доходу:</b> самі будівлі не генерують гроші з повітря (<b>0 💰/год</b>). Весь дохід підприємства створюють лише <b>працівники</b> або <b>державний бот за квотою</b>!<br>
+                    2) <b>Податок на землю (/год):</b> стягується щогодини за сам факт володіння ділянкою.<br>
+                    3) <b>Податок з обороту зони (%):</b> утримується з кожного виконаного замовлення перед зарахуванням маржі у вашу <b>Касу</b>.
                 </div>
                 <div class="politics-grid" id="politics-zones-grid"></div>
             </div>
