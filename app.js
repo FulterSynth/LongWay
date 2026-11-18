@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.8.0";
+const APP_VERSION = "4.9.1";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -101,7 +101,7 @@ function getSupplyUnitCost(buildingDef) {
 function getSupplyMaxCapacity(zone, buildingId) {
     const zInfo = ZONE_INFO[zone];
     if (!zInfo || !buildingId) return 60;
-    const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
+    const idx = getBuildingTierIndex(zone, buildingId);
     // У Комерції великий потік покупців, тому місткість складу більша; у Житловій зоні менше клієнтів, але дорогі замовлення
     if (zone === "commercial") {
         const comCaps = [80, 150, 240, 400];
@@ -118,7 +118,7 @@ function getSupplyMaxCapacity(zone, buildingId) {
 function getFinishedGoodsMaxCapacity(buildingId) {
     const zInfo = ZONE_INFO.industrial;
     if (!zInfo || !buildingId) return 120;
-    const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
+    const idx = getBuildingTierIndex(zone, buildingId);
     const caps = [120, 220, 360, 600];
     return caps[Math.max(0, idx)] || 120;
 }
@@ -183,7 +183,7 @@ function getPlotSupplyState(plot, ownedData) {
     };
 }
 
-function getAvailableIndustrialSuppliers() {
+function getAvailableIndustrialSuppliers(buyerZone = null) {
     const suppliers = [];
     if (!sharedPlots) return suppliers;
     MAP_PLOTS_BASE.forEach(p => {
@@ -192,6 +192,8 @@ function getAvailableIndustrialSuppliers() {
         if (!owned || !owned.building) return;
         const bld = getBuildingDef("industrial", owned.building);
         if (!bld) return;
+        if (buyerZone === "residential" && bld.targetZone && bld.targetZone !== "residential" && bld.targetZone !== "all") return;
+        if (buyerZone === "commercial" && bld.targetZone && bld.targetZone !== "commercial" && bld.targetZone !== "all") return;
         const sup = getPlotSupplyState(p, owned);
         suppliers.push({
             plot: p,
@@ -222,7 +224,7 @@ const BUSINESS_ADS = [
 function getBaseClientsPerHour(zone, buildingId) {
     const zInfo = ZONE_INFO[zone];
     if (!zInfo || !buildingId) return 15;
-    const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
+    const idx = getBuildingTierIndex(zone, buildingId);
     if (zone === "residential") {
         const resRates = [10, 18, 30, 48];
         return resRates[Math.max(0, idx)] || 10;
@@ -462,12 +464,17 @@ const ZONE_INFO = {
         basePrice: 180000,
         fillFree: "#ff7722",
         borderFree: "#7a2200",
-        desc: "Важка і Легка промисловість (без вуличних клієнтів)! Переробляє сировину на будматеріали, їжу та товари для інших зон. Курси збільшують вихід продукції (2 ➔ 4 од.).",
+        desc: "Розвилка на 2 гілки: 🟩 Тяжка пром (для 🏡 Житлових зон) або 🟦 Легка пром (для 🏪 Комерційних зон). Курси збільшують вихід продукції (2 ➔ 4 од.).",
         buildings: [
-            { id: "auto_weld", name: "Зварювальний цех і Будматеріали (Важка пром)", icon: "🔧", cost: 220000, income: 2900, defaultWage: 88, clickProfit: 170, indType: "Важка пром", productOutput: "🧱 Будматеріали і металоконструкції" },
-            { id: "logistics", name: "Пекарський і Харчовий комбінат (Легка пром)", icon: "🥖", cost: 580000, income: 7800, defaultWage: 195, clickProfit: 380, indType: "Легка пром (Їжа)", productOutput: "🥐 Випічка, напівфабрикати і продукти" },
-            { id: "factory", name: "Швейна та Меблева фабрика (Легка пром)", icon: "🧵", cost: 1350000, income: 19500, defaultWage: 390, clickProfit: 760, indType: "Легка пром (Товари)", productOutput: "👕 Одяг, текстиль, меблі й товари" },
-            { id: "ind_plant", name: "Промкомбінат «КовельПромМаш» (Важка + Легка)", icon: "🏭", cost: 2900000, income: 44000, defaultWage: 800, clickProfit: 1550, indType: "Універсальний комбінат", productOutput: "📦 Оптові партії матеріалів і товарів" }
+            // 🟩 ЗЕЛЕНА ГІЛКА: Тяжка промисловість (постачає будматеріали в 🏡 Житлову зону)
+            { id: "auto_weld",      indBranch: "heavy", targetZone: "residential", name: "Зварювальний цех і Металопрокат", icon: "🔧", cost: 220000,  income: 2900,  defaultWage: 88,  clickProfit: 170, indType: "🟩 Тяжка пром (для Жилої)", productOutput: "🧱 Металоконструкції, труби й запчастини" },
+            { id: "heavy_concrete", indBranch: "heavy", targetZone: "residential", name: "Цегельно-бетонний завод",         icon: "🧱", cost: 580000,  income: 7800,  defaultWage: 195, clickProfit: 380, indType: "🟩 Тяжка пром (для Жилої)", productOutput: "🧱 Будматеріали, цегла й бетон для ЖК" },
+            { id: "heavy_plant",    indBranch: "heavy", targetZone: "residential", name: "Завод «КовельТяжМаш»",            icon: "🏭", cost: 1450000, income: 19500, defaultWage: 400, clickProfit: 790, indType: "🟩 Тяжка пром (для Жилої)", productOutput: "🏗️ Інженерні вузли й будматеріали оптом" },
+
+            // 🟦 СИНЯ ГІЛКА: Харчова та легка промисловість (постачає продукти, їжу й товари в 🏪 Комерційну зону)
+            { id: "light_bakery",   indBranch: "light", targetZone: "commercial",  name: "Млин і Пекарський цех",               icon: "🥖", cost: 220000,  income: 2900,  defaultWage: 88,  clickProfit: 170, indType: "🟦 Легка / Харчова пром (для Комерції)", productOutput: "🥐 Борошно, тісто та свіжа випічка" },
+            { id: "light_textile",  indBranch: "light", targetZone: "commercial",  name: "Продовольчий комбінат «КовельСмак»",  icon: "🧀", cost: 580000,  income: 7800,  defaultWage: 195, clickProfit: 380, indType: "🟦 Легка / Харчова пром (для Комерції)", productOutput: "🧀 Сир, соуси, напівфабрикати й напої" },
+            { id: "light_pack",     indBranch: "light", targetZone: "commercial",  name: "Продовольчо-товарна база «КовельЛегПром»", icon: "📦", cost: 1450000, income: 19500, defaultWage: 400, clickProfit: 790, indType: "🟦 Легка / Харчова пром (для Комерції)", productOutput: "🛒 Продукти, напої, упаковка й товари для ТРЦ" }
         ]
     }
 };
@@ -736,11 +743,33 @@ function calcPlotPrice(plot, owners) {
     return Math.floor(zInfo.basePrice * totalMultiplier);
 }
 
+const LEGACY_IND_BUILDINGS = {
+    logistics: { id: "logistics", indBranch: "light", targetZone: "commercial",  name: "Пекарський і Харчовий комбінат", icon: "🥖", cost: 580000,  income: 7800,  defaultWage: 195, clickProfit: 380, indType: "🟦 Легка пром (для Комерції)", productOutput: "🥐 Випічка, напівфабрикати й продукти" },
+    factory:   { id: "factory",   indBranch: "light", targetZone: "commercial",  name: "Швейна та Меблева фабрика",      icon: "🧵", cost: 1350000, income: 19500, defaultWage: 390, clickProfit: 760, indType: "🟦 Легка пром (для Комерції)", productOutput: "👕 Одяг, текстиль і товари" },
+    ind_plant: { id: "ind_plant", indBranch: "both",  targetZone: "all",         name: "Промкомбінат «КовельПромМаш»",   icon: "🏭", cost: 2900000, income: 44000, defaultWage: 800, clickProfit: 1550, indType: "Універсальний комбінат", productOutput: "📦 Матеріали та товари" }
+};
+
+function getBuildingTierIndex(zone, buildingId) {
+    if (zone === "industrial") {
+        if (buildingId === "auto_weld" || buildingId === "light_bakery") return 0;
+        if (buildingId === "heavy_concrete" || buildingId === "light_textile" || buildingId === "logistics") return 1;
+        if (buildingId === "heavy_plant" || buildingId === "light_pack" || buildingId === "factory") return 2;
+        if (buildingId === "ind_plant") return 3;
+        return 0;
+    }
+    const zInfo = ZONE_INFO[zone];
+    if (!zInfo || !buildingId) return 0;
+    return Math.max(0, zInfo.buildings.findIndex(b => b.id === buildingId));
+}
+
 function getBuildingDef(zone, buildingId) {
     if (!buildingId) return null;
     const zInfo = ZONE_INFO[zone];
     if (!zInfo) return null;
-    return zInfo.buildings.find(b => b.id === buildingId) || null;
+    const found = zInfo.buildings.find(b => b.id === buildingId);
+    if (found) return found;
+    if (zone === "industrial" && LEGACY_IND_BUILDINGS[buildingId]) return LEGACY_IND_BUILDINGS[buildingId];
+    return null;
 }
 
 function getPlotPassiveBonusPct(plot, ownedData) {
@@ -1687,7 +1716,7 @@ function renderHelpModalContent() {
             </div>
             <div class="help-card ind">
                 <div class="help-card-title">🏭 Промислова зона — «Важка + Легка пром»</div>
-                <div>• На заводи не ходять перехожі з вулиці — це <b>виробничі лінії</b>.<br>• Робітники переробляють <b>1 од. первинної сировини</b> на <b>2–4 од. готової продукції</b> (курси Промзони збільшують саме вихід продукції!).<br>• Готову продукцію купують інші гравці або ви здаєте її на <b>Держзамовлення</b>.</div>
+                <div>• На ділянці Промзони є <b>розвилка на 2 гілки</b>: <b>🟩 Тяжка пром</b> (постачає будматеріали в 🏡 Житлову зону) або <b>🟦 Легка пром</b> (постачає їжу й товари в 🏪 Комерційну зону).<br>• Робітники переробляють <b>1 од. сировини</b> на <b>2–4 од. готової продукції</b> (курси Промзони збільшують вихід!).</div>
             </div>
         `;
     } else if (activeHelpTab === "supply") {
@@ -4169,7 +4198,7 @@ function renderOwnerBusinessesHub() {
                     </div>
                 `;
             } else {
-                const suppliers = getAvailableIndustrialSuppliers();
+                const suppliers = getAvailableIndustrialSuppliers(plot.zone);
                 const suppliersHtml = suppliers.length
                     ? suppliers.map(s => {
                         const avail = s.finishedStock;
@@ -4194,7 +4223,7 @@ function renderOwnerBusinessesHub() {
                             </div>
                         `;
                     }).join("")
-                    : `<div class="muted" style="padding:6px;background:#fff;border:1px dashed #808080">Поки жоден гравець не відкрив завод у Промисловій зоні. Скористайтеся резервним міським оптом нижче!</div>`;
+                    : `<div class="muted" style="padding:6px;background:#fff;border:1px dashed #808080">Поки жоден гравець не відкрив ${plot.zone === "residential" ? "🟩 Тяжку промисловість (для Жилої зони)" : "🟦 Легку промисловість (для Комерції)"}. Скористайтеся резервним міським оптом нижче!</div>`;
 
                 compartmentHtml = `
                     <div class="supply-box" style="margin:0">
@@ -4209,7 +4238,7 @@ function renderOwnerBusinessesHub() {
 
                     <div class="b2b-market-box">
                         <div style="font-weight:bold;color:#003366;font-size:12px">
-                            🏭 Пряма закупівля у заводів Промислової зони гравців (Найвигідніше: знижка -28%, по ${sup.b2bUnitCost} 💰/од.!):
+                            ${plot.zone === "residential" ? "🟩 Пряма закупівля у Тяжкої промзони гравців (для 🏡 Житлових зон)" : "🟦 Пряма закупівля у Легкої промзони гравців (для 🏪 Комерційних зон)"} — знижка -28% (${sup.b2bUnitCost} 💰/од.):
                         </div>
                         <div style="color:#333">
                             Купуйте ${plot.zone === "commercial" ? "їжу, випічку й товари легкої промисловості" : "будматеріали та комплектуючі"} напряму в гравців Промзони — ви економите <b>28%</b>, а власник заводу отримує живий виторг у свою Касу:
@@ -4478,29 +4507,27 @@ function renderPoliticsPage() {
     ledgerEl.innerHTML = `
         <div style="background:#fffff0;border:1px solid #808080;padding:8px;margin-bottom:8px;font-size:12px;line-height:1.5">
             <div><b>Ваші володіння:</b> ділянок <b>${pf.plotsCount}</b> (забудовано: <b>${pf.builtCount}</b>, пустих: <b>${pf.plotsCount - pf.builtCount}</b>)</div>
-            <div>• Сумарний валовий дохід будівель: <b style="color:#006400">+${formatNumberFull(pf.grossTotal)} 💰/год</b></div>
+            <div>• Пасивний дохід будівель: <b>0 💰/год</b> <i>(весь прибуток приносять лише працівники та бот ЦЗ)</i></div>
             <div>• Податок на землю по всіх ділянках: <b style="color:#800000">-${formatNumberFull(pf.landTaxTotal)} 💰/год</b></div>
-            <div>• Податок з обороту по зонах: <b style="color:#800000">-${formatNumberFull(pf.turnoverTaxTotal)} 💰/год</b></div>
             <div style="border-top:1px solid #a0a0a0;margin-top:4px;padding-top:4px;font-size:13px">
-                📈 <b>Чистий погодинний підсумок (у Касу після всіх податків): <span style="color:${totalNetColor}">${pf.netTotal >= 0 ? "+" : ""}${formatNumberFull(pf.netTotal)} 💰/год</span></b>
+                🏛️ <b>Обов'язковий земельний податок щогодини: <span style="color:#800000">-${formatNumberFull(pf.landTaxTotal)} 💰/год</span></b>
             </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto">
             ${myPlots.map(({ plot, owned, bld, calc }) => {
                 const zInfo = ZONE_INFO[plot.zone];
-                const netPositive = calc.netIncome >= 0;
+                const wCnt = owned.workers ? Object.keys(owned.workers).length : 0;
                 return `
                     <div style="background:#ffffff;border:1px solid #808080;padding:6px 8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
                         <div>
                             <b>#${plot.id + 1} ${escapeHtml(plot.name)}</b> (${escapeHtml(zInfo.shortName)}) —
-                            ${bld ? `<b>${bld.icon} ${escapeHtml(bld.name)}</b>` : `<b style="color:#900000">⚠️ Порожня земля (без будівлі!)</b>`}<br>
-                            Валовий дохід: <b>+${formatNumberFull(calc.grossIncome)}/год</b> |
-                            Податок на землю (${calc.landTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.landTax)}/год</b> |
-                            Податок зони (${calc.turnoverTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.turnoverTax)}/год</b>
+                            ${bld ? `<b>${bld.icon} ${escapeHtml(bld.name)}</b> (👷 ${wCnt} роб.)` : `<b style="color:#900000">⚠️ Порожня земля (без будівлі!)</b>`}<br>
+                            Податок на землю (${calc.landTaxPct}%): <b style="color:#800000">-${formatNumberFull(calc.landTax)} 💰/год</b> |
+                            Податок зони з замовлень: <b>${calc.turnoverTaxPct}%</b>
                         </div>
                         <div style="display:flex;align-items:center;gap:6px">
-                            <span class="receipt-pill ${netPositive ? "net-pos" : "net-neg"}">
-                                ${netPositive ? "+" + formatNumberFull(calc.netIncome) + " 💰/год" : formatNumberFull(calc.netIncome) + " 💰/год (ЗБИТОК)"}
+                            <span class="receipt-pill tax">
+                                Земля: -${formatNumberFull(calc.landTax)} 💰/год
                             </span>
                             ${!bld ? `<button class="btn danger" onclick="sellPlotToCity(${plot.id})" style="min-height:24px;min-width:auto;padding:2px 6px;font-size:10px">🏷️ Продати</button>` : ""}
                         </div>
@@ -4971,10 +4998,11 @@ function renderMap() {
             if (bld) {
                 const workersCount = owned.workers ? Object.keys(owned.workers).length : 0;
                 const workerTag = workersCount > 0 ? ` 👷${workersCount}` : "";
+                const branchTag = bld.indBranch === "heavy" ? "🟩" : (bld.indBranch === "light" ? "🟦" : "");
                 const centerMarker = L.marker([p.lat - p.dLat * 0.12, p.lng], {
                     icon: L.divIcon({
                         className: "",
-                        html: `<div class="plot-center-bld-badge">${bld.icon}${workerTag}</div>`,
+                        html: `<div class="plot-center-bld-badge">${branchTag}${bld.icon}${workerTag}</div>`,
                         iconSize: [0, 0]
                     })
                 }).addTo(leafletPlotLayer);
@@ -5135,22 +5163,47 @@ function showMapInfo(plotId) {
         buildSec.style.display = "flex";
         let bHtml = "";
         const hasAnyBuilding = Boolean(owned.building);
-        zInfo.buildings.forEach((b) => {
+        const renderBuildCard = (b) => {
             const isCurrent = owned.building === b.id;
             const lockedByChoice = hasAnyBuilding && !isCurrent;
             const canBuild = !hasAnyBuilding && !overdueBlocked && gameState.coins >= b.cost;
             const bFin = calcOrderFinancials(p.zone, b, [], b.defaultWage);
             const btnLabel = isCurrent
                 ? "✓ Збудовано"
-                : (lockedByChoice ? "🔒 Обрано іншу будівлю" : (overdueBlocked ? "🚫 Борг у банку" : `Збудувати (${formatNumber(b.cost)})`));
-            bHtml += `<div class="build-card${isCurrent ? " current-bld" : ""}">
+                : (lockedByChoice ? "🔒 Обрано інше" : (overdueBlocked ? "🚫 Борг у банку" : `Збудувати (${formatNumber(b.cost)})`));
+            return `<div class="build-card${isCurrent ? " current-bld" : ""}">
                 <div class="build-card-info">
                     <span class="build-card-name">${b.icon} ${b.name}</span>
-                    <span class="build-card-sub">Ціна: ${formatNumberFull(b.cost)} 💰 • Без пасиву (лише працівники!) • Чек замовлення: ${b.clickProfit} 💰 (ЗП ${b.defaultWage} 💰, маржа +${bFin.ownerNetMargin} 💰)</span>
+                    <span class="build-card-sub">Ціна: ${formatNumberFull(b.cost)} 💰 • ${b.productOutput ? `Вихід: ${b.productOutput} • ` : ""}Партія/Чек: ${b.clickProfit} 💰 (ЗП ${b.defaultWage} 💰, маржа +${bFin.ownerNetMargin} 💰)</span>
                 </div>
                 <button class="btn default" ${canBuild ? "" : "disabled"} onclick="buildOnSelectedPlot('${b.id}')">${btnLabel}</button>
             </div>`;
-        });
+        };
+
+        if (p.zone === "industrial") {
+            const heavyList = zInfo.buildings.filter(b => b.indBranch === "heavy");
+            const lightList = zInfo.buildings.filter(b => b.indBranch === "light");
+            bHtml += `
+                <div class="ind-branch-box heavy">
+                    <div class="ind-branch-title">
+                        <span>🟩 ЗЕЛЕНА ГІЛКА: Тяжка промисловість</span>
+                        <span class="branch-pill heavy">Постачає в 🏡 Житлові зони</span>
+                    </div>
+                    <div style="font-size:11px;color:#0b5e28">Виробляє будматеріали, метал та запчастини для житлових кварталів і ремонтів:</div>
+                    ${heavyList.map(renderBuildCard).join("")}
+                </div>
+                <div class="ind-branch-box light">
+                    <div class="ind-branch-title">
+                        <span>🟦 СИНЯ ГІЛКА: Легка промисловість</span>
+                        <span class="branch-pill light">Постачає в 🏪 Комерційні зони</span>
+                    </div>
+                    <div style="font-size:11px;color:#003080">Виробляє борошно, випічку, сири, продукти й фасовані товари для пекарень, піцерій, маркетів і ТРЦ:</div>
+                    ${lightList.map(renderBuildCard).join("")}
+                </div>
+            `;
+        } else {
+            zInfo.buildings.forEach((b) => { bHtml += renderBuildCard(b); });
+        }
         bHtml += `<div style="margin-top:4px;text-align:right"><button class="btn danger" onclick="sellPlotToCity(${plotId})" style="min-height:26px;padding:2px 8px;font-size:11px">🏷️ Продати ділянку місту (повернути 75%)</button></div>`;
         buildGrid.innerHTML = bHtml;
     } else {
