@@ -2837,3 +2837,57 @@ body {
     flex-direction: column;
     gap: 2px;
 }
+
+
+/* ===== РОЗВИЛКА ПРОМИСЛОВОЇ ЗОНИ: ТЯЖКА (ЗЕЛЕНА -> ЖИЛА) ТА ЛЕГКА (СИНЯ -> КОМЕРЦІЯ) (v4.9.0) ===== */
+.ind-branch-box {
+    border: 2px solid #808080;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 6px;
+}
+
+.ind-branch-box.heavy {
+    background: #eafaf0;
+    border-color: #1e8449;
+}
+
+.ind-branch-box.light {
+    background: #eaf3ff;
+    border-color: #1f618d;
+}
+
+.ind-branch-title {
+    font-weight: bold;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.ind-branch-box.heavy .ind-branch-title { color: #0b5e28; }
+.ind-branch-box.light .ind-branch-title { color: #003080; }
+
+.branch-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid;
+}
+
+.branch-pill.heavy {
+    background: #d4efdf;
+    border-color: #1e8449;
+    color: #0b5e28;
+}
+
+.branch-pill.light {
+    background: #d6eaf8;
+    border-color: #2980ff;
+    color: #003080;
+}
