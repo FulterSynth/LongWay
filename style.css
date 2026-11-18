@@ -3019,3 +3019,68 @@ body {
     flex-wrap: wrap;
     gap: 4px;
 }
+
+
+/* ===== ЖИВЕ ТАБЛО ЗМІНИ: ХТО СКІЛЬКИ РОБИТЬ ПРЯМО ЗАРАЗ (v5.2.0) ===== */
+.shift-live-board {
+    width: 100%;
+    max-width: 560px;
+    background: #dfdfdf;
+    border: 2px inset #808080;
+    padding: 7px 9px;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 11px;
+}
+
+.shift-live-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-weight: bold;
+    color: #000080;
+    border-bottom: 1px solid #808080;
+    padding-bottom: 4px;
+}
+
+.shift-worker-live-row {
+    background: #ffffff;
+    border: 1px solid #808080;
+    padding: 5px 7px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.shift-worker-live-row.active-now {
+    background: #eefaf1;
+    border-color: #1e8449;
+}
+
+.live-status-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #808080;
+    background: #eeeeee;
+    color: #444444;
+}
+
+.live-status-pill.working {
+    background: #d4efdf;
+    border-color: #1e8449;
+    color: #0b5e28;
+}
+
+.live-status-pill.bot {
+    background: #ede7f6;
+    border-color: #4b0082;
+    color: #4b0082;
+}
