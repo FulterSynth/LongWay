@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.6.0";
+const APP_VERSION = "4.7.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -55,6 +55,27 @@ const OWNER_ASSIGNED_TITLES = [
     "Керуючий філією",
     "Права рука власника"
 ];
+
+// ===== ДЕРЖАВНА БІРЖА ПРАЦІ: КВОТНІ ПРАЦІВНИКИ-БОТИ (v4.7.0) =====
+const BOT_ORDER_INTERVAL_MS = 75000; // Бот працює в ~6 разів повільніше за живого гравця (1 замовлення раз на 75 сек)
+const MAX_BOT_QUOTA_PER_PLOT = 1;    // Державна квота: максимум 1 бот на підприємство
+
+const STATE_BOT_CANDIDATES = [
+    { id: "bot_vasyl",  name: "Василь_Бот_ЦЗ",  title: "Квотний різноробочий",  desc: "Повільний (75с/замовл.), без дипломів, але виходить на зміну стабільно." },
+    { id: "bot_halyna", name: "Галина_Бот_ЦЗ",  title: "Квотна касирка ЦЗ",     desc: "Працює строго по квоті без допродажу й прискорень. Мінімальна держставка." },
+    { id: "bot_petro",  name: "Петро_Бот_ЦЗ",   title: "Квотний оператор лінії",desc: "Направлений Ковельським центром зайнятості. Живий гравець у 6 разів швидший!" }
+];
+
+function getBotMinWage(buildingDef) {
+    const base = buildingDef ? buildingDef.defaultWage : 15;
+    // Мінімальна зарплата держбота на 25% вища за базову ставку об'єкта — нижче поставити не можна!
+    return Math.max(15, Math.round(base * 1.25));
+}
+
+function countPlotBots(ownedData) {
+    if (!ownedData || !ownedData.workers) return 0;
+    return Object.values(ownedData.workers).filter(w => w && w.isBot).length;
+}
 
 
 
@@ -659,37 +680,22 @@ function getPlotPassiveBonusPct(plot, ownedData) {
 }
 
 function calcPlotHourlyTaxAndNet(plot, ownedData) {
-    if (!plot) return { grossIncome: 0, landTax: 0, turnoverTax: 0, totalTax: 0, netIncome: 0, landTaxPct: 0, turnoverTaxPct: 0 };
+    if (!plot) return { grossIncome: 0, supplyExpense: 0, landTax: 0, turnoverTax: 0, totalTax: 0, netIncome: 0, landTaxPct: 0, turnoverTaxPct: 0, bonusPct: 0 };
     const { turnoverTaxPct, landTaxPct } = getZoneTaxRates(plot.zone);
     const landValue = ownedData && Number(ownedData.price) > 0 ? Number(ownedData.price) : calcPlotPrice(plot, sharedPlots);
     const landTax = Math.max(10, Math.round(landValue * (landTaxPct / 100)));
 
-    if (!ownedData || !ownedData.owner || ownedData.wiped) {
-        return { grossIncome: 0, landTax, turnoverTax: 0, totalTax: landTax, netIncome: -landTax, landTaxPct, turnoverTaxPct };
-    }
-
-    const bld = getBuildingDef(plot.zone, ownedData.building);
-    if (!bld) {
-        return { grossIncome: 0, landTax, turnoverTax: 0, totalTax: landTax, netIncome: -landTax, landTaxPct, turnoverTaxPct };
-    }
-
-    const bonusPct = getPlotPassiveBonusPct(plot, ownedData);
-    const grossIncome = Math.floor(bld.income * (1 + bonusPct / 100));
-    const supplyExpense = Math.max(5, Math.round(grossIncome * 0.15)); // 15% обороту йде на погодинну закупівлю розхідників/товару
-    const turnoverTax = Math.max(1, Math.round(grossIncome * (turnoverTaxPct / 100)));
-    const totalTax = landTax + turnoverTax;
-    const netIncome = grossIncome - totalTax - supplyExpense;
-
+    // v4.7.0: Пасивного доходу будівель БІЛЬШЕ НЕМАЄ (0 💰/год)! Весь дохід іде виключно від роботи працівників або ботів.
     return {
-        grossIncome,
-        supplyExpense,
+        grossIncome: 0,
+        supplyExpense: 0,
         landTax,
-        turnoverTax,
-        totalTax,
-        netIncome,
+        turnoverTax: 0,
+        totalTax: landTax,
+        netIncome: -landTax,
         landTaxPct,
         turnoverTaxPct,
-        bonusPct
+        bonusPct: 0
     };
 }
 
@@ -1358,31 +1364,30 @@ async function checkPassiveRentIncome() {
     const hours = Math.min(48, Math.floor(elapsed / HOUR_MS));
     gameState.lastRentAt += hours * HOUR_MS;
 
-    let totalAddedToCashboxes = 0;
-    let totalEmptyLandTaxDeducted = 0;
+    let totalLandTaxDeducted = 0;
 
     for (const p of MAP_PLOTS_BASE) {
         const owned = getOwnedPlotData(p.id);
         if (!owned || owned.owner !== currentUser) continue;
 
         const calc = calcPlotHourlyTaxAndNet(p, owned);
-        const deltaForHours = calc.netIncome * hours;
+        const landTaxBill = calc.landTax * hours;
+        totalLandTaxDeducted += landTaxBill;
 
-        if (owned.building) {
-            if (deltaForHours >= 0) {
-                totalAddedToCashboxes += deltaForHours;
+        if (owned.building && (Number(owned.treasury) || 0) > 0) {
+            const curT = Math.max(0, Math.floor(Number(owned.treasury) || 0));
+            const fromTreasury = Math.min(curT, landTaxBill);
+            const fromWallet = landTaxBill - fromTreasury;
+            if (fromTreasury > 0) {
                 try {
-                    await runTransaction(ref(db, `plots/${p.id}/treasury`), cur => Math.max(0, (Number(cur) || 0) + deltaForHours));
+                    await runTransaction(ref(db, `plots/${p.id}/treasury`), cur => Math.max(0, (Number(cur) || 0) - fromTreasury));
                 } catch (e) {}
-            } else {
-                const loss = Math.abs(deltaForHours);
-                totalEmptyLandTaxDeducted += loss;
-                gameState.coins = Math.max(0, gameState.coins - loss);
+            }
+            if (fromWallet > 0) {
+                gameState.coins = Math.max(0, gameState.coins - fromWallet);
                 markLocalCoinsChanged();
             }
         } else {
-            const landTaxBill = calc.landTax * hours;
-            totalEmptyLandTaxDeducted += landTaxBill;
             gameState.coins = Math.max(0, gameState.coins - landTaxBill);
             markLocalCoinsChanged();
         }
@@ -1394,12 +1399,8 @@ async function checkPassiveRentIncome() {
     if (currentPage === "politics") renderPoliticsPage();
     saveGame();
 
-    if (totalAddedToCashboxes > 0 && totalEmptyLandTaxDeducted > 0) {
-        setGameStatus(`🏛️ Погодинний звіт (${hours} год): у Каси бізнесів +${formatNumberFull(totalAddedToCashboxes)} 💰 (після податків), податок за пусту землю: -${formatNumberFull(totalEmptyLandTaxDeducted)} 💰`);
-    } else if (totalAddedToCashboxes > 0) {
-        setGameStatus(`🏦 Погодинний дохід бізнесів за ${hours} год (після сплати податків): +${formatNumberFull(totalAddedToCashboxes)} 💰 зараховано у ваші Каси!`);
-    } else if (totalEmptyLandTaxDeducted > 0) {
-        setGameStatus(`🏛️ Сплачено податок на незабудовану землю за ${hours} год: -${formatNumberFull(totalEmptyLandTaxDeducted)} 💰!`);
+    if (totalLandTaxDeducted > 0) {
+        setGameStatus(`🏛️ Сплачено погодинний податок на землю за ${hours} год: -${formatNumberFull(totalLandTaxDeducted)} 💰 (пасивного доходу будівель немає).`);
     }
 }
 
@@ -2784,9 +2785,25 @@ window.raiseWorkerWage = async function (plotId, workerName, mult = 1.25) {
 window.setWorkerCustomWage = async function (plotId, workerName, inputId, roleSelectId) {
     const owned = getOwnedPlotData(plotId);
     if (!owned || owned.owner !== currentUser) return;
+    const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
+    const bld = p ? getBuildingDef(p.zone, owned.building) : null;
+    const wData = owned.workers && owned.workers[workerName] ? owned.workers[workerName] : null;
+    const isBot = Boolean(wData && wData.isBot);
+    const minAllowed = isBot ? getBotMinWage(bld) : 5;
+
     const inp = $(inputId);
     const roleSel = $(roleSelectId);
-    const val = Math.max(5, Math.min(50000, Math.floor(Number(inp?.value) || 0)));
+    let val = Math.floor(Number(inp?.value) || 0);
+    if (isBot && val < minAllowed) {
+        if (inp) inp.value = minAllowed;
+        return showDialog(
+            "Мінімальна державна ставка!",
+            `Для працівника-бота з Державної біржі праці встановлено обов'язковий мінімум ЗП: ${formatNumberFull(minAllowed)} 💰/замовлення.
+Нижче цієї суми зарплату боту поставити не можна!`,
+            "🏛️"
+        );
+    }
+    val = Math.max(minAllowed, Math.min(50000, val));
     const newRole = roleSel ? roleSel.value : getWorkerRecordOnPlot(plotId, workerName).role;
 
     try {
@@ -2801,6 +2818,149 @@ window.setWorkerCustomWage = async function (plotId, workerName, inputId, roleSe
         showDialog("Помилка", e.message, "⚠️");
     }
 };
+
+window.hireStateBotWorker = async function (plotId, botId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    const owned = getOwnedPlotData(Number(plotId));
+    if (!p || !owned || owned.owner !== currentUser || !owned.building) return;
+
+    if (countPlotBots(owned) >= MAX_BOT_QUOTA_PER_PLOT) {
+        return showDialog(
+            "Квоту вичерпано!",
+            `На одному підприємстві за державною квотою може працювати максимум ${MAX_BOT_QUOTA_PER_PLOT} бот ЦЗ.
+Для розширення штату запросіть живих гравців — вони працюють у 6 разів швидше!`,
+            "🏛️"
+        );
+    }
+
+    const bot = STATE_BOT_CANDIDATES.find(b => b.id === botId) || STATE_BOT_CANDIDATES[0];
+    const bld = getBuildingDef(p.zone, owned.building);
+    const minWage = getBotMinWage(bld);
+
+    try {
+        await update(ref(db, `plots/${p.id}/workers/${bot.name}`), {
+            isBot: true,
+            botId: bot.id,
+            role: bot.title,
+            personalWage: minWage,
+            minWage: minWage,
+            completedCourses: [],
+            orders: 0,
+            clicks: 0,
+            totalEarned: 0,
+            profitBrought: 0,
+            netMarginBrought: 0,
+            taxPaidTotal: 0,
+            joinedAt: Date.now(),
+            lastWorkAt: Date.now()
+        });
+        sfx.win();
+        renderAll();
+        setGameStatus(`🏛️ Державна біржа праці: на «${p.name}» направлено бота «${bot.name}» (мін. ЗП: ${minWage} 💰, 1 замовл. / 75с).`);
+        showDialog(
+            "Працівника-бота найнято за квотою!",
+            `🤖 ${bot.name} (${bot.title})
+Підприємство: ${bld ? bld.name : p.name}
+
+• Мінімальна держставка: ${formatNumberFull(minWage)} 💰 (нижче ставити не можна)
+• Швидкість роботи: 1 замовлення кожні 75 секунд (без курсів)
+
+💡 Порада: коли знайдете живого гравця — звільніть бота або залиште його як підстраховку!`,
+            "🏛️"
+        );
+    } catch (e) {
+        showDialog("Помилка", e.message, "⚠️");
+    }
+};
+
+let botTickInFlight = false;
+let lastBotCheckAt = 0;
+
+async function processOwnerBotWorkers() {
+    if (!currentUser || !sharedPlots || botTickInFlight) return;
+    const now = Date.now();
+    if (now - lastBotCheckAt < 5000) return;
+    lastBotCheckAt = now;
+    botTickInFlight = true;
+
+    try {
+        for (const p of MAP_PLOTS_BASE) {
+            const owned = getOwnedPlotData(p.id);
+            if (!owned || owned.owner !== currentUser || !owned.building || !owned.workers) continue;
+            const bld = getBuildingDef(p.zone, owned.building);
+            if (!bld) continue;
+
+            const bots = Object.entries(owned.workers).filter(([, w]) => w && w.isBot);
+            if (!bots.length) continue;
+
+            for (const [botName, botData] of bots) {
+                const lastWork = Number(botData.lastWorkAt) || Number(botData.joinedAt) || 0;
+                if (now - lastWork < BOT_ORDER_INTERVAL_MS) continue;
+
+                const cPre = getPlotClientsState(p, owned);
+                const supPre = getPlotSupplyState(p, owned);
+                if (cPre.current <= 0) continue;
+                if (supPre.stock <= 0 && !supPre.autoRestock) continue;
+
+                await runTransaction(ref(db, `plots/${p.id}`), (cur) => {
+                    if (!cur || !cur.workers || !cur.workers[botName]) return cur;
+                    const curBot = cur.workers[botName];
+                    const txNow = Date.now();
+                    if (txNow - (Number(curBot.lastWorkAt) || 0) < BOT_ORDER_INTERVAL_MS - 1000) return;
+
+                    const cLive = getPlotClientsState(p, cur);
+                    if (cLive.current <= 0) return;
+                    const supLive = getPlotSupplyState(p, cur);
+                    if (supLive.stock <= 0 && !supLive.autoRestock) return;
+
+                    const usedFromStock = supLive.stock > 0;
+                    cur.supplyStock = usedFromStock ? supLive.stock - 1 : 0;
+                    cur.clientsRemaining = Math.max(0, cLive.current - 1);
+                    cur.clientsLastRefillAt = txNow;
+
+                    const minBotWage = getBotMinWage(bld);
+                    const activeWage = Math.max(minBotWage, Number(curBot.personalWage) || minBotWage);
+                    const txFin = calcOrderFinancials(p.zone, bld, [], activeWage, usedFromStock);
+
+                    let govOverflowBonus = 0;
+                    if (p.zone === "industrial") {
+                        const maxFin = getFinishedGoodsMaxCapacity(owned.building);
+                        const curFin = cur.finishedStock !== undefined ? Math.max(0, Math.floor(Number(cur.finishedStock) || 0)) : 24;
+                        const prodUnits = txFin.producedWholeUnits || 2;
+                        const canStore = Math.min(Math.max(0, maxFin - curFin), prodUnits);
+                        const overflowUnits = Math.max(0, prodUnits - canStore);
+                        cur.finishedStock = curFin + canStore;
+                        if (overflowUnits > 0) {
+                            govOverflowBonus = overflowUnits * supLive.govUnitPrice;
+                        }
+                    }
+
+                    const treasury = Math.max(0, Number(cur.treasury) || 0);
+                    const orderCash = usedFromStock ? Math.max(1, txFin.grossCheck - txFin.taxAmount) : txFin.afterTaxRevenue;
+                    const netDelta = orderCash + govOverflowBonus - activeWage;
+                    cur.treasury = Math.max(0, treasury + netDelta);
+
+                    cur.workers[botName] = {
+                        ...curBot,
+                        personalWage: activeWage,
+                        minWage: minBotWage,
+                        orders: (Number(curBot.orders) || 0) + 1,
+                        clicks: (Number(curBot.clicks) || 0) + ORDER_STEPS_REQUIRED,
+                        totalEarned: (Number(curBot.totalEarned) || 0) + activeWage,
+                        profitBrought: (Number(curBot.profitBrought) || 0) + txFin.grossCheck,
+                        netMarginBrought: (Number(curBot.netMarginBrought) || 0) + netDelta,
+                        taxPaidTotal: (Number(curBot.taxPaidTotal) || 0) + txFin.taxAmount,
+                        lastWorkAt: txNow
+                    };
+                    return cur;
+                });
+            }
+        }
+    } catch (e) {
+    } finally {
+        botTickInFlight = false;
+    }
+}
 
 window.fireWorkerFromPlot = async function (plotId, workerName) {
     const owned = getOwnedPlotData(plotId);
@@ -3064,8 +3224,11 @@ window.savePlotWage = async function (customPlotId = null, customInputId = null,
     try {
         const updates = { wage: val };
         if (applyToAll && owned.workers) {
-            Object.keys(owned.workers).forEach(wName => {
-                updates[`workers/${wName}/personalWage`] = val;
+            const pPlot = MAP_PLOTS_BASE.find(x => x.id === pid);
+            const bldDef = pPlot ? getBuildingDef(pPlot.zone, owned.building) : null;
+            const minBot = getBotMinWage(bldDef);
+            Object.entries(owned.workers).forEach(([wName, wObj]) => {
+                updates[`workers/${wName}/personalWage`] = (wObj && wObj.isBot) ? Math.max(minBot, val) : val;
             });
         }
         await update(ref(db, `plots/${pid}`), updates);
@@ -3366,6 +3529,7 @@ function startCreditTimer() {
         checkCreditPenalties();
         checkDepositInterest();
         checkPassiveRentIncome();
+        processOwnerBotWorkers();
         if (currentPage === "bank") renderBank();
         if ($("bohdan-overlay")?.classList.contains("active")) renderBohdanWeldingSchool();
     }, 1000);
@@ -3496,11 +3660,15 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
     workersArr.sort((a, b) => (Number(b[1]?.orders) || 0) - (Number(a[1]?.orders) || 0));
 
     return workersArr.map(([wName, wData]) => {
-        const pWage = Number(wData?.personalWage) > 0 ? Number(wData.personalWage) : baseWage;
+        const isBot = Boolean(wData && wData.isBot);
+        const minBotWage = getBotMinWage(bld);
+        const pWage = isBot
+            ? Math.max(minBotWage, Number(wData?.personalWage) || minBotWage)
+            : (Number(wData?.personalWage) > 0 ? Number(wData.personalWage) : baseWage);
         const role = wData?.role || "Робітник зміни";
         const orders = Number(wData?.orders) || 0;
         const totalEarned = Number(wData?.totalEarned) || 0;
-        const wCourses = Array.isArray(wData?.completedCourses) ? wData.completedCourses : [];
+        const wCourses = isBot ? [] : (Array.isArray(wData?.completedCourses) ? wData.completedCourses : []);
         const supRoster = p ? getPlotSupplyState(p, owned) : { stock: 0 };
         const hasStock = supRoster.stock > 0;
         const fin = calcOrderFinancials(plotZone, bld, wCourses, pWage, hasStock);
@@ -3523,8 +3691,9 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
             <div class="worker-row">
                 <div class="worker-row-top">
                     <div>
-                        <span class="w-name">👷 ${escapeHtml(wName)}</span>
+                        <span class="w-name">${isBot ? "🤖" : "👷"} ${escapeHtml(wName)}</span>
                         <span class="w-role">${escapeHtml(role)}</span>
+                        ${isBot ? `<span class="bot-badge">КВОТА ЦЗ • 75с/замовл. (мін. ${minBotWage} 💰)</span>` : ""}
                         <span style="font-size:10px;color:#555">(${lastAgo})</span>
                     </div>
                     <span class="w-wage-badge">ЗП робітнику: ${formatNumberFull(pWage)} 💰</span>
@@ -3550,12 +3719,12 @@ function buildWorkersRosterHtml(plotId, owned, bld, prefix = "map") {
 
                 ${isOwner ? `
                 <div class="worker-owner-actions">
-                    <button class="btn success" onclick="raiseWorkerWage(${plotId}, '${escapeHtml(wName)}', 1.25)" title="Підвищити ЗП на +25% та підняти посаду">⬆️ Підвищити ЗП (+25%)</button>
-                    <select id="role_${safeId}" class="input-field" style="max-width:130px;padding:2px 4px;font-size:11px;height:28px">${roleOptions}</select>
-                    <input type="number" id="wage_${safeId}" class="input-field" value="${pWage}" min="5" max="50000" title="Індивідуальна ЗП (беззбитково до ${fin.afterTaxRevenue} 💰)">
-                    <button class="btn default" onclick="setWorkerCustomWage(${plotId}, '${escapeHtml(wName)}', 'wage_${safeId}', 'role_${safeId}')">💾 Зберегти ЗП</button>
-                    <button class="btn" onclick="openConversationHistory('${escapeHtml(wName)}')" title="Історія переписки з працівником">💬 Чат</button>
-                    <button class="btn danger" onclick="fireWorkerFromPlot(${plotId}, '${escapeHtml(wName)}')" title="Звільнити працівника">✕ Звільнити</button>
+                    ${!isBot ? `<button class="btn success" onclick="raiseWorkerWage(${plotId}, '${escapeHtml(wName)}', 1.25)" title="Підвищити ЗП на +25% та підняти посаду">⬆️ Підвищити ЗП (+25%)</button>` : ""}
+                    ${!isBot ? `<select id="role_${safeId}" class="input-field" style="max-width:130px;padding:2px 4px;font-size:11px;height:28px">${roleOptions}</select>` : `<span style="font-size:11px;color:#4b0082;font-weight:bold">Мін. ставка бота: ${minBotWage} 💰</span>`}
+                    <input type="number" id="wage_${safeId}" class="input-field" value="${pWage}" min="${isBot ? minBotWage : 5}" max="50000" title="Індивідуальна ЗП">
+                    <button class="btn default" onclick="setWorkerCustomWage(${plotId}, '${escapeHtml(wName)}', 'wage_${safeId}', '${isBot ? "" : "role_" + safeId}')">💾 Зберегти ЗП</button>
+                    ${!isBot ? `<button class="btn" onclick="openConversationHistory('${escapeHtml(wName)}')" title="Історія переписки з працівником">💬 Чат</button>` : ""}
+                    <button class="btn danger" onclick="fireWorkerFromPlot(${plotId}, '${escapeHtml(wName)}')" title="Звільнити">✕ ${isBot ? "Звільнити бота" : "Звільнити"}</button>
                 </div>` : ""}
             </div>
         `;
@@ -3633,10 +3802,7 @@ function renderOwnerBusinessesHub() {
                         <span class="cashbox-master-title">🏦 ЗАГАЛЬНА КАСА ВАШИХ ПІДПРИЄМСТВ (ГОТОВА ДО ВИВЕДЕННЯ):</span>
                         <span class="cashbox-master-amount">💰 ${formatNumberFull(totalTreasury)} монет</span>
                         <span class="cashbox-master-sub">
-                            Погодинний обіг будівель: <b>+${formatNumberFull(portfolio.grossTotal)}/год</b> •
-                            Податок на землю: <b style="color:#ff9999">-${formatNumberFull(portfolio.landTaxTotal)}/год</b> •
-                            Податок зон: <b style="color:#ff9999">-${formatNumberFull(portfolio.turnoverTaxTotal)}/год</b> ➔
-                            <b>Підсумок: ${netSign}</b>
+                            Пасивний дохід будівель: <b>0 💰/год</b> (заробляють лише працівники!) • Земельний податок: <b style="color:#ff9999">-${formatNumberFull(portfolio.landTaxTotal)}/год</b>
                         </span>
                     </div>
                     <button class="btn success" onclick="withdrawAllPlotsTreasury()" ${totalTreasury <= 0 ? "disabled" : ""} style="min-height:38px;padding:6px 14px;font-size:13px;font-weight:bold">
@@ -3716,7 +3882,7 @@ function renderOwnerBusinessesHub() {
                         </span>
                     </div>
                     <div style="margin-top:5px;font-size:11px;color:#333">
-                        ⏱️ <b>За годину:</b> Обіг <b>+${formatNumberFull(calc.grossIncome)}</b> − Сировина <b>-${formatNumberFull(calc.supplyExpense)}</b> − Податки <b>-${formatNumberFull(calc.totalTax)}</b> = <b style="color:${calc.netIncome >= 0 ? "#006400" : "#900000"}">${calc.netIncome >= 0 ? "+" : ""}${formatNumberFull(calc.netIncome)} 💰/год чистими</b>
+                        🏛️ <b>Земельний податок:</b> <b style="color:#800000">-${formatNumberFull(calc.landTax)} 💰/год</b> • <i>Пасивного доходу немає — заробіток приносять лише працівники та бот ЦЗ!</i>
                     </div>
                 </div>
 
@@ -3730,13 +3896,39 @@ function renderOwnerBusinessesHub() {
                 <div id="hub_wage_hint_${plot.id}" style="font-size:11px;color:#004000"></div>
             `;
         } else if (curComp === "workers") {
+            const botsUsed = countPlotBots(owned);
+            const minBotWage = getBotMinWage(bld);
+            const botCardsHtml = botsUsed < MAX_BOT_QUOTA_PER_PLOT
+                ? STATE_BOT_CANDIDATES.map(b => `
+                    <div class="b2b-factory-row">
+                        <div>
+                            <div style="font-weight:bold;color:#4b0082">🤖 ${escapeHtml(b.name)} — ${escapeHtml(b.title)}</div>
+                            <div style="color:#444;font-size:10px">${escapeHtml(b.desc)}</div>
+                        </div>
+                        <button class="btn default" onclick="hireStateBotWorker(${plot.id}, '${b.id}')" style="min-height:26px;min-width:auto;padding:3px 9px;font-size:11px">
+                            🏛️ Найняти по квоті (ЗП ≥ ${minBotWage} 💰)
+                        </button>
+                    </div>
+                `).join("")
+                : `<div style="color:#006400;font-weight:bold">✓ Державна квота на це підприємство використана (${botsUsed}/${MAX_BOT_QUOTA_PER_PLOT} бот). Для більшого доходу запрошуйте живих гравців!</div>`;
+
             compartmentHtml = `
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-                    <span style="font-size:12px;font-weight:bold;color:#000080">👷 Штат працівників та їхня продуктивність:</span>
-                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">📍 Запросити людину за координатами</button>
+                    <span style="font-size:12px;font-weight:bold;color:#000080">👷 Штат працівників (основне джерело доходу!):</span>
+                    <button class="btn success" onclick="openJobInviteMail(${plot.id})" style="min-height:26px;min-width:auto;padding:2px 9px;font-size:11px">📍 Запросити гравця за координатами</button>
                 </div>
                 <div class="workers-roster" style="max-height:none">
                     ${buildWorkersRosterHtml(plot.id, owned, bld, "hub")}
+                </div>
+                <div class="state-exchange-box">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                        <b style="color:#4b0082;font-size:12px">🏛️ Державна біржа праці (Квота ЦЗ Ковеля: ${botsUsed}/${MAX_BOT_QUOTA_PER_PLOT})</b>
+                        <span style="font-size:10px;color:#555">Мін. ставка: <b>${minBotWage} 💰</b> • Швидкість: <b>1 замовл. / 75с</b></span>
+                    </div>
+                    <div style="color:#333">
+                        Якщо вільних гравців немає, можете взяти працівника-бота по державній квоті. <b>Але бот працює в 6 разів повільніше, не має курсів, а його ЗП не можна опустити нижче ${minBotWage} 💰</b> — живий гравець завжди вигідніший!
+                    </div>
+                    ${botCardsHtml}
                 </div>
             `;
         } else if (curComp === "supply") {
@@ -4649,10 +4841,10 @@ function showMapInfo(plotId) {
     }
     if (owned) {
         $("info-income").innerHTML = bld
-            ? `Валовий +${formatNumberFull(calc.grossIncome)}/год − Податки -${formatNumberFull(calc.totalTax)}/год = <b style="color:${calc.netIncome >= 0 ? "#006400" : "#900000"}">${calc.netIncome >= 0 ? "+" : ""}${formatNumberFull(calc.netIncome)} 💰/год у Касу</b>`
+            ? `Пасивний дохід: <b>0 💰/год</b> (лише від працівників) • Земельний податок: <b style="color:#900000">-${formatNumberFull(calc.landTax)} 💰/год</b>`
             : `<b style="color:#900000">-${formatNumberFull(calc.landTax)} 💰/год (земельний податок без будівлі!)</b>`;
     } else {
-        $("info-income").textContent = `Збудуйте бізнес: до +${formatNumberFull(zInfo.buildings[zInfo.buildings.length - 1].income)} 💰/год (мінус податки)`;
+        $("info-income").textContent = `Дохід лише від працівників! Базовий чек до ${formatNumberFull(zInfo.buildings[zInfo.buildings.length - 1].clickProfit)} 💰/замовл.`;
     }
 
     const buyWrap = $("info-buy-wrap");
@@ -4752,7 +4944,7 @@ function showMapInfo(plotId) {
             bHtml += `<div class="build-card${isCurrent ? " current-bld" : ""}">
                 <div class="build-card-info">
                     <span class="build-card-name">${b.icon} ${b.name}</span>
-                    <span class="build-card-sub">Ціна: ${formatNumberFull(b.cost)} 💰 • Валовий дохід: +${formatNumberFull(b.income)}/год • Чек замовлення: ${b.clickProfit} 💰 (ЗП ${b.defaultWage} 💰, маржа +${bFin.ownerNetMargin} 💰)</span>
+                    <span class="build-card-sub">Ціна: ${formatNumberFull(b.cost)} 💰 • Без пасиву (лише працівники!) • Чек замовлення: ${b.clickProfit} 💰 (ЗП ${b.defaultWage} 💰, маржа +${bFin.ownerNetMargin} 💰)</span>
                 </div>
                 <button class="btn default" ${canBuild ? "" : "disabled"} onclick="buildOnSelectedPlot('${b.id}')">${btnLabel}</button>
             </div>`;
