@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "4.7.0";
+const APP_VERSION = "4.8.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -214,19 +214,15 @@ const BUSINESS_UPGRADES = [
 ];
 
 const BUSINESS_ADS = [
-    { id: "flyers", name: "📢 Промоутери з листівками біля ЦУМу", cost: 1500,  durationMs: 3600000,  multPct: 35,  instantClients: 18, badge: "+35% потік (1 год)", desc: "Роздача флаєрів у центрі Ковеля. Миттєво приводить +18 клієнтів у чергу та прискорює потік на +35% протягом 1 години." },
-    { id: "radio",  name: "📻 Рекламний ролик на Радіо Ковель",   cost: 4200,  durationMs: 7200000,  multPct: 65,  instantClients: 40, badge: "+65% потік (2 год)", desc: "Щогодинні оголошення по місцевому радіо. Одразу додає +40 клієнтів і збільшує потік покупців на +65% на 2 години." },
-    { id: "social", name: "📱 Таргетована реклама в Instagram/FB", cost: 9500, durationMs: 10800000, multPct: 100, instantClients: 75, badge: "x2 потік (3 год)", desc: "Масштабна рекламна кампанія на все місто. Миттєво приводить +75 клієнтів та подвоює (+100%) потік на 3 години!" }
+    { id: "flyers", name: "📢 Промоутери з листівками біля ЦУМу", durationMs: 3600000,  hours: 1, multPct: 50,  instantClients: 20, costFactor: 0.55, badge: "+20 одразу та +50%/год (1 год)", desc: "Роздача флаєрів у центрі Ковеля. Миттєво додає +20 спільних клієнтів у чергу (вже окупає рекламу!) і прискорює спільний потік на +50% на 1 годину." },
+    { id: "radio",  name: "📻 Рекламний ролик на Радіо Ковель",   durationMs: 7200000,  hours: 2, multPct: 80,  instantClients: 45, costFactor: 0.52, badge: "+45 одразу та +80%/год (2 год)", desc: "Щогодинні ефіри на місцевому радіо. Миттєво приводить +45 спільних клієнтів у чергу та прискорює потік на +80% протягом 2 годин." },
+    { id: "social", name: "📱 Таргетована реклама в Instagram/FB", durationMs: 10800000, hours: 3, multPct: 120, instantClients: 90, costFactor: 0.48, badge: "+90 одразу та +120%/год (3 год)", desc: "Масштабний таргетинг на все місто. Миттєво додає +90 спільних клієнтів у чергу та збільшує погодинний потік у 2.2 раза (+120%) на 3 години!" }
 ];
 
 function getBaseClientsPerHour(zone, buildingId) {
     const zInfo = ZONE_INFO[zone];
     if (!zInfo || !buildingId) return 15;
     const idx = zInfo.buildings.findIndex(b => b.id === buildingId);
-    // Асиметричний баланс 3 зон:
-    // 🏡 Житлова: клієнтів небагато (10..48/год), зате високий чек!
-    // 🏪 Комерційна: величезний потік покупців (28..145/год), менший базовий чек одиниці, але є допродаж!
-    // 🏭 Промислова: немає вуличних клієнтів — це потужність виробничих ліній (24..120 партій/год)!
     if (zone === "residential") {
         const resRates = [10, 18, 30, 48];
         return resRates[Math.max(0, idx)] || 10;
@@ -254,7 +250,7 @@ function getCommercialStaffFlowBonus(ownedData) {
 
 function getPlotClientsState(plot, ownedData) {
     if (!plot || !ownedData || !ownedData.building) {
-        return { current: 0, max: 0, perHour: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, comStaffFlowBonus: 0 };
+        return { current: 0, max: 0, perHour: 0, rawCap: 0, adActive: false, adRemainingMs: 0, nextClientSec: 0, secPerClient: 0, workersCount: 0, clientsPerWorkerPerHour: 0, comStaffFlowBonus: 0 };
     }
     const basePerHour = getBaseClientsPerHour(plot.zone, ownedData.building);
     const upgMap = ownedData.upgrades || {};
@@ -266,7 +262,8 @@ function getPlotClientsState(plot, ownedData) {
 
     const now = Date.now();
     const adUntil = Number(ownedData.adUntil) || 0;
-    const adMultPct = adUntil > now ? (Number(ownedData.adMultPct) || 0) : 0;
+    const adActive = adUntil > now;
+    const adMultPct = adActive ? (Number(ownedData.adMultPct) || 0) : 0;
     const rawCap = basePerHour + upgradeBonus + comStaffFlowBonus;
     const perHour = Math.round(rawCap * (1 + adMultPct / 100));
     const maxClients = perHour;
@@ -276,22 +273,101 @@ function getPlotClientsState(plot, ownedData) {
     const elapsedMs = Math.max(0, now - lastRefill);
     const msPerClient = HOUR_MS / Math.max(1, perHour);
     const regenerated = Math.floor(elapsedMs / msPerClient);
-    const current = Math.min(maxClients, Math.max(0, storedClients + regenerated));
+
+    // ВАЖЛИВО: Якщо реклама додала миттєвих клієнтів понад базовий ліміт maxClients — вони НЕ згорають і зберігаються в спільній черзі, доки їх не обслужать робітники!
+    let current;
+    if (storedClients >= maxClients) {
+        current = Math.floor(storedClients);
+    } else {
+        current = Math.min(maxClients, Math.max(0, Math.floor(storedClients) + regenerated));
+    }
     const remToNextMs = current >= maxClients ? 0 : Math.max(1000, msPerClient - (elapsedMs % msPerClient));
+    const secPerClient = Math.max(1, Math.round(3600 / Math.max(1, perHour)));
+    const workersCount = ownedData.workers ? Object.keys(ownedData.workers).length : 0;
+    const clientsPerWorkerPerHour = workersCount > 0 ? Math.max(1, Math.round(perHour / workersCount)) : perHour;
 
     return {
         current,
         max: maxClients,
         perHour,
+        rawCap,
         basePerHour,
         upgradeBonus,
         comStaffFlowBonus,
-        adActive: adUntil > now,
+        adActive,
         adName: ownedData.adName || "",
         adMultPct,
         adRemainingMs: Math.max(0, adUntil - now),
-        nextClientSec: Math.ceil(remToNextMs / 1000)
+        nextClientSec: Math.ceil(remToNextMs / 1000),
+        secPerClient,
+        workersCount,
+        clientsPerWorkerPerHour
     };
+}
+
+function getPlotAdCampaigns(plot, ownedData) {
+    const bld = plot && ownedData ? getBuildingDef(plot.zone, ownedData.building) : null;
+    const cs = getPlotClientsState(plot, ownedData);
+    const sup = getPlotSupplyState(plot, ownedData);
+    const baseWage = Number(ownedData?.wage) > 0 ? Number(ownedData.wage) : (bld ? bld.defaultWage : 15);
+    const baselineFin = calcOrderFinancials(plot ? plot.zone : "residential", bld, [], bld ? bld.defaultWage : 15, true);
+    const currentFin = calcOrderFinancials(plot ? plot.zone : "residential", bld, [], baseWage, sup.stock > 0);
+    const baseMargin = Math.max(8, baselineFin.ownerNetMargin);
+    const activeMargin = Math.max(5, currentFin.ownerNetMargin);
+
+    return BUSINESS_ADS.map(ad => {
+        const flowExtraClients = Math.max(4, Math.round(cs.rawCap * (ad.multPct / 100) * ad.hours));
+        const totalExtraClients = ad.instantClients + flowExtraClients;
+        // Ціна реклами становить лише ~48-55% від прибутку з МИТТЄВИХ клієнтів, тому реклама гарантовано окупається в 2.5 - 3.8 раза!
+        const cost = Math.max(50, Math.round(ad.instantClients * baseMargin * ad.costFactor));
+        const instantGain = ad.instantClients * activeMargin;
+        const totalGain = totalExtraClients * activeMargin;
+        const netProfit = totalGain - cost;
+        const roiMult = (totalGain / Math.max(1, cost)).toFixed(1);
+        return {
+            ...ad,
+            cost,
+            flowExtraClients,
+            totalExtraClients,
+            activeMargin,
+            instantGain,
+            totalGain,
+            netProfit,
+            roiMult
+        };
+    });
+}
+
+function buildSharedClientsBannerHtml(plot, owned, cs) {
+    const isInd = plot.zone === "industrial";
+    const unitWord = isInd ? "виробничих циклів" : "клієнтів";
+    const overCap = cs.current > cs.max;
+    const fillPct = Math.min(100, Math.round((cs.current / Math.max(1, cs.max)) * 100));
+    const perWorkerText = cs.workersCount > 0
+        ? `👷 Штат: <b>${cs.workersCount} роб.</b> (припадає <b>~${cs.clientsPerWorkerPerHour} ${isInd ? "циклів" : "клієнтів"}/год на 1 робітника</b>)`
+        : `⚠️ <b>0 робітників у штаті</b> (найміть гравця або бота ЦЗ, щоб розбирати чергу!)`;
+    const nextTimerText = cs.current >= cs.max
+        ? (overCap ? `🔥 Понад ліміт від реклами (${cs.current} у черзі, не згорають!)` : `✓ Черга повна (${cs.current}/${cs.max})`)
+        : `⏳ +1 новий через <b>${cs.nextClientSec}с</b> (кожні ${cs.secPerClient}с)`;
+
+    return `
+        <div class="shared-pool-banner">
+            <div class="shared-pool-top">
+                <span class="shared-pool-title">👥 СПІЛЬНА ЧЕРГА НА ВСІХ РОБІТНИКІВ ПІДПРИЄМСТВА:</span>
+                <span class="shared-pool-count">${cs.current} / ${cs.max} ${unitWord} (${cs.perHour}/год)</span>
+            </div>
+            <div class="shared-pool-bar-wrap">
+                <div class="shared-pool-bar-fill${overCap ? " overcap" : ""}" style="width:${fillPct}%"></div>
+            </div>
+            <div class="shared-pool-meta">
+                <span>${perWorkerText}</span>
+                <span>${nextTimerText}</span>
+            </div>
+            <div style="font-size:10px;color:#444">
+                Усі працівники цього закладу обслуговують цей <b>єдиний спільний пул</b>: база <b>${cs.basePerHour}/год</b>${cs.upgradeBonus > 0 ? ` + покращення <b>+${cs.upgradeBonus}/год</b>` : ""}${cs.comStaffFlowBonus > 0 ? ` + курси штату <b>+${cs.comStaffFlowBonus}/год</b>` : ""}${cs.adActive ? ` + <b style="color:#b85d00">реклама +${cs.adMultPct}%</b>` : ""}.
+            </div>
+        </div>
+    `;
 }
 
 const DEFAULT_CITY_TAX_POLICY = {
@@ -1566,6 +1642,101 @@ window.joinKovelCorp = async function () {
     saveGame();
     setGameStatus("Ви влаштувались у КовельКорп!");
 };
+
+
+// ===== ДОВІДКА WIN98 HELP (v4.7.1) =====
+let activeHelpTab = "zones";
+
+window.openHelpModal = function (tab = "zones") {
+    sfx.click();
+    activeHelpTab = tab;
+    renderHelpModalContent();
+    $("help-overlay").classList.add("active");
+};
+
+window.closeHelpModal = function () {
+    $("help-overlay").classList.remove("active");
+};
+
+window.switchHelpTab = function (tab) {
+    activeHelpTab = tab;
+    renderHelpModalContent();
+};
+
+function renderHelpModalContent() {
+    ["zones", "supply", "staff", "secrets"].forEach(t => {
+        const btn = $("htab-" + t);
+        if (btn) btn.classList.toggle("active", t === activeHelpTab);
+    });
+    const box = $("help-body-content");
+    if (!box) return;
+
+    if (activeHelpTab === "zones") {
+        box.innerHTML = `
+            <div class="help-card">
+                <div class="help-card-title">💡 Головне правило: жодних грошей із неба!</div>
+                <div>• Самі будівлі <b>не дають пасивного доходу (0 💰/год)</b>.<br>• Прибуток у <b>Касу</b> приносять лише <b>працівники</b> (живі гравці або квотний бот ЦЗ), виконуючи замовлення.<br>• Щогодини з усіх ваших ділянок стягується <b>податок на землю</b> (тому пуста земля без працівників тягне в мінус!).</div>
+            </div>
+            <div class="help-card res">
+                <div class="help-card-title">🏡 Житлова зона — «Рідко, але дорого»</div>
+                <div>• Клієнтів небагато (<b>10–48/год</b>), але кожне побутове замовлення має високий базовий чек.<br>• <b>Курси Житлової зони</b> підвищують саме <b>вартість чека</b> (+6%..+27%) за якість майстерності.<br>• Споживає <b>будматеріали</b> з Промислової зони.</div>
+            </div>
+            <div class="help-card com">
+                <div class="help-card-title">🏪 Комерційна зона — «Менший чек, але натовп»</div>
+                <div>• Величезний потік покупців (<b>28–145/год</b>), але нижчий базовий чек одиниці товару.<br>• <b>Курси Комерційної зони</b> дають <b>допродаж</b> (клієнт бере більше товарів в одні руки) і притягують додаткових покупців у чергу.<br>• Споживає <b>їжу та товари легкої промисловості</b> з Промзони.</div>
+            </div>
+            <div class="help-card ind">
+                <div class="help-card-title">🏭 Промислова зона — «Важка + Легка пром»</div>
+                <div>• На заводи не ходять перехожі з вулиці — це <b>виробничі лінії</b>.<br>• Робітники переробляють <b>1 од. первинної сировини</b> на <b>2–4 од. готової продукції</b> (курси Промзони збільшують саме вихід продукції!).<br>• Готову продукцію купують інші гравці або ви здаєте її на <b>Держзамовлення</b>.</div>
+            </div>
+        `;
+    } else if (activeHelpTab === "supply") {
+        box.innerHTML = `
+            <div class="help-card">
+                <div class="help-card-title">📦 Як працює Склад і чому суми в чеку відрізняються</div>
+                <div>• Кожне замовлення витрачає <b>1 од.</b> зі складу підприємства.<br>• <b>Якщо товар уже є на складі:</b> ви оплатили його заздалегідь оптом, тому на касі з чека списується <b>0 💰 за закупівлю</b> (лише податок зони та ЗП робітнику).<br>• <b>Якщо склад порожній (0 од.):</b> при увімкненій автозакупівлі товар купується «з коліс» за повною роздрібною ціною — і ця сума одразу віднімається від чека.</div>
+            </div>
+            <div class="help-card ind">
+                <div class="help-card-title">🤝 B2B-біржа між гравцями (-28% вигоди!)</div>
+                <div>• Власники Житлової та Комерційної зон у відсіку <b>«📦 Склад»</b> бачать усі заводи гравців Промзони.<br>• Купувати продукцію напряму в заводу гравця на <b>28% дешевше</b>, ніж у міському опті! Гроші одразу йдуть у Касу власника заводу.<br>• Якщо заводи гравців зараз порожні — завжди працює резервний міський опт (-12% / -20%).</div>
+            </div>
+            <div class="help-card">
+                <div class="help-card-title">🏛️ Держзамовлення для заводів</div>
+                <div>• Якщо в Промзоні накопичилась готова продукція, а інші гравці офлайн — її можна в 1 клік здати на <b>Міське Держзамовлення</b> і одразу отримати гроші в Касу заводу.</div>
+            </div>
+        `;
+    } else if (activeHelpTab === "staff") {
+        box.innerHTML = `
+            <div class="help-card">
+                <div class="help-card-title">👷 Живі гравці — найвигідніший штат</div>
+                <div>• Гравець робить 1 замовлення приблизно за <b>13.4 сек</b> (у 6 разів швидше за бота!).<br>• ЗП робітник отримує <b>строго таку, яку поставив власник</b> (курси не роздувають зарплату, а збільшують чек/вихід продукції для Каси!).<br>• Запросити гравця можна через Пошту або за резюме у вкладці «Вакансії».</div>
+            </div>
+            <div class="help-card">
+                <div class="help-card-title">🤖 Державна біржа праці (Бот по квоті ЦЗ)</div>
+                <div>• Якщо людей онлайн немає, у відсіку <b>«👷 Робітники»</b> можна найняти <b>1 бота по державній квоті</b>.<br>• <b>Обмеження бота:</b> працює повільно (<b>1 замовлення раз на 75 сек</b>), не має жодних курсів, а його ЗП не можна опустити нижче <b>мінімальної держставки (+25% до базової ЗП)</b>.</div>
+            </div>
+            <div class="help-card">
+                <div class="help-card-title">🚶 Черга клієнтів, Покращення та Реклама</div>
+                <div>• Замість штучного ліміту робітників діє <b>черга клієнтів/год</b>.<br>• <b>Покращення</b> (парковка, пандус, камери, кондиціонер) назавжди збільшують потік.<br>• <b>Реклама</b> миттєво приводить клієнтів і тимчасово прискорює їх появу.</div>
+            </div>
+        `;
+    } else {
+        box.innerHTML = `
+            <div class="help-card">
+                <div class="help-card-title">🎓 Курси та Пауза навчання</div>
+                <div>• Будь-який курс можна поставити на <b>⏸️ Паузу</b>, щоб піти попрацювати, і потім продовжити з тієї ж секунди.<br>• <b>IT-курси (КовельКорп)</b> проходяться строго по черзі.<br>• Навчання дає різні ефекти по зонах: Жила (+чек), Комерція (+допродаж і потік), Пром (+вихід продукції).</div>
+            </div>
+            <div class="help-card">
+                <div class="help-card-title">🗺️ Секретні локації на мапі (максимальний зум!)</div>
+                <div>• <b>👨‍🏭 Дім Богдана Поліщука (вул. Миколайчука, 100):</b> глобальний цикл 24/24 — 24 год продає перші 2 пром-курси на <b>10% дешевше</b>, потім 24 год відпочиває (п'є колу і грає в Clash Royale).<br>• <b>☕ Кафе «DOBRE» (вул. Косачів, 4а):</b> кава знімає перерву на роботі й прискорює курси, а піца Пепероні за 20 💰 — чисто прікольчік.</div>
+            </div>
+            <div class="help-card">
+                <div class="help-card-title">🏦 КовельБанк 98</div>
+                <div>• <b>Депозит:</b> дає <b>+0.3% щогодини</b>.<br>• <b>Кредит:</b> комісія +5% на 30 хв. При простроченні покупки блокуються, але працювати й гасити борг можна!</div>
+            </div>
+        `;
+    }
+}
 
 // ===== ПОШТА OUTLOOK EXPRESS 98 (ІЗ ВИДАЛЕННЯМ ПОВІДОМЛЕНЬ ДЛЯ ДВОХ СТОРІН!) =====
 
@@ -3187,28 +3358,49 @@ window.buyPlotAd = async function (plotId, adId) {
     }
     const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
     const owned = getOwnedPlotData(Number(plotId));
-    const ad = BUSINESS_ADS.find(a => a.id === adId);
-    if (!p || !owned || owned.owner !== currentUser || !owned.building || !ad) return;
-    if (gameState.coins < ad.cost) {
-        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(ad.cost)} 💰.`, "💸");
+    if (!p || !owned || owned.owner !== currentUser || !owned.building) return;
+    const campaigns = getPlotAdCampaigns(p, owned);
+    const ad = campaigns.find(a => a.id === adId);
+    if (!ad) return;
+
+    const treasury = Math.max(0, Number(owned.treasury) || 0);
+    if (treasury + gameState.coins < ad.cost) {
+        return showDialog("Недостатньо монет", `Для запуску реклами потрібно ${formatNumberFull(ad.cost)} 💰 (можна оплатити з Каси бізнесу або гаманця).`, "💸");
     }
 
+    const fromTreasury = Math.min(treasury, ad.cost);
+    const fromWallet = ad.cost - fromTreasury;
+
     try {
-        gameState.coins -= ad.cost;
-        markLocalCoinsChanged();
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
         const cState = getPlotClientsState(p, owned);
         const now = Date.now();
+        const newQueueTotal = cState.current + ad.instantClients;
         await update(ref(db, `plots/${p.id}`), {
+            treasury: treasury - fromTreasury,
             adUntil: now + ad.durationMs,
             adMultPct: ad.multPct,
             adName: ad.name,
-            clientsRemaining: cState.current + ad.instantClients,
+            clientsRemaining: newQueueTotal,
             clientsLastRefillAt: now
         });
         sfx.win();
         renderAll();
-        await saveGame();
-        setGameStatus(`📢 Запущено «${ad.name}»! +${ad.instantClients} клієнтів прийшли одразу, потік +${ad.multPct}%!`);
+        if (fromWallet > 0) await saveGame();
+        setGameStatus(`📢 Запущено «${ad.name}» за ${formatNumberFull(ad.cost)} 💰! У спільну чергу додано +${ad.instantClients} клієнтів (зараз ${newQueueTotal}), потік +${ad.multPct}%!`);
+        showDialog(
+            "Рекламу запущено (гарантована окупність)!",
+            `${ad.name}
+
+• Оплачено: ${formatNumberFull(ad.cost)} 💰
+• Миттєво додано у спільну чергу: +${ad.instantClients} клієнтів (зараз у черзі: ${newQueueTotal})
+• Додатково прийде за ${ad.hours} год (+${ad.multPct}% потоку): +${ad.flowExtraClients} клієнтів
+• Очікуваний виторг у Касу: +${formatNumberFull(ad.totalGain)} 💰 (чистий плюс після реклами: +${formatNumberFull(ad.netProfit)} 💰, окупність x${ad.roiMult}!)`,
+            "📢"
+        );
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -3636,7 +3828,7 @@ function renderPrivateJobsBoard() {
         html += `<div class="pjob-card${isCurrent ? " active-emp" : ""}">
             <div class="pjob-info">
                 <div class="pjob-title">${bld.icon} ${escapeHtml(bld.name)} — ${escapeHtml(plot.name)} <span style="font-weight:normal;font-size:11px">(${escapeHtml(zInfo.shortName)}, податок ${fin.turnoverTaxPct}%)</span></div>
-                <div class="pjob-meta">Власник: <b>${escapeHtml(owned.owner)}</b> • Штат: ${workersCount} роб. • У касі бізнесу: <b>${formatNumberFull(treasury)} 💰</b></div>
+                <div class="pjob-meta">Власник: <b>${escapeHtml(owned.owner)}</b> • Штат: <b>${workersCount} роб.</b> • 👥 <b>Спільна черга на всіх: ${ getPlotClientsState(plot, owned).current } / ${ getPlotClientsState(plot, owned).max }</b> (${ getPlotClientsState(plot, owned).perHour }/год) • У касі: <b>${formatNumberFull(treasury)} 💰</b></div>
                 <div class="pjob-wage">ЗП вам: <b>+${formatNumberFull(wage)} 💰</b>/замовл. • Чек з вашими курсами (+${fin.skillBonusPct}%): <b>${fin.grossCheck} 💰</b></div>
             </div>
             <div>${actionBtnHtml}</div>
@@ -4070,7 +4262,8 @@ function renderOwnerBusinessesHub() {
                 <div class="upgrade-ad-cards-grid">${upgCardsHtml}</div>
             `;
         } else if (curComp === "ads") {
-            const adCardsHtml = BUSINESS_ADS.map(a => {
+            const campaigns = getPlotAdCampaigns(plot, owned);
+            const adCardsHtml = campaigns.map(a => {
                 const isThisAdActive = cs.adActive && owned.adName === a.name;
                 return `
                     <div class="feature-item-card${isThisAdActive ? " active-ad" : ""}">
@@ -4080,14 +4273,19 @@ function renderOwnerBusinessesHub() {
                                 <span class="feature-card-Effect">${a.badge}</span>
                             </div>
                             <div class="feature-card-desc" style="margin-top:4px">${escapeHtml(a.desc)}</div>
+                            <div class="ad-roi-box" style="margin-top:6px">
+                                <div>👥 <b>У спільну чергу: +${a.totalExtraClients} клієнтів</b> (<b>+${a.instantClients} миттєво</b> і +${a.flowExtraClients} за ${a.hours} год)</div>
+                                <div>💰 <b>Дасть у Касу: +${formatNumberFull(a.totalGain)} 💰</b> (лише миттєві дають +${formatNumberFull(a.instantGain)} 💰!)</div>
+                                <div style="font-weight:bold;color:#006400">📈 ЧИСТИЙ ПЛЮС: +${formatNumberFull(a.netProfit)} 💰 (окупність x${a.roiMult}!)</div>
+                            </div>
                         </div>
                         <div style="margin-top:4px">
                             ${isThisAdActive
                                 ? `<div style="color:#804000;font-weight:bold;font-size:11px;margin-bottom:4px">🔥 Активно зараз: ще ${formatDuration(cs.adRemainingMs)}</div>`
                                 : ""
                             }
-                            <button class="btn ${isThisAdActive ? "" : "success"}" onclick="buyPlotAd(${plot.id}, '${a.id}')" style="width:100%;min-height:28px;padding:4px 8px;font-size:11px">
-                                📢 Запустити кампанію (${formatNumberFull(a.cost)} 💰)
+                            <button class="btn ${isThisAdActive ? "" : "success"}" onclick="buyPlotAd(${plot.id}, '${a.id}')" style="width:100%;min-height:30px;padding:4px 8px;font-size:11px;font-weight:bold">
+                                📢 Запустити за ${formatNumberFull(a.cost)} 💰 (вигода +${formatNumberFull(a.netProfit)} 💰)
                             </button>
                         </div>
                     </div>
@@ -4096,7 +4294,7 @@ function renderOwnerBusinessesHub() {
 
             compartmentHtml = `
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;font-size:11px;color:#333">
-                    <span><b>Рекламні кампанії</b> миттєво приводять нових покупців у чергу та тимчасово прискорюють погодинний потік клієнтів:</span>
+                    <span><b>Рекламні кампанії (100% окупність!)</b> — миттєві клієнти не згорають понад ліміт черги й одразу відбивають ціну реклами:</span>
                     ${cs.adActive ? `<span class="ad-active-pill">🔥 Активна: ${escapeHtml(cs.adName)} (+${cs.adMultPct}%, ще ${formatDuration(cs.adRemainingMs)})</span>` : ""}
                 </div>
                 <div class="upgrade-ad-cards-grid">${adCardsHtml}</div>
@@ -4128,7 +4326,7 @@ function renderOwnerBusinessesHub() {
                         <span class="kpi-val" style="color:#006400">${formatNumberFull(treasury)} 💰</span>
                     </div>
                     <div class="biz-kpi-box">
-                        <span class="kpi-label">${secondKpiLabel}</span>
+                        <span class="kpi-label">👥 Спільна черга (на ${wCount} роб.)</span>
                         <span class="kpi-val">${cs.current} / ${cs.max} <span style="font-size:10px;font-weight:normal">(${cs.perHour}/год)</span></span>
                     </div>
                     <div class="biz-kpi-box">
@@ -4140,6 +4338,8 @@ function renderOwnerBusinessesHub() {
                         <span class="kpi-val" style="color:${isOrderProfitable ? "#006400" : "#900000"}">${isOrderProfitable ? "+" : ""}${fin.ownerNetMargin} 💰</span>
                     </div>
                 </div>
+
+                ${buildSharedClientsBannerHtml(plot, owned, cs)}
 
                 <!-- Внутрішні вкладки-відсіки бізнесу -->
                 <div class="biz-section-tabs">
@@ -4409,13 +4609,13 @@ function renderTask() {
             $("task-bar").style.width = ((step / ORDER_STEPS_REQUIRED) * 100) + "%";
             $("task-text").textContent = `Етап замовлення: ${step} / ${ORDER_STEPS_REQUIRED}`;
         }
-        const cs = p && owned ? getPlotClientsState(p, owned) : { current: 0, max: 0, nextClientSec: 0 };
+        const cs = p && owned ? getPlotClientsState(p, owned) : { current: 0, max: 0, nextClientSec: 0, workersCount: 1, perHour: 0 };
         if (p && p.zone === "industrial") {
-            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Лінія: ${cs.current}/${cs.max} | Вихід з вашими курсами: ${fin.producedUnits} од. продукції (${fin.grossCheck} 💰)`;
+            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | 👥 Спільні лінії (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} (${cs.perHour}/год) | Вихід: ${fin.producedUnits} од.`;
         } else if (p && p.zone === "commercial") {
-            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Покупців у черзі: ${cs.current}/${cs.max} | Допродаж x${fin.producedUnits}: чек ${fin.grossCheck} 💰`;
+            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | 👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} (+1 за ${cs.nextClientSec}с) | Чек: ${fin.grossCheck} 💰`;
         } else {
-            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | Клієнтів (рідкі, дорогі): ${cs.current}/${cs.max} | Чек: ${fin.grossCheck} 💰`;
+            $("task-reward").textContent = `ЗП: +${formatNumberFull(wRec.personalWage)} 💰 | 👥 Спільна черга (на ${cs.workersCount} роб.): ${cs.current}/${cs.max} (+1 за ${cs.nextClientSec}с) | Чек: ${fin.grossCheck} 💰`;
         }
         $("task-title").textContent = `${bld ? bld.icon + " " + bld.name : "Підприємство"} (${owned?.owner || "—"}) — Посада: ${wRec.role}`;
     } else {
@@ -4860,10 +5060,12 @@ function showMapInfo(plotId) {
         const fin = calcOrderFinancials(p.zone, bld, [], wage);
         const isPos = fin.ownerNetMargin >= 0;
 
+        const mapCs = getPlotClientsState(p, owned);
         const cashboxBannerEl = $("info-cashbox-banner");
         if (cashboxBannerEl) {
             cashboxBannerEl.innerHTML = `
-                <div class="biz-cash-highlight" style="margin-bottom:4px">
+                ${buildSharedClientsBannerHtml(p, owned, mapCs)}
+                <div class="biz-cash-highlight" style="margin:4px 0">
                     <div>
                         <div style="font-size:11px;font-weight:bold;color:#004000">🏦 КАСА ПІДПРИЄМСТВА:</div>
                         <div class="cash-big">💰 ${formatNumberFull(treasury)} монет</div>
