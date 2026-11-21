@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="version" content="5.2.2">
-<title>Win98 Work — Ковель Економіка SE v5.2.2</title>
+<meta name="version" content="5.4.0">
+<title>Win98 Work — Ковель Економіка SE v5.4.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -38,7 +38,7 @@
     </div>
     <div class="status-bar">
         <div class="panel" id="auth-status">Система Windows 98 Second Edition готова</div>
-        <div class="panel small">v5.2.2 SE</div>
+        <div class="panel small">v5.4.0 SE</div>
     </div>
 </div>
 
@@ -410,27 +410,72 @@
             </div>
         </div>
 
-        <!-- МАПА -->
+        <!-- МАПА (СТИЛЬ VICE CITY / GTA MAP) -->
         <div class="page" id="page-map">
-            <div class="map-header-row">
-                <div>
-                    <div class="sub-title">🗺️ Кадастр м. Ковель (48 ділянок за кольором зон)</div>
-                    <div class="muted">Земля має колір своєї зони, а нік власника видно в рамочці зверху всередині квадрата! Секретні локації (дім Богдана та кафе «DOBRE») видно на максимальному зумі.</div>
+            <div class="gta-map-shell" id="map-container">
+                <!-- Ліва темна панель навігації по локаціях -->
+                <div class="gta-sidebar">
+                    <div class="gta-sidebar-head">
+                        <span id="gta-sidebar-title">КАРТА КОВЕЛЯ</span>
+                    </div>
+                    <div class="gta-sidebar-body">
+                        <!-- Вертикальна рейка категорій -->
+                        <div class="gta-icon-rail">
+                            <button class="gta-rail-btn active" id="zfilter-all" onclick="setZoneFilter('all')" title="Усі ділянки (48)">🗺️</button>
+                            <button class="gta-rail-btn" id="zfilter-residential" onclick="setZoneFilter('residential')" title="Житлова зона (Зелена)">🏡</button>
+                            <button class="gta-rail-btn" id="zfilter-commercial" onclick="setZoneFilter('commercial')" title="Комерційна зона (Синя)">🏪</button>
+                            <button class="gta-rail-btn" id="zfilter-industrial" onclick="setZoneFilter('industrial')" title="Промислова зона (Помаранчева)">🏭</button>
+                            <button class="gta-rail-btn" id="zfilter-mine" onclick="setZoneFilter('mine')" title="Мої володіння">⭐</button>
+                            <button class="gta-rail-btn" id="zfilter-city" onclick="setZoneFilter('city')" title="Головні об'єкти міста">🏛️</button>
+                        </div>
+                        <!-- Список локацій -->
+                        <div class="gta-loc-col">
+                            <div class="gta-loc-subhead" id="gta-loc-subhead">❖ УСІ ДІЛЯНКИ</div>
+                            <div class="gta-loc-list" id="gta-loc-list"></div>
+                        </div>
+                    </div>
+                    <div class="gta-sidebar-foot">
+                        <span id="gta-loc-counter">0 / 48</span>
+                        <span style="font-size:10px;opacity:0.65">Зум 17 = Секрети</span>
+                    </div>
                 </div>
-                <div style="display:flex;gap:4px">
-                    <button class="btn" onclick="centerKovelMap()" style="min-width:auto;min-height:30px;padding:4px 8px;font-size:11px">🎯 Центр</button>
+
+                <!-- Права частина: сама карта + HUD + кнопки керування -->
+                <div class="gta-map-stage">
+                    <div id="kovel-leaflet-map"></div>
+
+                    <!-- Верхній правий HUD (Гаманець + Каса) -->
+                    <div class="gta-map-hud">
+                        <div class="gta-hud-row" onclick="switchPage('bank')" title="Ваш гаманець">
+                            <span class="gta-hud-val" id="gta-map-wallet">0</span>
+                            <span class="gta-hud-icon wallet">💰</span>
+                        </div>
+                        <div class="gta-hud-row" onclick="openMyBizCashboxQuick()" title="Загальна Каса ваших підприємств">
+                            <span class="gta-hud-val cash" id="gta-map-treasury">0</span>
+                            <span class="gta-hud-icon cash">🏦</span>
+                        </div>
+                    </div>
+
+                    <!-- Нижні праві кнопки керування -->
+                    <div class="gta-map-controls">
+                        <button class="gta-ctrl-btn" onclick="centerKovelMap()">
+                            <span>ЦЕНТР</span>
+                            <span class="gta-key-badge">C</span>
+                        </button>
+                        <button class="gta-ctrl-btn" onclick="zoomKovelMap(1)">
+                            <span>БЛИЖЧЕ</span>
+                            <span class="gta-key-badge">+</span>
+                        </button>
+                        <button class="gta-ctrl-btn" onclick="zoomKovelMap(-1)">
+                            <span>ДАЛІ</span>
+                            <span class="gta-key-badge">−</span>
+                        </button>
+                        <button class="gta-ctrl-btn" id="gta-ctrl-close" onclick="closeMapInfo()" style="display:none">
+                            <span>ЗАКРИТИ ДЕТАЛІ</span>
+                            <span class="gta-key-badge">✕</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
-
-            <div class="map-zone-legend">
-                <button class="zone-pill active" id="zfilter-all" onclick="setZoneFilter('all')">Усі (48)</button>
-                <button class="zone-pill res" id="zfilter-residential" onclick="setZoneFilter('residential')">🏡 Жила (Зелена)</button>
-                <button class="zone-pill com" id="zfilter-commercial" onclick="setZoneFilter('commercial')">🏪 Комерція (Синя)</button>
-                <button class="zone-pill ind" id="zfilter-industrial" onclick="setZoneFilter('industrial')">🏭 Промзона (Помаранчева)</button>
-            </div>
-
-            <div class="map-container" id="map-container">
-                <div id="kovel-leaflet-map"></div>
             </div>
 
             <div class="map-info-panel" id="map-info-panel">
