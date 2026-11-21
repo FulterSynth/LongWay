@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, set, get, child, update, onValue, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { MiniGameManager, sfx } from "./minigames.js";
 
-const APP_VERSION = "5.2.2";
+const APP_VERSION = "5.4.0";
 const SAVE_INTERVAL_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -209,10 +209,10 @@ function getAvailableIndustrialSuppliers(buyerZone = null) {
 
 // ===== СИСТЕМА ПОТОКУ КЛІЄНТІВ, ПЕРМАНЕНТНОЇ ІНФРАСТРУКТУРИ ТА ТИМЧАСОВОЇ РЕКЛАМИ (v4.3.0) =====
 const BUSINESS_UPGRADES = [
-    { id: "parking",  name: "🅿️ Власна парковка",          cost: 12000, clientBonus: 15, badge: "+15 клієнтів/год", desc: "Зручний паркінг для авто біля закладу. Назавжди збільшує місткість та притік клієнтів на +15/год." },
-    { id: "ramp",     name: "♿ Пандус і доступність",     cost: 15000, clientBonus: 15, badge: "+15 клієнтів/год", desc: "Безбар'єрний вхід для маломобільних груп та батьків із візочками. Дає +15 клієнтів/год назавжди." },
-    { id: "cameras",  name: "📹 Камери безпеки і Wi-Fi",   cost: 24000, clientBonus: 20, badge: "+20 клієнтів/год", desc: "Відеоспостереження та безкоштовний Wi-Fi підвищують довіру відвідувачів: +20 клієнтів/год назавжди." },
-    { id: "climate",  name: "❄️ Кондиціонер і зона очікування", cost: 38000, clientBonus: 25, badge: "+25 клієнтів/год", desc: "Комфортний клімат-контроль і м'які місця для очікування. Назавжди додає +25 клієнтів/год." }
+    { id: "parking",  name: "🅿️ Власна парковка",          cost: 12000, clientBonus: 15, badge: "+15 місць черги", desc: "Зручний паркінг біля закладу. Назавжди розширює місткість черги на +15 місць і прискорює 2-хвилинні хвилі (+60/год)." },
+    { id: "ramp",     name: "♿ Пандус і доступність",     cost: 15000, clientBonus: 15, badge: "+15 місць черги", desc: "Безбар'єрний вхід для маломобільних груп і візочків. Назавжди додає +15 місць черги та прискорює хвилі (+60/год)." },
+    { id: "cameras",  name: "📹 Камери безпеки і Wi-Fi",   cost: 24000, clientBonus: 20, badge: "+20 місць черги", desc: "Відеоспостереження й безкоштовний Wi-Fi підвищують довіру: +20 місць черги та +60..+90/год до потоку." },
+    { id: "climate",  name: "❄️ Кондиціонер і зона очікування", cost: 38000, clientBonus: 25, badge: "+25 місць черги", desc: "Комфортний клімат-контроль і м'які місця очікування. Назавжди додає +25 місць черги та +90/год до потоку." }
 ];
 
 const BUSINESS_ADS = [
@@ -328,8 +328,11 @@ function getPlotAdCampaigns(plot, ownedData) {
     const baseMargin = Math.max(8, baselineFin.ownerNetMargin);
     const activeMargin = Math.max(5, currentFin.ownerNetMargin);
 
+    const wavesPerHour = Math.round(HOUR_MS / WAVE_INTERVAL_MS);
+    const baseWave = Math.max(2, Math.round(cs.rawCap / 8));
     return BUSINESS_ADS.map(ad => {
-        const flowExtraClients = Math.max(4, Math.round(cs.rawCap * (ad.multPct / 100) * ad.hours));
+        const adWave = Math.max(2, Math.round((cs.rawCap * (1 + ad.multPct / 100)) / 8));
+        const flowExtraClients = Math.max(6, (adWave - baseWave) * wavesPerHour * ad.hours);
         const totalExtraClients = ad.instantClients + flowExtraClients;
         // Ціна реклами становить лише ~48-55% від прибутку з МИТТЄВИХ клієнтів, тому реклама гарантовано окупається в 2.5 - 3.8 раза!
         const cost = Math.max(50, Math.round(ad.instantClients * baseMargin * ad.costFactor));
@@ -656,14 +659,15 @@ function calcOrderFinancials(plotZone, buildingDef, workerCourses = [], workerWa
     const producedWholeUnits = plotZone === "industrial"
         ? Math.max(2, Math.round(producedUnits))
         : 1;
-    const unitProductValue = plotZone === "industrial" ? Math.max(1, Math.round(baseCheck / baseOutputUnits)) : baseCheck;
-    const grossCheck = Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
+    const govUnitPrice = plotZone === "industrial" ? Math.max(12, Math.round(baseCheck / 2 * 0.85)) : baseCheck;
+    const unitProductValue = plotZone === "industrial" ? govUnitPrice : baseCheck;
+    const grossCheck = plotZone === "industrial"
+        ? Math.max(2, producedWholeUnits * govUnitPrice)
+        : Math.max(2, Math.round(baseCheck * (1 + skillBonusPct / 100)));
     const unitSupplyCost = getSupplyUnitCost(buildingDef);
-    // Якщо товар береться зі складу (вже оплаченого власником), з чека на касі закупівля не списується повторно (0 💰).
-    // Якщо склад порожній і йде автозакупівля «з коліс», з чека списується повна роздрібна ціна unitSupplyCost.
     const supplyCost = hasPreboughtStock ? 0 : unitSupplyCost;
     const { turnoverTaxPct } = getZoneTaxRates(plotZone);
-    const taxAmount = Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
+    const taxAmount = plotZone === "industrial" ? 0 : Math.max(1, Math.round(grossCheck * (turnoverTaxPct / 100)));
     const afterTaxAndSupply = Math.max(1, grossCheck - taxAmount - supplyCost);
     const wage = Math.max(1, Math.floor(Number(workerWage) || (buildingDef ? buildingDef.defaultWage : 12)));
     const ownerNetMargin = afterTaxAndSupply - wage;
@@ -1759,7 +1763,7 @@ function renderHelpModalContent() {
         box.innerHTML = `
             <div class="help-card">
                 <div class="help-card-title">👷 Живі гравці — найвигідніший штат</div>
-                <div>• Гравець робить 1 замовлення приблизно за <b>13.4 сек</b> (у 6 разів швидше за бота!).<br>• ЗП робітник отримує <b>строго таку, яку поставив власник</b> (курси не роздувають зарплату, а збільшують чек/вихід продукції для Каси!).<br>• Запросити гравця можна через Пошту або за резюме у вкладці «Вакансії».</div>
+                <div>• Гравець робить 1 замовлення приблизно за <b>15 сек</b> (у 6 разів швидше за бота!).<br>• ЗП робітник отримує <b>строго таку, яку поставив власник</b> (курси не роздувають зарплату, а збільшують чек/вихід продукції для Каси!).<br>• Запросити гравця можна через Пошту або за резюме у вкладці «Вакансії».</div>
             </div>
             <div class="help-card">
                 <div class="help-card-title">🤖 Державна біржа праці (Бот по квоті ЦЗ)</div>
@@ -2941,7 +2945,7 @@ async function doPrivateOrderStepWork(plotId) {
         gameState.taskProgress = 0;
         renderTask();
         updateWorkButtonState();
-        return showDialog("Черга порожня", "Останнього клієнта / слот щойно забрав інший працівник! Зачекайте на наступну 60-секундну хвилю.", "🚶");
+        return showDialog("Черга порожня", "Останнього клієнта / слот щойно забрав інший працівник! Зачекайте на наступну 2-хвилинну хвилю (120с).", "🚶");
     }
 
     sfx.good();
@@ -3232,24 +3236,30 @@ window.buyPlotSupplies = async function (plotId, mode = "bulk25") {
     }
 
     const treasury = Math.max(0, Number(owned.treasury) || 0);
-    if (treasury < cost) {
+    if (treasury + gameState.coins < cost) {
         return showDialog(
-            "У Касі не вистачає на закупівлю!",
-            `Для закупівлі +${unitsToBuy} од. потрібно ${formatNumberFull(cost)} 💰, а в Касі «${p.name}» зараз лише ${formatNumberFull(treasury)} 💰.
-
-Поповніть Касу бізнесу з Гаманця у відсіку «💰 Каса і Розрахунки»!`,
-            "🏦"
+            "Недостатньо коштів на закупівлю!",
+            `Для закупівлі +${unitsToBuy} од. потрібно ${formatNumberFull(cost)} 💰 (у Касі + Гаманці недостатньо монет).`,
+            "💸"
         );
     }
+    const fromTreasury = Math.min(treasury, cost);
+    const fromWallet = cost - fromTreasury;
 
     try {
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
         await update(ref(db, `plots/${p.id}`), {
             supplyStock: Math.min(sup.maxStock, sup.stock + unitsToBuy),
-            treasury: treasury - cost
+            treasury: treasury - fromTreasury
         });
         sfx.good();
         renderAll();
-        setGameStatus(`📦 Закуплено +${unitsToBuy} од. на склад «${p.name}» за ${formatNumberFull(cost)} 💰 (оптова знижка)!`);
+        if (fromWallet > 0) await saveGame();
+        const payNote = fromWallet > 0 ? ` (${formatNumberFull(fromTreasury)} з Каси + ${formatNumberFull(fromWallet)} з Гаманця)` : ` (з Каси)`;
+        setGameStatus(`📦 Закуплено +${unitsToBuy} од. на склад «${p.name}» за ${formatNumberFull(cost)} 💰${payNote}!`);
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -3300,24 +3310,28 @@ window.buySuppliesFromFactory = async function (buyerPlotId, factoryPlotId, mode
     const totalCost = Math.max(1, unitsToBuy * supBuyer.b2bUnitCost);
 
     const buyerTreasury = Math.max(0, Number(buyerOwned.treasury) || 0);
-    if (buyerTreasury < totalCost) {
+    if (buyerTreasury + gameState.coins < totalCost) {
         return showDialog(
-            "У Касі не вистачає для B2B-закупівлі!",
-            `Потрібно ${formatNumberFull(totalCost)} 💰, а в Касі «${buyerPlot.name}» зараз лише ${formatNumberFull(buyerTreasury)} 💰.
-
-Поповніть Касу підприємства з вашого Гаманця!`,
-            "🏦"
+            "Недостатньо коштів для B2B-закупівлі!",
+            `Потрібно ${formatNumberFull(totalCost)} 💰 (ціна B2B: ${supBuyer.b2bUnitCost} 💰/од., знижка -28%). У Касі + Гаманці не вистачає коштів.`,
+            "💸"
         );
     }
+    const fromTreasury = Math.min(buyerTreasury, totalCost);
+    const fromWallet = totalCost - fromTreasury;
 
     const { turnoverTaxPct } = getZoneTaxRates("industrial");
     const factoryTax = Math.max(1, Math.round(totalCost * (turnoverTaxPct / 100)));
     const factoryNetGain = Math.max(1, totalCost - factoryTax);
 
     try {
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
         await update(ref(db, `plots/${buyerPlot.id}`), {
             supplyStock: Math.min(supBuyer.maxStock, supBuyer.stock + unitsToBuy),
-            treasury: buyerTreasury - totalCost
+            treasury: buyerTreasury - fromTreasury
         });
 
         await runTransaction(ref(db, `plots/${factoryPlot.id}`), (cur) => {
@@ -3332,6 +3346,7 @@ window.buySuppliesFromFactory = async function (buyerPlotId, factoryPlotId, mode
 
         sfx.win();
         renderAll();
+        if (fromWallet > 0) await saveGame();
         setGameStatus(`🤝 Куплено +${unitsToBuy} од. у заводу «${factoryPlot.name}» (${factoryOwned.owner}) зі знижкою -28% за ${formatNumberFull(totalCost)} 💰!`);
         showDialog(
             "Пряма поставка з Промзони (-28%)!",
@@ -3393,23 +3408,30 @@ window.buyPlotUpgrade = async function (plotId, upgradeId) {
     const upg = BUSINESS_UPGRADES.find(u => u.id === upgradeId);
     if (!p || !owned || owned.owner !== currentUser || !owned.building || !upg) return;
     if (owned.upgrades && owned.upgrades[upgradeId]) return;
-    if (gameState.coins < upg.cost) {
-        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(upg.cost)} 💰.`, "💸");
+    const treasury = Math.max(0, Number(owned.treasury) || 0);
+    if (treasury + gameState.coins < upg.cost) {
+        return showDialog("Недостатньо монет", `Потрібно ${formatNumberFull(upg.cost)} 💰 (можна оплатити з Каси та Гаманця разом).`, "💸");
     }
+    const fromTreasury = Math.min(treasury, upg.cost);
+    const fromWallet = upg.cost - fromTreasury;
 
     try {
-        gameState.coins -= upg.cost;
-        markLocalCoinsChanged();
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
         const cState = getPlotClientsState(p, owned);
         await update(ref(db, `plots/${p.id}`), {
+            treasury: treasury - fromTreasury,
             [`upgrades/${upgradeId}`]: true,
             clientsRemaining: cState.current + upg.clientBonus,
-            clientsLastRefillAt: Date.now()
+            clientsWaveMin: cState.currentWaveMin
         });
         sfx.win();
         renderAll();
-        await saveGame();
-        setGameStatus(`✅ Встановлено «${upg.name}»! Потік клієнтів збільшено на +${upg.clientBonus}/год назавжди!`);
+        if (fromWallet > 0) await saveGame();
+        const payNote = fromWallet > 0 ? ` (${formatNumberFull(fromTreasury)} з Каси + ${formatNumberFull(fromWallet)} з Гаманця)` : ` (з Каси)`;
+        setGameStatus(`✅ Встановлено «${upg.name}»${payNote}! Черга розширена на +${upg.clientBonus} місць назавжди!`);
     } catch (e) {
         showDialog("Помилка", e.message, "⚠️");
     }
@@ -3427,22 +3449,26 @@ window.buyPlotAd = async function (plotId, adId) {
     if (!ad) return;
 
     const treasury = Math.max(0, Number(owned.treasury) || 0);
-    if (treasury < ad.cost) {
+    if (treasury + gameState.coins < ad.cost) {
         return showDialog(
-            "У Касі не вистачає на рекламу!",
-            `Вартість кампанії: ${formatNumberFull(ad.cost)} 💰, а в Касі «${p.name}» зараз ${formatNumberFull(treasury)} 💰.
-
-Поповніть Касу бізнесу з Гаманця у відсіку «💰 Каса і Розрахунки»!`,
-            "🏦"
+            "Недостатньо коштів на рекламу!",
+            `Вартість кампанії: ${formatNumberFull(ad.cost)} 💰 (у Касі + Гаманці недостатньо монет).`,
+            "💸"
         );
     }
+    const fromTreasury = Math.min(treasury, ad.cost);
+    const fromWallet = ad.cost - fromTreasury;
 
     try {
+        if (fromWallet > 0) {
+            gameState.coins -= fromWallet;
+            markLocalCoinsChanged();
+        }
         const cState = getPlotClientsState(p, owned);
         const now = Date.now();
         const newQueueTotal = cState.current + ad.instantClients;
         await update(ref(db, `plots/${p.id}`), {
-            treasury: treasury - ad.cost,
+            treasury: treasury - fromTreasury,
             adUntil: now + ad.durationMs,
             adMultPct: ad.multPct,
             adName: ad.name,
@@ -3451,6 +3477,7 @@ window.buyPlotAd = async function (plotId, adId) {
         });
         sfx.win();
         renderAll();
+        if (fromWallet > 0) await saveGame();
         setGameStatus(`📢 Запущено «${ad.name}» за ${formatNumberFull(ad.cost)} 💰! У спільну чергу додано +${ad.instantClients} клієнтів (зараз ${newQueueTotal}), потік +${ad.multPct}%!`);
         showDialog(
             "Рекламу запущено (гарантована окупність)!",
@@ -4613,6 +4640,8 @@ function renderStats() {
 
     if ($("hud-coins")) $("hud-coins").textContent = formatNumberFull(gameState.coins);
     if ($("hud-treasury")) $("hud-treasury").textContent = formatNumberFull(totalTreasury) + " 💰";
+    if ($("gta-map-wallet")) $("gta-map-wallet").textContent = formatNumberFull(gameState.coins);
+    if ($("gta-map-treasury")) $("gta-map-treasury").textContent = formatNumberFull(totalTreasury);
     if ($("hud-income")) {
         $("hud-income").textContent = (incPerHour >= 0 ? "+" : "") + formatNumber(incPerHour) + "/год";
         $("hud-income").style.color = incPerHour >= 0 ? "#006400" : "#900000";
@@ -5023,7 +5052,7 @@ function renderShop() {
         } else if (c.category === "residential") {
             badgeLabel = `+${c.zoneBoost}% до чека (Жила)`;
         } else if (c.category === "commercial") {
-            badgeLabel = `+${c.zoneBoost}% допродаж, +${c.flowBonus || 4} клієнтів/год`;
+            badgeLabel = `+${c.zoneBoost}% допродаж, +${c.flowBonus || 4} місць черги`;
         } else {
             badgeLabel = `+${c.zoneBoost}% вихід продукції (Пром)`;
         }
@@ -5080,8 +5109,9 @@ function initKovelMap() {
     const bldPane = leafletMap.createPane("kovelBuildingsPane");
     bldPane.style.zIndex = 680;
 
-    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 18
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        maxZoom: 18,
+        subdomains: "abcd"
     }).addTo(leafletMap);
 
     leafletPlotLayer = L.layerGroup().addTo(leafletMap);
@@ -5096,6 +5126,12 @@ window.centerKovelMap = function () {
     if (leafletMap) leafletMap.setView(KOVEL_CENTER, 13);
 };
 
+window.zoomKovelMap = function (delta) {
+    if (!leafletMap) return;
+    const z = leafletMap.getZoom() || 13;
+    leafletMap.setZoom(Math.max(13, Math.min(17, z + delta)));
+};
+
 window.focusBohdanHouse = function () {
     const b = MAP_BUILDINGS.find(x => x.id === "bohdan");
     if (leafletMap && b) {
@@ -5106,12 +5142,113 @@ window.focusBohdanHouse = function () {
 
 window.setZoneFilter = function (zone) {
     currentZoneFilter = zone;
-    ["all", "residential", "commercial", "industrial"].forEach(z => {
+    ["all", "residential", "commercial", "industrial", "mine", "city"].forEach(z => {
         const el = $("zfilter-" + z);
         if (el) el.classList.toggle("active", z === zone);
     });
     renderMap();
 };
+
+window.focusPlotFromSidebar = function (plotId) {
+    const p = MAP_PLOTS_BASE.find(x => x.id === Number(plotId));
+    if (!p) return;
+    selectedPlotId = p.id;
+    if (leafletMap) {
+        leafletMap.setView([p.lat, p.lng], Math.max(15, leafletMap.getZoom() || 15));
+    }
+    renderMap();
+    showMapInfo(p.id);
+};
+
+window.focusBuildingFromSidebar = function (bldId) {
+    const b = MAP_BUILDINGS.find(x => x.id === bldId);
+    if (!b) return;
+    if (leafletMap) {
+        leafletMap.setView([b.lat, b.lng], b.secretZoom ? 17 : 15);
+    }
+    clickBuilding(b.id);
+};
+
+function renderGtaMapSidebar() {
+    const listEl = $("gta-loc-list");
+    const titleEl = $("gta-sidebar-title");
+    const subEl = $("gta-loc-subhead");
+    const cntEl = $("gta-loc-counter");
+    if (!listEl) return;
+
+    if ($("gta-map-wallet")) $("gta-map-wallet").textContent = formatNumberFull(gameState.coins);
+    if ($("gta-map-treasury")) $("gta-map-treasury").textContent = formatNumberFull(getTotalOwnerTreasury());
+
+    const titles = {
+        all:         ["КАРТА КОВЕЛЯ", "❖ УСІ ДІЛЯНКИ"],
+        residential: ["ЖИТЛОВА ЗОНА", "❖ ЖИТЛОВІ КВАРТАЛИ"],
+        commercial:  ["КОМЕРЦІЯ", "❖ ТОРГОВІ ТОЧКИ"],
+        industrial:  ["ПРОМЗОНА", "❖ ЗАВОДИ ТА ЦЕХИ"],
+        mine:        ["МОЇ ВОЛОДІННЯ", "❖ ВАШІ ДІЛЯНКИ"],
+        city:        ["ОБ'ЄКТИ МІСТА", "❖ БАНК ТА КОРПОРАЦІЯ"]
+    };
+    const [headTxt, subTxt] = titles[currentZoneFilter] || titles.all;
+    if (titleEl) titleEl.textContent = headTxt;
+    if (subEl) subEl.textContent = subTxt;
+
+    if (currentZoneFilter === "city") {
+        const visibleBlds = MAP_BUILDINGS.filter(b => !b.secretZoom);
+        listEl.innerHTML = visibleBlds.map(b => `
+            <div class="gta-loc-item" onclick="focusBuildingFromSidebar('${b.id}')">
+                <span class="gta-loc-icon">${b.icon}</span>
+                <div class="gta-loc-text">
+                    <span class="gta-loc-name">${escapeHtml(b.name)}</span>
+                    <span class="gta-loc-meta">${escapeHtml(b.sub)}</span>
+                </div>
+            </div>
+        `).join("") + `
+            <div style="padding:8px 6px;font-size:10px;color:#8fa0bc;line-height:1.4">
+                🔍 Підказка: наблизьте карту на максимум (зум 17), щоб знайти секретні локації Ковеля!
+            </div>
+        `;
+        if (cntEl) cntEl.textContent = `${visibleBlds.length} / ${visibleBlds.length}`;
+        return;
+    }
+
+    const filtered = MAP_PLOTS_BASE.filter(p => {
+        if (currentZoneFilter === "all") return true;
+        if (currentZoneFilter === "mine") {
+            const own = getOwnedPlotData(p.id);
+            return Boolean(own && own.owner === currentUser);
+        }
+        return p.zone === currentZoneFilter;
+    });
+
+    if (!filtered.length) {
+        listEl.innerHTML = `<div style="padding:12px 8px;font-size:11px;color:#9aa8c0;text-align:center">У цій категорії поки порожньо.</div>`;
+        if (cntEl) cntEl.textContent = "0 / 0";
+        return;
+    }
+
+    let activeIdx = 0;
+    listEl.innerHTML = filtered.map((p, idx) => {
+        const own = getOwnedPlotData(p.id);
+        const bld = own ? getBuildingDef(p.zone, own.building) : null;
+        const isSel = selectedPlotId === p.id;
+        if (isSel) activeIdx = idx + 1;
+        const icon = bld ? bld.icon : (p.zone === "industrial" ? "🏭" : (p.zone === "commercial" ? "🏪" : "🏡"));
+        const price = calcPlotPrice(p, sharedPlots);
+        const meta = own
+            ? `${own.owner}${bld ? " • " + bld.name : " • Пуста"}`
+            : `Вільна • ${formatNumber(price)} 💰`;
+        return `
+            <div class="gta-loc-item${isSel ? " active" : ""}" onclick="focusPlotFromSidebar(${p.id})">
+                <span class="gta-loc-icon">${icon}</span>
+                <div class="gta-loc-text">
+                    <span class="gta-loc-name">${escapeHtml(p.name)}</span>
+                    <span class="gta-loc-meta">${escapeHtml(meta)}</span>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    if (cntEl) cntEl.textContent = `${activeIdx || 1} / ${filtered.length}`;
+}
 
 // Мапа: колір зони зберігається, нік зверху всередині квадрата, Богдан та кафе «DOBRE» (Косачів, 4а) з'являються лише на макс. зумі!
 function renderMap() {
@@ -5125,7 +5262,12 @@ function renderMap() {
     const maxZoom = leafletMap.getMaxZoom() || 17;
 
     MAP_PLOTS_BASE.forEach(p => {
-        if (currentZoneFilter !== "all" && p.zone !== currentZoneFilter) return;
+        if (currentZoneFilter === "mine") {
+            const oCheck = getOwnedPlotData(p.id);
+            if (!oCheck || oCheck.owner !== currentUser) return;
+        } else if (currentZoneFilter !== "all" && currentZoneFilter !== "city" && p.zone !== currentZoneFilter) {
+            return;
+        }
 
         const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
         const owned = getOwnedPlotData(p.id);
@@ -5208,6 +5350,30 @@ function renderMap() {
         }).addTo(leafletBldLayer);
         marker.on("click", () => clickBuilding(b.id));
     });
+
+    // Плаваюча темна плашка для обраної ділянки (як Mule City Line на скріншоті)
+    if (selectedPlotId !== null) {
+        const selPlot = MAP_PLOTS_BASE.find(x => x.id === selectedPlotId);
+        if (selPlot) {
+            const selOwn = getOwnedPlotData(selPlot.id);
+            const selBld = selOwn ? getBuildingDef(selPlot.zone, selOwn.building) : null;
+            const subLine = selOwn
+                ? `${selOwn.owner}${selBld ? " • " + selBld.name : " (не забудовано)"}`
+                : `Вільна • ${formatNumberFull(calcPlotPrice(selPlot, sharedPlots))} 💰`;
+            L.marker([selPlot.lat, selPlot.lng], {
+                pane: "kovelBuildingsPane",
+                zIndexOffset: 1200,
+                interactive: false,
+                icon: L.divIcon({
+                    className: "",
+                    html: `<div class="gta-selected-callout"><div>${escapeHtml(selPlot.name)}</div><div class="callout-sub">${escapeHtml(subLine)}</div></div>`,
+                    iconSize: [0, 0]
+                })
+            }).addTo(leafletBldLayer);
+        }
+    }
+
+    renderGtaMapSidebar();
 }
 
 window.selectPlot = function (plotId) {
@@ -5220,6 +5386,7 @@ function showMapInfo(plotId) {
     const p = MAP_PLOTS_BASE.find(x => x.id === plotId);
     if (!p) return;
     $("map-info-panel").classList.add("show");
+    if ($("gta-ctrl-close")) $("gta-ctrl-close").style.display = "inline-flex";
     const zInfo = ZONE_INFO[p.zone] || ZONE_INFO.residential;
     const owned = getOwnedPlotData(plotId);
     const price = calcPlotPrice(p, sharedPlots);
@@ -5405,6 +5572,7 @@ function showMapInfo(plotId) {
 window.closeMapInfo = function () {
     selectedPlotId = null;
     $("map-info-panel").classList.remove("show");
+    if ($("gta-ctrl-close")) $("gta-ctrl-close").style.display = "none";
     renderMap();
 };
 
@@ -5475,7 +5643,9 @@ window.buildOnSelectedPlot = async function (buildingId) {
         setGameStatus(`Збудовано: ${bld.name}! Чек замовлення: ${bld.clickProfit} 💰, ваша маржа: +${fin.ownerNetMargin} 💰 у Касу.`);
         showDialog(
             "Підприємство відкрито!",
-            `${bld.icon} ${bld.name} (${p.name})\n\n• Чек покупця за замовлення: +${bld.clickProfit} 💰\n• Податок зони (${fin.turnoverTaxPct}%): -${fin.taxAmount} 💰\n• Базова ЗП робітнику: -${bld.defaultWage} 💰\n• Ваша чиста маржа в Касу: +${fin.ownerNetMargin} 💰 з кожного замовлення!\n\nЗабирайте зароблені гроші у вкладці «💼 Робота і Бізнес ➔ 🏦 Мій бізнес і КАСА» або прямо тут на мапі!`,
+            p.zone === "industrial"
+                ? `${bld.icon} ${bld.name} (${p.name})\n\n• Вихід за цикл: 2–4 од. продукції (оцінка збуту: +${fin.grossCheck} 💰)\n• Базова ЗП робітнику: -${bld.defaultWage} 💰 (платиться з Каси)\n• Прогнозована маржа після продажу: +${fin.ownerNetMargin} 💰\n\n💡 Поповніть Касу заводу на перші виплати ЗП у вкладці «🏦 Мій бізнес і КАСА»!`
+                : `${bld.icon} ${bld.name} (${p.name})\n\n• Чек покупця за замовлення: +${bld.clickProfit} 💰\n• Податок зони (${fin.turnoverTaxPct}%): -${fin.taxAmount} 💰\n• Базова ЗП робітнику: -${bld.defaultWage} 💰\n• Ваша чиста маржа в Касу: +${fin.ownerNetMargin} 💰 з кожного замовлення!\n\nЗабирайте зароблені гроші у вкладці «💼 Робота і Бізнес ➔ 🏦 Мій бізнес і КАСА» або прямо тут на мапі!`,
             "🏗️"
         );
     } catch (e) {
