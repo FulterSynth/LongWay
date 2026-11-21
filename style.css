@@ -3084,3 +3084,382 @@ body {
     border-color: #4b0082;
     color: #4b0082;
 }
+
+
+/* ===== МАПА У СТИЛІ VICE CITY / MODERN GAME MAP (v5.4.0) ===== */
+.gta-map-shell {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 440px;
+    min-height: 400px;
+    background: #141722;
+    border: 2px inset #404040;
+    overflow: hidden;
+    font-family: "Segoe UI", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+}
+
+.gta-sidebar {
+    width: 248px;
+    min-width: 220px;
+    background: linear-gradient(180deg, rgba(24, 27, 40, 0.97) 0%, rgba(16, 18, 28, 0.99) 100%);
+    color: #e6ebf5;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    z-index: 420;
+    box-shadow: 4px 0 18px rgba(0, 0, 0, 0.45);
+}
+
+.gta-sidebar-head {
+    padding: 12px 14px 8px 14px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gta-sidebar-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.gta-icon-rail {
+    width: 40px;
+    background: rgba(10, 12, 20, 0.55);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 6px;
+    border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.gta-rail-btn {
+    position: relative;
+    width: 34px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    color: #9ba4b5;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    border-radius: 3px;
+}
+
+.gta-rail-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.gta-rail-btn.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+
+.gta-rail-btn.active::before {
+    content: "";
+    position: absolute;
+    left: -3px;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    background: #ff4d8d;
+    box-shadow: 0 0 8px #ff4d8d;
+    border-radius: 2px;
+}
+
+.gta-rail-btn.active::after {
+    content: "◆";
+    position: absolute;
+    right: -1px;
+    font-size: 7px;
+    color: #ffd166;
+}
+
+.gta-loc-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.gta-loc-subhead {
+    padding: 8px 10px 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: #d4dce8;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gta-loc-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gta-loc-list::-webkit-scrollbar {
+    width: 5px;
+}
+.gta-loc-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+}
+
+.gta-loc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+    color: #c8d0df;
+    font-size: 12px;
+    transition: background 0.12s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.gta-loc-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.gta-loc-item.active {
+    background: linear-gradient(90deg, #ffffff 0%, #d4dbe6 72%, #8d97a8 100%);
+    color: #111520;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.gta-loc-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.14);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.gta-loc-item.active .gta-loc-icon {
+    background: #1b2030;
+    color: #ffffff;
+}
+
+.gta-loc-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.gta-loc-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gta-loc-meta {
+    font-size: 10px;
+    opacity: 0.72;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gta-sidebar-foot {
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b4bece;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 12, 20, 0.5);
+}
+
+.gta-map-stage {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: #6da8be;
+}
+
+.gta-map-stage #kovel-leaflet-map {
+    width: 100%;
+    height: 100%;
+}
+
+/* Фільтр під прохолодну сіро-блакитну картографію з бірюзовою водою як на скріншоті */
+.gta-map-stage .leaflet-tile-pane {
+    filter: saturate(1.15) hue-rotate(-8deg) contrast(0.95) brightness(0.97);
+}
+
+.gta-map-stage .leaflet-control-zoom {
+    display: none;
+}
+
+/* Верхній правий HUD грошей на карті */
+.gta-map-hud {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 450;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    pointer-events: auto;
+}
+
+.gta-hud-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.gta-hud-val {
+    font-size: 17px;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+    text-shadow:
+        -1.5px -1.5px 0 #101420,
+         1.5px -1.5px 0 #101420,
+        -1.5px  1.5px 0 #101420,
+         1.5px  1.5px 0 #101420,
+         0 2px 5px rgba(0, 0, 0, 0.65);
+}
+
+.gta-hud-val.cash {
+    font-size: 14px;
+    color: #d6ffe2;
+}
+
+.gta-hud-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border: 2px solid #101420;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.gta-hud-icon.wallet {
+    background: #27ae60;
+}
+
+.gta-hud-icon.cash {
+    background: #2980b9;
+}
+
+/* Нижні праві кнопки керування на карті */
+.gta-map-controls {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    z-index: 450;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.gta-ctrl-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    padding: 2px 4px;
+    text-shadow:
+        -1.5px -1.5px 0 #101420,
+         1.5px -1.5px 0 #101420,
+        -1.5px  1.5px 0 #101420,
+         1.5px  1.5px 0 #101420,
+         0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.gta-ctrl-btn:hover {
+    transform: translateX(-2px);
+}
+
+.gta-key-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(20, 24, 36, 0.92);
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Плаваюча темна плашка обраної локації (як Mule City Line на скріншоті) */
+.gta-selected-callout {
+    background: rgba(24, 28, 42, 0.92);
+    border-left: 3px solid #ffffff;
+    color: #ffffff;
+    padding: 5px 10px;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    transform: translate(16px, -50%);
+    pointer-events: none;
+}
+
+.gta-selected-callout .callout-sub {
+    font-size: 10px;
+    color: #a8c5e5;
+    font-weight: 400;
+}
+
+/* Адаптив для вузьких екранів */
+@media (max-width: 640px) {
+    .gta-map-shell {
+        flex-direction: column;
+        height: 520px;
+    }
+    .gta-sidebar {
+        width: 100%;
+        height: 175px;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+}
